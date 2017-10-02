@@ -1,8 +1,15 @@
 import time
 
+import snakes.log as log
+
 class CodeGenerator (object) :
     def __init__ (self, output) :
         self.output = output
+        self.succfunc = {}
+        self.succproc = {}
+        self.initfunc = None
+    def write (self, code) :
+        self.output.write(code)
     def timestamp (self) :
         return time.strftime("%c")
     def visit (self, node) :
@@ -12,10 +19,28 @@ class CodeGenerator (object) :
             handler = self.generic_visit
         handler(node)
     def generic_visit (self, node) :
-        pass
+        log.warning("no handler for %s" % node.__class__.__name__)
+        self.write("{{untranslated %s}}" % node.__class__.__name__)
     def children_visit (self, children) :
         for child in children :
             self.visit(child)
+    def visit_SuccProcName (self, node) :
+        if node.trans is None :
+            name = "addsucc"
+        else :
+            name = "addsucc_%s" % node.trans
+        self.succproc[node.trans] = name
+        self.write(name)
+    def visit_SuccFuncName (self, node) :
+        if node.trans is None :
+            name = "succ"
+        else :
+            name = "succ_%s" % node.trans
+        self.write(name)
+        self.succfunc[node.trans] = name
+    def visit_InitName (self, node) :
+        name = self.initfunc = "init"
+        self.write(name)
 
 ##
 ##
@@ -23,6 +48,8 @@ class CodeGenerator (object) :
 
 class AST (object) :
     def __init__ (self, *largs, **kargs) :
+        for key in self._fields :
+            setattr(self, key, None)
         for key, val in zip(self._fields, largs) :
             setattr(self, key, val)
         for key, val in kargs.items() :
@@ -116,7 +143,14 @@ class SuccFuncName (AST) :
     _fields = ["trans"]
 
 class DefInitMarking (AST) :
-    _fields = ["marking"]
+    _fields = ["name", "marking"]
+
+class InitName (AST) :
+    _fields = []
+
+##
+##
+##
 
 test = Module([
     DefineMarking(),
@@ -135,10 +169,13 @@ test = Module([
         InitSucc("succ"),
         CallSuccProc(SuccProcName("t1"), "marking", "succ"),
         ReturnSucc("succ")]),
-    DefSuccFunc(None, "marking", [
-        InitSucc("succ"),
+    DefSuccProc(SuccProcName(), "marking", "succ", [
         CallSuccProc(SuccProcName("t1"), "marking", "succ"),
-        CallSuccProc(SuccProcName("t2"), "marking", "succ"),
+        CallSuccProc(SuccProcName("t2"), "marking", "succ")]),
+    DefSuccFunc(SuccFuncName(), "marking", [
+        InitSucc("succ"),
+        CallSuccProc(SuccProcName(), "marking", "succ"),
         ReturnSucc("succ")]),
-    DefInitMarking(NewMarking({"p1": [Value("1"), Value("2"), Value("3")],
+    DefInitMarking(InitName(),
+                   NewMarking({"p1": [Value("1"), Value("2"), Value("3")],
                                "p2": [Value("0"), Value("1")]}))])

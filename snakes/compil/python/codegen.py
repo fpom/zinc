@@ -16,8 +16,6 @@ class CodeGenerator (ast.CodeGenerator) :
         self._indent = 0
     def fill (self, code="") :
         self.write("\n" + ("    " * self._indent) + code)
-    def write (self, code) :
-        self.output.write(code)
     def children_visit (self, children, indent=False) :
         if indent :
             self._indent += 1
@@ -90,25 +88,20 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write(" (%s, %s):" % (node.marking, node.succ))
         self.children_visit(node.body, True)
         self.write("\n")
-    def visit_SuccProcName (self, node) :
-        self.write("addsucc_%s" % node.trans)
     def visit_CallSuccProc (self, node) :
         self.fill()
         self.visit(node.name)
         self.write("(%s, %s)" % (node.marking, node.succ))
     def visit_DefSuccFunc (self, node) :
         self.fill("def ")
-        if node.name is None :
-            self.write("succ")
-        else :
-            self.visit(node.name)
+        self.visit(node.name)
         self.write(" (%s):" % node.marking)
         self.children_visit(node.body, True)
         self.write("\n")
-    def visit_SuccFuncName (self, node) :
-        self.write("succ_%s" % node.trans)
     def visit_DefInitMarking (self, node) :
-        self.fill("def init ():")
+        self.fill("def ")
+        self.visit(node.name)
+        self.write(" ():")
         self._indent += 1
         self.fill("return ")
         self.visit(node.marking)

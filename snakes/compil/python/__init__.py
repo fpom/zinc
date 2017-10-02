@@ -1,4 +1,4 @@
-import io, types
+import io, types, re
 
 from . import codegen as _codegen
 

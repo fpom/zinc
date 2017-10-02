@@ -1,7 +1,5 @@
 import time
 
-import snakes.log as log
-
 class CodeGenerator (object) :
     def __init__ (self, output) :
         self.output = output
@@ -19,25 +17,28 @@ class CodeGenerator (object) :
             handler = self.generic_visit
         handler(node)
     def generic_visit (self, node) :
-        log.warning("no handler for %s" % node.__class__.__name__)
-        self.write("{{untranslated %s}}" % node.__class__.__name__)
+        raise NotImplementedError("missing handler for '%s'" % node.__class__.__name__)
     def children_visit (self, children) :
         for child in children :
             self.visit(child)
     def visit_SuccProcName (self, node) :
         if node.trans is None :
             name = "addsucc"
+        elif node.trans not in self.succproc :
+            name = "addsucc_%03u" % (len(self.succproc) + 1)
         else :
-            name = "addsucc_%s" % node.trans
+            name = self.succproc[node.trans]
         self.succproc[node.trans] = name
         self.write(name)
     def visit_SuccFuncName (self, node) :
         if node.trans is None :
             name = "succ"
+        elif node.trans not in self.succfunc :
+            name = "succ_%03u" % (len(self.succfunc) + 1)
         else :
-            name = "succ_%s" % node.trans
-        self.write(name)
+            name = self.succfunc[node.trans]
         self.succfunc[node.trans] = name
+        self.write(name)
     def visit_InitName (self, node) :
         name = self.initfunc = "init"
         self.write(name)

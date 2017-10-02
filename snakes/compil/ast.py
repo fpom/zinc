@@ -42,6 +42,9 @@ class CodeGenerator (object) :
     def visit_InitName (self, node) :
         name = self.initfunc = "init"
         self.write(name)
+    def visit_Context (self, node) :
+        for line in node.lines :
+            self.write(line + "\n")
 
 ##
 ##
@@ -69,6 +72,9 @@ class Module (AST) :
 
 class MarkingLookup (AST) :
     _fields = ["marking", "place"]
+
+class MarkingContains (AST) :
+    _fields = ["marking", "place", "value"]
 
 class NewMarking (AST) :
     _fields = ["content"]
@@ -114,6 +120,9 @@ class If (AST) :
 ##
 ## specific statements
 ##
+
+class Context (AST) :
+    _fields = ["lines"]
 
 class InitSucc (AST) :
     _fields = ["variable"]

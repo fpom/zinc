@@ -1,4 +1,5 @@
-from snakes import *
+from snakes import ConstraintError
+from snakes.compil import ast
 
 class ArcAnnotation (object) :
     pass
@@ -7,16 +8,26 @@ class Value (ArcAnnotation) :
     input_allowed = True
     def __init__ (self, value) :
         self.value = value
+    def __bindast__ (self, marking, place) :
+        return ast.If(ast.MarkingContains(marking, place, self.value), [])
+    def __flowast__ (self) :
+        return [ast.Value(self.value)]
 
 class Variable (ArcAnnotation) :
     input_allowed = True
     def __init__ (self, name) :
         self.name = name
+    def __bindast__ (self, marking, place) :
+        return ast.For(self.name, ast.MarkingLookup("marking", place), [])
+    def __flowast__ (self) :
+        return [ast.Name(self.name)]
 
 class Expression (ArcAnnotation) :
     input_allowed = False
     def __init__ (self, code) :
         self.code = code
+    def __flowast__ (self) :
+        return [ast.SourceExpr(self.code)]
 
 class MultiArc (ArcAnnotation) :
     def __init__ (self, first, *others) :

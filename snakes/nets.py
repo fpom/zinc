@@ -4,6 +4,7 @@ from snakes.nodes import *
 from snakes.data import *
 
 import snakes.compil
+from snakes.compil import ast
 
 class BlackToken (object) :
     def __new__ (cls) :
@@ -47,14 +48,43 @@ class Marking (dict) :
         return all(self(k) >= other(k) for k in other.keys())
     def __gt__ (self, other) :
         return (self != other) and (self >= other)
+    def __ast__ (self) :
+        m = {}
+        for place, tokens in self.items() :
+            if tokens :
+                l = m[place] = []
+                for t in tokens :
+                    if isinstance(t, Expression) :
+                        l.append(ast.Expression(t.code))
+                    elif isinstance(t, Value) :
+                        l.append(ast.Value(t.value))
+                    else :
+                        l.append(ast.Value(repr(t)))
+        return ast.NewMarking(m)
 
 class PetriNet (object) :
     def __init__ (self, name, lang="python") :
         self.name = name
         self.lang = snakes.compil.getlang(lang)
+        self._context = []
         self._trans = {}
         self._place = {}
         self._node = {}
+    def __ast__ (self) :
+        mod = ast.Module([ast.DefineMarking([(p.name, p.tokens, p.props)
+                                             for p in self._place.values()])])
+        for t in self._trans.values() :
+            mod.body.extend(t.__ast__())
+        mod.body.append(ast.DefSuccProc(ast.SuccProcName(), "marking", "succ", [
+            ast.CallSuccProc(ast.SuccProcName(t.name), "marking", "succ")
+            for t in self._trans.values()]))
+        mod.body.append(ast.DefSuccFunc(ast.SuccFuncName(), "marking", [
+            ast.InitSucc("succ"),
+            ast.CallSuccProc(ast.SuccProcName(), "marking", "succ"),
+            ast.ReturnSucc("succ")]))
+        marking = self.get_marking().__ast__()
+        mod.body.append(ast.DefInitMarking(ast.InitName(), marking))
+        return mod
     def _add_node (self, node, store) :
         if node.name in self._node :
             raise ConstraintError("a node %r exists" % node.name)
@@ -95,7 +125,8 @@ class PetriNet (object) :
             raise ConstraintError("%r not allowed on input arcs"
                                   % label.__class__.__name__)
         elif hasattr(label, "net") and label.net is not None :
-            raise ConstraintError("label %s already in net %r" % (label, label.net.name))
+            raise ConstraintError("label %s already in net %r"
+                                  % (label, label.net.name))
         p = self.place(place)
         t = self.transition(trans)
         t.add_input(p, label)
@@ -103,11 +134,31 @@ class PetriNet (object) :
         label.net = self
     def add_output (self, place, trans, label) :
         if hasattr(label, "net") and label.net is not None :
-            raise ConstraintError("label %s already in net %r" % (label, label.net.name))
+            raise ConstraintError("label %s already in net %r"
+                                  % (label, label.net.name))
         p = self.place(place)
         t = self.transition(trans)
         t.add_output(p, label)
         p.pre[trans] = t.post[place] = label
         label.net = self
     def get_marking (self) :
-        return Marking((p.name, p.tokens.copy()) for p in self.place())
+        return Marking((p.name, p.tokens.copy()) for p in self.place()
+                       if p.tokens)
+
+if __name__ == "__main__" :
+    n = PetriNet("net")
+    n.add_place(Place("p1", range(3)))
+    n.add_place(Place("p2", range(1,4)))
+    n.add_place(Place("p3"))
+    n.add_transition(Transition("t1", "x!=y"))
+    n.add_input("p1", "t1", Value("0"))
+    n.add_input("p2", "t1", Variable("y"))
+    n.add_output("p3", "t1", Expression("x+y"))
+    n.add_transition(Transition("t2", "z<=5"))
+    n.add_input("p2", "t2", Variable("z"))
+    n.add_output("p1", "t2", Value("0"))
+    n.add_output("p2", "t2", Expression("z+2"))
+    from snakes.compil.python import codegen, load
+    import sys
+    codegen(n.__ast__(), sys.stdout)
+    mod = load(n.__ast__())

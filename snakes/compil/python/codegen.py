@@ -1,14 +1,4 @@
-import inspect
 import snakes.compil.ast as ast
-
-class Marking (object) :
-    # TODO
-    def __init__ (self, data) :
-        pass
-    def __add__ (self, other) :
-        pass
-    def __sub__ (self, other) :
-        pass
 
 class CodeGenerator (ast.CodeGenerator) :
     def __init__ (self, output) :
@@ -26,11 +16,11 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write("# %s\n" % self.timestamp())
         self.children_visit(node.body)
     def visit_DefineMarking (self, node) :
-        for line in inspect.getsourcelines(Marking)[0] :
-            self.fill(line.rstrip())
-        self.write("\n")
+        self.fill("from snakes.nets import Marking\n")
     def visit_MarkingLookup (self, node) :
-        self.write("%s[%r]" % (node.marking, node.place))
+        self.write("%s[%r].keys()" % (node.marking, node.place))
+    def visit_MarkingContains (self, node) :
+        self.write("%s in %s[%r]" % (node.value, node.marking, node.place))
     def visit_NewMarking (self, node) :
         self.write("Marking({")
         for i, place in enumerate(node.content) :

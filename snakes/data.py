@@ -15,8 +15,8 @@ def hashable (cls) :
     cls.unhash = unhash
     return cls
 
-def mutation (old) :
-    @functools.wraps(old)
+def mutation (old, name=None) :
+    @functools.wraps(old, assigned=("__name__", "__doc__"))
     def new (self, *l, **k) :
         if hasattr(self, "_hash") :
             raise ValueError("hashed %s object is not mutable"

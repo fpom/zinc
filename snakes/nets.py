@@ -88,11 +88,7 @@ class PetriNet (object) :
     def _add_node (self, node, store) :
         if node.name in self._node :
             raise ConstraintError("a node %r exists" % node.name)
-        elif hasattr(node, "net") and node.net is not None :
-            raise ConstraintError("node %r already in net %r"
-                                  % (node.name, node.net.name))
         self._node[node.name] = store[node.name] = node
-        node.net = self
         node.pre = {}
         node.post = {}
     def add_place (self, place) :
@@ -124,23 +120,15 @@ class PetriNet (object) :
         if not label.input_allowed :
             raise ConstraintError("%r not allowed on input arcs"
                                   % label.__class__.__name__)
-        elif hasattr(label, "net") and label.net is not None :
-            raise ConstraintError("label %s already in net %r"
-                                  % (label, label.net.name))
         p = self.place(place)
         t = self.transition(trans)
         t.add_input(p, label)
         p.post[trans] = t.pre[place] = label
-        label.net = self
     def add_output (self, place, trans, label) :
-        if hasattr(label, "net") and label.net is not None :
-            raise ConstraintError("label %s already in net %r"
-                                  % (label, label.net.name))
         p = self.place(place)
         t = self.transition(trans)
         t.add_output(p, label)
         p.pre[trans] = t.post[place] = label
-        label.net = self
     def get_marking (self) :
         return Marking((p.name, p.tokens.copy()) for p in self.place()
                        if p.tokens)

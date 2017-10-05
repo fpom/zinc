@@ -1,24 +1,7 @@
-import io, types, ast
-
+import io, types
 from . import codegen as _codegen
 
-def isvar (name) :
-    try :
-        tree = ast.parse(name, mode="eval")
-        if not isinstance(tree, ast.Expression) :
-            return False
-        elif not isinstance(tree.body, ast.Name) :
-            return False
-        return tree.body.id == name
-    except :
-        return False
-
-def isexpr (code) :
-    try :
-        ast.parse(code, mode="eval")
-        return True
-    except :
-        return False
+NAME = "Python"
 
 def codegen (tree, output=None) :
     if output is None :

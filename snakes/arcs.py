@@ -1,69 +1,100 @@
+import operator
+from functools import reduce
 from snakes import ConstraintError
 from snakes.compil import ast
 
-class ArcAnnotation (object) :
+class Arc (object) :
     pass
 
-class Value (ArcAnnotation) :
-    input_allowed = True
+class InputArc (Arc) :
+    pass
+
+class OutputArc (Arc) :
+    pass
+
+class NotNestedArc (Arc) :
+    pass
+
+class Value (InputArc, OutputArc) :
+    _order = 0
     def __init__ (self, value) :
         self.value = value
-    def __bindast__ (self, marking, place) :
-        return ast.If(ast.MarkingContains(marking, place, self.value), [])
+    def vars (self) :
+        return set()
+    def __bindast__ (self, nest, marking, place) :
+        node = ast.If(ast.MarkingContains(marking, place, self.value), [])
+        nest.append(node)
+        return node.body
     def __flowast__ (self) :
         return [ast.Value(self.value)]
 
-class Variable (ArcAnnotation) :
-    input_allowed = True
+class Variable (InputArc, OutputArc) :
+    _order = 10
     def __init__ (self, name) :
         self.name = name
-    def __bindast__ (self, marking, place) :
-        return ast.For(self.name, ast.MarkingLookup("marking", place), [])
+    def vars (self) :
+        return {self.name}
+    def __bindast__ (self, nest, marking, place) :
+        node = ast.For(self.name, ast.MarkingLookup("marking", place), [])
+        nest.append(node)
+        return node.body
     def __flowast__ (self) :
         return [ast.Name(self.name)]
 
-class Expression (ArcAnnotation) :
-    input_allowed = False
+class Expression (InputArc, OutputArc) :
+    _order = 20
     def __init__ (self, code) :
         self.code = code
+    def vars (self) :
+        return set()
     def __flowast__ (self) :
         return [ast.SourceExpr(self.code)]
 
-class MultiArc (ArcAnnotation) :
+class MultiArc (InputArc, OutputArc, NotNestedArc) :
     def __init__ (self, first, *others) :
         self.components = (first,) + others
-        if any(isinstance(c, self.__class__) for c in self.components) :
-            raise ConstraintError("cannot nest %r" % self.__class__.__name__)
-        self.input_allowed = all(c.input_allowed for c in self.components)
+        for c in self.components :
+            if isinstance(c, NotNestedArc) :
+                raise ConstraintError("cannot nest %r" % c.__class__.__name__)
+        self._order = max(c._order for c in self.components)
+    def vars (self) :
+        return reduce(operator.or_, (c.vars() for c in self.components), set())
 
-class Tuple (ArcAnnotation) :
+class Tuple (InputArc, OutputArc) :
     def __init__ (self, first, *others) :
         self.components = (first,) + others
-        if any(isinstance(c, MultiArc) for c in self.components) :
-            raise ConstraintError("cannot nest 'MultiArc' in %s"
-                                  % self.__class__.__name__)
-        self.input_allowed = all(c.input_allowed for c in self.components)
+        for c in self.components :
+            if isinstance(c, NotNestedArc) :
+                raise ConstraintError("cannot nest %r" % c.__class__.__name__)
+        self._order = max(c._order for c in self.components)
+    def vars (self) :
+        return reduce(operator.or_, (c.vars() for c in self.components), set())
 
-class Test (ArcAnnotation) :
+class Test (InputArc, OutputArc) :
     def __init__ (self, label) :
         self.label = label
-        self.input_allowed = label.input_allowed
+        self._order = label._order
+    def vars (self) :
+        return self.label.vars()
 
-class Inhibitor (ArcAnnotation) :
+class Inhibitor (InputArc) :
     def __init__ (self, label, guard=None) :
-        if not label.input_allowed :
-            raise ConstraintError("%r not allowed as inhibitor arc"
-                                  % label.__class__.__name__)
         self.label = label
         self.guard = guard
-        self.input_allowed = True
+        self._order = label._order
+    def vars (self) :
+        return self.label.vars()
 
-class Flush (ArcAnnotation) :
-    input_allowed = True
+class Flush (InputArc) :
+    _order = 15
     def __init__ (self, name) :
         self.name = name
+    def vars (self) :
+        return {self.name}
 
-class Fill (ArcAnnotation) :
-    input_allowed = False
+class Fill (OutputArc) :
+    _order = 25
     def __init__ (self, code) :
         self.code = code
+    def vars (self) :
+        return {self.name}

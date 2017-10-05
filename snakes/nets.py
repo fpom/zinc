@@ -12,7 +12,7 @@ class BlackToken (object) :
             cls.dot = object.__new__(cls)
         return cls.dot
     def __hash__ (self) :
-        return 1957834143963438608 # == hash("BlackToken")
+        return hash(self.__class__.__name__)
 
 dot = BlackToken()
 
@@ -71,10 +71,11 @@ class PetriNet (object) :
         self._place = {}
         self._node = {}
     def __ast__ (self) :
+        ctx = record(net=self)
         mod = ast.Module([ast.DefineMarking([(p.name, p.tokens, p.props)
                                              for p in self._place.values()])])
         for t in self._trans.values() :
-            mod.body.extend(t.__ast__())
+            mod.body.extend(t.__ast__(ctx.copy()))
         mod.body.append(ast.DefSuccProc(ast.SuccProcName(), "marking", "succ", [
             ast.CallSuccProc(ast.SuccProcName(t.name), "marking", "succ")
             for t in self._trans.values()]))
@@ -117,7 +118,7 @@ class PetriNet (object) :
         else :
             raise ConstraintError("node %r not found" % name)
     def add_input (self, place, trans, label) :
-        if not label.input_allowed :
+        if not isinstance(label, InputArc) :
             raise ConstraintError("%r not allowed on input arcs"
                                   % label.__class__.__name__)
         p = self.place(place)
@@ -125,6 +126,9 @@ class PetriNet (object) :
         t.add_input(p, label)
         p.post[trans] = t.pre[place] = label
     def add_output (self, place, trans, label) :
+        if not isinstance(label, OutputArc) :
+            raise ConstraintError("%r not allowed on output arcs"
+                                  % label.__class__.__name__)
         p = self.place(place)
         t = self.transition(trans)
         t.add_output(p, label)

@@ -35,12 +35,24 @@ class hdict (dict) :
     popitem = mutation(dict.popitem)
     setdefault = mutation(dict.setdefault)
     update = mutation(dict.update)
+    def copy (self) :
+        return self.__class__(self)
 
-class record (hdict) :
-    def __getattr__ (self, name) :
-        return self[name]
+class record (object) :
+    def __init__ (self, content={}, **attrs) :
+        content = dict(content, **attrs)
+        self.__dict__["_fields"] = set(content)
+        self.__dict__.update(content)
     def __setattr__ (self, name, value) :
-        self[name] = value
+        self.__dict__[name] = value
+        self._fields.add(name)
+    def asdict (self) :
+        return {name : getattr(self, name) for name in self._fields}
+    def copy (self) :
+        return self.__class__(self.asdict())
+    def __add__ (self, other) :
+        return self.__class__(self.asdict(), **other.asdict())
+
 
 def iterate (value) :
     """Like Python's builtin `iter` but consider strings as atomic.
@@ -216,3 +228,58 @@ class mset (Counter) :
         return (self != other) and (self >= other)
     def domain (self) :
         return set(self.keys())
+
+class WordSet (set) :
+    """A set of words being able to generate fresh words.
+    """
+    def copy (self) :
+        return self.__class__(self)
+    def fresh (self, add=False, min=1, base="",
+               allowed="abcdefghijklmnopqrstuvwxyz") :
+        """Create a fresh word (ie, which is not in the set).
+
+        >>> w = WordSet(['foo', 'bar'])
+        >>> list(sorted(w))
+        ['bar', 'foo']
+        >>> w.fresh(True, 3)
+        'aaa'
+        >>> list(sorted(w))
+        ['aaa', 'bar', 'foo']
+        >>> w.fresh(True, 3)
+        'baa'
+        >>> list(sorted(w))
+        ['aaa', 'baa', 'bar', 'foo']
+
+        @param add: add the created word to the set if `add=True`
+        @type add: `bool`
+        @param min: minimal length of the new word
+        @type min: `int`
+        @param allowed: characters allowed in the new word
+        @type allowed: `str`
+        @param base: prefix of generated words
+        @type base: `str`
+        """
+        if base :
+            result = [base] + [allowed[0]] * max(0, min - len(base))
+            if base in self :
+                result.append(allowed[0])
+                pos = len(result) - 1
+            elif len(base) < min :
+                pos = 1
+            else :
+                pos = 0
+        else :
+            result = [allowed[0]] * min
+            pos = 0
+        while "".join(result) in self :
+            for c in allowed :
+                try :
+                    result[pos] = c
+                except IndexError :
+                    result.append(c)
+                if "".join(result) not in self :
+                    break
+            pos += 1
+        if add :
+            self.add("".join(result))
+        return "".join(result)

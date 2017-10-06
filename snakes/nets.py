@@ -150,7 +150,27 @@ if __name__ == "__main__" :
     n.add_input("p2", "t2", Variable("z"))
     n.add_output("p1", "t2", Value("0"))
     n.add_output("p2", "t2", Expression("z+2"))
-    from snakes.compil.python import codegen, load
-    import sys
-    codegen(n.__ast__(), sys.stdout)
-    mod = load(n.__ast__())
+    from snakes.compil.python import codegen
+    tree = n.__ast__()
+    gen = codegen(tree)
+    lines = gen.output.getvalue().splitlines() + [""]
+    def get (loc) :
+        if loc is None :
+            return ""
+        code = []
+        (l0, c0), (l1, c1) = loc
+        for i in range(l0, l1+1) :
+            if i == l0 == l1 :
+                return lines[i][c0:c1+1]
+            elif i == l0 :
+                code.append(" " * c0 + lines[i][c0:])
+            elif i == l1 :
+                code.append(lines[i][:c1+1])
+            else :
+                code.append(lines[i])
+        return "\n".join(code)
+    found = tree.locate(9, 45)
+    for node in found :
+        print("###", node.__class__.__name__, node.loc)
+        print(get(node.loc))
+        print("#" * 79)

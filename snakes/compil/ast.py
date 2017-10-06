@@ -6,21 +6,51 @@ class CodeGenerator (object) :
         self.succfunc = {}
         self.succproc = {}
         self.initfunc = None
+        self._indent = 0
+        self._line = 0
+        self._column = 0
+        self._loc = []
     def write (self, code) :
         self.output.write(code)
-    def timestamp (self) :
-        return time.strftime("%c")
+        for i, loc in enumerate(self._loc) :
+            if loc is None :
+                if code[0] == "\n" :
+                    self._loc[i] = (self._line + 1, 0)
+                else :
+                    self._loc[i] = (self._line, self._column)
+        nl = code.count("\n")
+        self._line += nl
+        if nl :
+            self._column = len(code) - code.rindex("\n") - 1
+        else :
+            self._column += len(code)
     def visit (self, node) :
         try :
             handler = getattr(self, "visit_" + node.__class__.__name__)
         except AttributeError :
-            handler = self.generic_visit
+            raise NotImplementedError("missing handler for '%s'"
+                                      % node.__class__.__name__)
+        if self._loc :
+            self._loc.append(None)
+        else :
+            self._loc.append((0,0))
         handler(node)
-    def generic_visit (self, node) :
-        raise NotImplementedError("missing handler for '%s'" % node.__class__.__name__)
-    def children_visit (self, children) :
+        loc = self._loc.pop(-1)
+        if loc is None :
+            node.loc = None
+        else :
+            node.loc = (loc, (self._line, max(self._column - 1, 0)))
+    def fill (self, code="") :
+        self.write("\n" + ("    " * self._indent) + code)
+    def children_visit (self, children, indent=False) :
+        if indent :
+            self._indent += 1
         for child in children :
             self.visit(child)
+        if indent :
+            self._indent -= 1
+    def timestamp (self) :
+        return time.strftime("%c")
     def visit_SuccProcName (self, node) :
         if node.trans is None :
             name = "addsucc"
@@ -58,6 +88,33 @@ class AST (object) :
             setattr(self, key, val)
         for key, val in kargs.items() :
             setattr(self, key, val)
+    def _locate_children (self, line, column) :
+        found = []
+        for field in self._fields :
+            child = getattr(self, field)
+            if isinstance(child, AST) :
+                found.extend(child.locate(line, column))
+            elif isinstance(child, (tuple, list)) :
+                for sub in child :
+                    if isinstance(sub, AST) :
+                        found.extend(sub.locate(line, column))
+            elif isinstance(child, dict) :
+                for sub in child.values() :
+                    if isinstance(sub, AST) :
+                        found.extend(sub.locate(line, column))
+        return found
+    def locate (self, line, column) :
+        if not hasattr(self, "loc") :
+            raise ValueError("AST has no locations")
+        elif self.loc is None :
+            return []
+        (l0, c0), (l1, c1) = self.loc
+        if ((l0 == line == l1 and c0 <= column <= c1)
+            or (l0 == line < l1 and c0 <= column)
+            or (l0 < line == l1 and column <= c1)
+            or (l0 < line < l1)) :
+            return [self] + self._locate_children(line, column)
+        return []
 
 ##
 ## top level

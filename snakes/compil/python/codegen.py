@@ -1,17 +1,6 @@
 import snakes.compil.ast as ast
 
 class CodeGenerator (ast.CodeGenerator) :
-    def __init__ (self, output) :
-        ast.CodeGenerator.__init__(self, output)
-        self._indent = 0
-    def fill (self, code="") :
-        self.write("\n" + ("    " * self._indent) + code)
-    def children_visit (self, children, indent=False) :
-        if indent :
-            self._indent += 1
-        ast.CodeGenerator.children_visit(self, children)
-        if indent :
-            self._indent -= 1
     def visit_Module (self, node) :
         self.write("# %s\n" % self.timestamp())
         self.children_visit(node.body)

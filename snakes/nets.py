@@ -60,7 +60,8 @@ class Marking (dict) :
                         l.append(ast.Value(t.value))
                     else :
                         l.append(ast.Value(repr(t)))
-        return ast.NewMarking(m)
+        return ast.NewMarking([ast.NewPlaceMarking(place, tokens)
+                               for place, tokens in m.items()])
 
 class PetriNet (object) :
     def __init__ (self, name, lang="python") :
@@ -161,15 +162,18 @@ if __name__ == "__main__" :
         (l0, c0), (l1, c1) = loc
         for i in range(l0, l1+1) :
             if i == l0 == l1 :
-                return lines[i][c0:c1+1]
+                return lines[i][c0:c1]
             elif i == l0 :
                 code.append(" " * c0 + lines[i][c0:])
             elif i == l1 :
-                code.append(lines[i][:c1+1])
+                code.append(lines[i][:c1])
             else :
                 code.append(lines[i])
         return "\n".join(code)
-    found = tree.locate(9, 45)
+    if gen.succproc["t1"] == "addsucc_001" :
+        found = tree.locate(9, 45)
+    else :
+        found = tree.locate(20, 45)
     for node in found :
         print("###", node.__class__.__name__, node.loc)
         print(get(node.loc))

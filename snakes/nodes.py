@@ -39,11 +39,11 @@ class Transition (Node) :
         for place, label in self._output.items() :
             flow_add[place.name] = label.__flowast__()
         last.append(ast.If(ast.SourceExpr(self.guard), [
-            ast.AddSucc(ctx.succ,
-                        ast.AddMarking(
-                            ast.SubMarking(ast.Name(ctx.marking),
-                                           ast.NewMarking(flow_sub)),
-                            ast.NewMarking(flow_add)))]))
+            ast.AddSucc(
+                ctx.succ,
+                ast.Name(ctx.marking),
+                ast.NewMarking([ast.NewPlaceMarking(p, t) for p, t in flow_sub.items()]),
+                ast.NewMarking([ast.NewPlaceMarking(p, t) for p, t in flow_add.items()]))]))
         yield ast.DefSuccProc(ast.SuccProcName(self.name), ctx.marking, ctx.succ, [
             ast.If(ast.And([ast.IsPlaceMarked(ctx.marking, p.name)
                             for p in self._input]),

@@ -12,26 +12,20 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write("%s in %s[%r]" % (node.value, node.marking, node.place))
     def visit_NewMarking (self, node) :
         self.write("Marking({")
-        for i, place in enumerate(node.content) :
-            if i > 0 :
+        for child in node.content :
+            self.visit(child)
+            if child is not node.content[-1] :
                 self.write(", ")
-            self.write("%r: [" % place)
-            for tok in node.content[place][:-1] :
-                self.visit(tok)
-                self.write(", ")
-            self.visit(node.content[place][-1])
-            self.write("]")
         self.write("})")
+    def visit_NewPlaceMarking (self, node) :
+        self.write("%r: [" % node.place)
+        for tok in node.tokens :
+            self.visit(tok)
+            if tok is not node.tokens[-1] :
+                self.write(", ")
+        self.write("]")
     def visit_IsPlaceMarked (self, node) :
         self.write("%s[%r]" % (node.marking, node.place))
-    def visit_AddMarking (self, node) :
-        self.visit(node.left)
-        self.write(" + ")
-        self.visit(node.right)
-    def visit_SubMarking (self, node) :
-        self.visit(node.left)
-        self.write(" - ")
-        self.visit(node.right)
     def visit_Name (self, node) :
         self.write(node.name)
     def visit_Value (self, node) :
@@ -57,7 +51,11 @@ class CodeGenerator (ast.CodeGenerator) :
         self.fill("%s = set()" % node.variable)
     def visit_AddSucc (self, node) :
         self.fill("%s.add(" % node.variable)
-        self.visit(node.expr)
+        self.visit(node.old)
+        self.write(" - ")
+        self.visit(node.sub)
+        self.write(" + ")
+        self.visit(node.add)
         self.write(")")
     def visit_ReturnSucc (self, node) :
         self.fill("return %s" % node.variable)

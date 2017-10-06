@@ -9,15 +9,8 @@ class CodeGenerator (object) :
         self._indent = 0
         self._line = 0
         self._column = 0
-        self._loc = []
     def write (self, code) :
         self.output.write(code)
-        for i, loc in enumerate(self._loc) :
-            if loc is None :
-                if code[0] == "\n" :
-                    self._loc[i] = (self._line + 1, 0)
-                else :
-                    self._loc[i] = (self._line, self._column)
         nl = code.count("\n")
         self._line += nl
         if nl :
@@ -30,16 +23,9 @@ class CodeGenerator (object) :
         except AttributeError :
             raise NotImplementedError("missing handler for '%s'"
                                       % node.__class__.__name__)
-        if self._loc :
-            self._loc.append(None)
-        else :
-            self._loc.append((0,0))
+        loc = (self._line, self._column)
         handler(node)
-        loc = self._loc.pop(-1)
-        if loc is None :
-            node.loc = None
-        else :
-            node.loc = (loc, (self._line, max(self._column - 1, 0)))
+        node.loc = (loc, (self._line, self._column))
     def fill (self, code="") :
         self.write("\n" + ("    " * self._indent) + code)
     def children_visit (self, children, indent=False) :
@@ -109,7 +95,7 @@ class AST (object) :
         elif self.loc is None :
             return []
         (l0, c0), (l1, c1) = self.loc
-        if ((l0 == line == l1 and c0 <= column <= c1)
+        if ((l0 == line == l1 and c0 <= column < c1)
             or (l0 == line < l1 and c0 <= column)
             or (l0 < line == l1 and column <= c1)
             or (l0 < line < l1)) :
@@ -135,6 +121,9 @@ class MarkingContains (AST) :
 
 class NewMarking (AST) :
     _fields = ["content"]
+
+class NewPlaceMarking (AST) :
+    _fields = ["place", "tokens"]
 
 class IsPlaceMarked (AST) :
     _fields = ["marking", "place"]
@@ -185,7 +174,7 @@ class InitSucc (AST) :
     _fields = ["variable"]
 
 class AddSucc (AST) :
-    _fields = ["variable", "expr"]
+    _fields = ["variable", "old", "sub", "add"]
 
 class ReturnSucc (AST) :
     _fields = ["variable"]

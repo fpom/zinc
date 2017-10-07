@@ -1,4 +1,4 @@
-package snkgo
+package snk
 
 import "fmt"
 
@@ -71,6 +71,25 @@ func (self *Mset) Geq (other *Mset) bool {
 
 func (self *Mset) Empty () bool {
 	return len(self.data) == 0
+}
+
+func (self *Mset) Count (value interface{}) int {
+	if count, found := self.data[value] ; found {
+		return count
+	} else {
+		return 0
+	}
+}
+
+func (self *Mset) Iter () <-chan interface{} {
+	ch := make(chan interface{})
+    go func() {
+        for key, _ := range self.data {
+            ch <- key
+        }
+        close(ch)
+    }()
+    return ch
 }
 
 func (self *Mset) Print () {

@@ -1,4 +1,4 @@
-package snkgo
+package snk
 
 import "fmt"
 
@@ -12,7 +12,7 @@ func NewMarking() *Marking {
 	}
 }
 
-func (self *Marking) Set(place string, tokens ...interface{}) {
+func (self *Marking) Set (place string, tokens ...interface{}) {
 	self.data[place] = MakeMset(tokens...)
 }
 
@@ -22,6 +22,27 @@ func (self *Marking) Copy () *Marking {
 		result.data[key] = value.Copy()
 	}
 	return result
+}
+
+func (self *Marking) Get (place string) *Mset {
+	if value, found := self.data[place] ; found {
+		return value
+	} else {
+		return NewMset()
+	}
+}
+
+func (self *Marking) NotEmpty (places ...string) bool {
+	for _, key := range places {
+		if value, found := self.data[key] ; found {
+			if value.Empty() {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+	return true
 }
 
 func (self *Marking) Add (other *Marking) *Marking {
@@ -45,6 +66,17 @@ func (self *Marking) Sub (other *Marking) *Marking {
 		}
 	}
 	return self
+}
+
+func (self *Marking) Iter (place string) <-chan interface{} {
+	ch := make(chan interface{})
+    go func() {
+        for val, _ := range self.data[place].data {
+            ch <- val
+        }
+        close(ch)
+    }()
+    return ch
 }
 
 func (self *Marking) Println () {

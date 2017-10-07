@@ -29,21 +29,29 @@ class Transition (Node) :
         ctx.marking = ctx.names.fresh(base="marking", add=True)
         ctx.succ = ctx.names.fresh(base="succ", add=True)
         ctx.bounded = set()
-        flow_sub = {}
-        flow_add = {}
+        flow_sub = []
+        flow_add = []
         last = loopnest = []
         for place, label in sorted(self._input.items(), key=self._astkey) :
-            last = label.__bindast__(last, ctx.marking, place.name)
-            flow_sub[place.name] = label.__flowast__()
+            last = label.__bindast__(last, ctx.marking, place.name,
+                                     BLAME=ast.ArcBlame(place.name, self.name, label))
+            flow_sub.append(ast.NewPlaceMarking(
+                place.name,
+                label.__flowast__(),
+                BLAME=ast.ArcBlame(place.name, self.name, label)))
             ctx.bounded.update(label.vars())
         for place, label in self._output.items() :
-            flow_add[place.name] = label.__flowast__()
-        last.append(ast.If(ast.SourceExpr(self.guard), [
+            flow_add.append(ast.NewPlaceMarking(
+                place.name,
+                label.__flowast__(),
+                BLAME=ast.ArcBlame(self.name, place.name, label)))
+        last.append(ast.If(ast.SourceExpr(self.guard,
+                                          BLAME=ast.GuardBlame(self.name, self.guard)), [
             ast.AddSucc(
                 ctx.succ,
                 ast.Name(ctx.marking),
-                ast.NewMarking([ast.NewPlaceMarking(p, t) for p, t in flow_sub.items()]),
-                ast.NewMarking([ast.NewPlaceMarking(p, t) for p, t in flow_add.items()]))]))
+                ast.NewMarking(flow_sub),
+                ast.NewMarking(flow_add))]))
         yield ast.DefSuccProc(ast.SuccProcName(self.name), ctx.marking, ctx.succ, [
             ast.If(ast.And([ast.IsPlaceMarked(ctx.marking, p.name)
                             for p in self._input]),

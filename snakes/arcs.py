@@ -19,36 +19,42 @@ class Value (InputArc, OutputArc) :
     _order = 0
     def __init__ (self, value) :
         self.value = value
+    def __repr__ (self) :
+        return "Value(%r)" % self.value
     def vars (self) :
         return set()
-    def __bindast__ (self, nest, marking, place) :
-        node = ast.If(ast.MarkingContains(marking, place, self.value), [])
+    def __bindast__ (self, nest, marking, place, **args) :
+        node = ast.If(ast.MarkingContains(marking, place, self.value, **args), [])
         nest.append(node)
         return node.body
-    def __flowast__ (self) :
-        return [ast.Value(self.value)]
+    def __flowast__ (self, **args) :
+        return [ast.Value(self.value, **args)]
 
 class Variable (InputArc, OutputArc) :
     _order = 10
     def __init__ (self, name) :
         self.name = name
+    def __repr__ (self) :
+        return "Variable(%r)" % self.name
     def vars (self) :
         return {self.name}
-    def __bindast__ (self, nest, marking, place) :
-        node = ast.For(self.name, ast.MarkingLookup("marking", place), [])
+    def __bindast__ (self, nest, marking, place, **args) :
+        node = ast.For(self.name, ast.MarkingLookup("marking", place), [], **args)
         nest.append(node)
         return node.body
-    def __flowast__ (self) :
-        return [ast.Name(self.name)]
+    def __flowast__ (self, **args) :
+        return [ast.Name(self.name, **args)]
 
 class Expression (InputArc, OutputArc) :
     _order = 20
     def __init__ (self, code) :
         self.code = code
+    def __repr__ (self) :
+        return "Expression(%r)" % self.code
     def vars (self) :
         return set()
-    def __flowast__ (self) :
-        return [ast.SourceExpr(self.code)]
+    def __flowast__ (self, **args) :
+        return [ast.SourceExpr(self.code, **args)]
 
 class MultiArc (InputArc, OutputArc, NotNestedArc) :
     def __init__ (self, first, *others) :

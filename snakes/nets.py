@@ -55,13 +55,20 @@ class Marking (dict) :
                 l = m[place] = []
                 for t in tokens :
                     if isinstance(t, Expression) :
-                        l.append(ast.Expression(t.code))
+                        l.append(ast.Expression(
+                            t.code,
+                            BLAME=ast.TokenBlame(place, t.code)))
                     elif isinstance(t, Value) :
-                        l.append(ast.Value(t.value))
+                        l.append(ast.Value(
+                            t.value,
+                            BLAME=ast.TokenBlame(place, t.value)))
                     else :
-                        l.append(ast.Value(repr(t)))
-        return ast.NewMarking([ast.NewPlaceMarking(place, tokens)
-                               for place, tokens in m.items()])
+                        l.append(ast.Value(
+                            repr(t),
+                            BLAME=ast.TokenBlame(place, t)))
+        return ast.NewMarking([
+            ast.NewPlaceMarking(place, tokens, BLAME=ast.PlaceBlame(place, tokens))
+            for place, tokens in m.items()])
 
 class PetriNet (object) :
     def __init__ (self, name, lang="python") :
@@ -73,8 +80,9 @@ class PetriNet (object) :
         self._node = {}
     def __ast__ (self) :
         ctx = record(net=self)
-        mod = ast.Module([ast.DefineMarking([(p.name, p.tokens, p.props)
-                                             for p in self._place.values()])])
+        mod = ast.Module([ast.Context(l, BLAME=ast.ContextBlame(l))
+                          for c in self._context for l in c.splitlines()] + [
+            ast.DefineMarking(list(self._place.values()))])
         for t in self._trans.values() :
             mod.body.extend(t.__ast__(ctx.copy()))
         mod.body.append(ast.DefSuccProc(ast.SuccProcName(), "marking", "succ", [
@@ -87,6 +95,8 @@ class PetriNet (object) :
         marking = self.get_marking().__ast__()
         mod.body.append(ast.DefInitMarking(ast.InitName(), marking))
         return mod
+    def declare (self, code) :
+        self._context.append(code)
     def _add_node (self, node, store) :
         if node.name in self._node :
             raise ConstraintError("a node %r exists" % node.name)
@@ -137,44 +147,3 @@ class PetriNet (object) :
     def get_marking (self) :
         return Marking((p.name, p.tokens.copy()) for p in self.place()
                        if p.tokens)
-
-if __name__ == "__main__" :
-    n = PetriNet("net")
-    n.add_place(Place("p1", range(3)))
-    n.add_place(Place("p2", range(1,4)))
-    n.add_place(Place("p3"))
-    n.add_transition(Transition("t1", "x!=y"))
-    n.add_input("p1", "t1", Value("0"))
-    n.add_input("p2", "t1", Variable("y"))
-    n.add_output("p3", "t1", Expression("x+y"))
-    n.add_transition(Transition("t2", "z<=5"))
-    n.add_input("p2", "t2", Variable("z"))
-    n.add_output("p1", "t2", Value("0"))
-    n.add_output("p2", "t2", Expression("z+2"))
-    from snakes.compil.python import codegen
-    tree = n.__ast__()
-    gen = codegen(tree)
-    lines = gen.output.getvalue().splitlines() + [""]
-    def get (loc) :
-        if loc is None :
-            return ""
-        code = []
-        (l0, c0), (l1, c1) = loc
-        for i in range(l0, l1+1) :
-            if i == l0 == l1 :
-                return lines[i][c0:c1]
-            elif i == l0 :
-                code.append(" " * c0 + lines[i][c0:])
-            elif i == l1 :
-                code.append(lines[i][:c1])
-            else :
-                code.append(lines[i])
-        return "\n".join(code)
-    if gen.succproc["t1"] == "addsucc_001" :
-        found = tree.locate(9, 45)
-    else :
-        found = tree.locate(20, 45)
-    for node in found :
-        print("###", node.__class__.__name__, node.loc)
-        print(get(node.loc))
-        print("#" * 79)

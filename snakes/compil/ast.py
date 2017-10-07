@@ -24,8 +24,10 @@ class CodeGenerator (object) :
             raise NotImplementedError("missing handler for '%s'"
                                       % node.__class__.__name__)
         loc = (self._line, self._column)
+        span = self.output.tell()
         handler(node)
         node.loc = (loc, (self._line, self._column))
+        node.span = (span, self.output.tell())
     def fill (self, code="") :
         self.write("\n" + ("    " * self._indent) + code)
     def children_visit (self, children, indent=False) :
@@ -37,6 +39,9 @@ class CodeGenerator (object) :
             self._indent -= 1
     def timestamp (self) :
         return time.strftime("%c")
+    def visit_Context (self, node) :
+        if node.code :
+            self.fill(node.code + "\n")
     def visit_SuccProcName (self, node) :
         if node.trans is None :
             name = "addsucc"
@@ -58,15 +63,12 @@ class CodeGenerator (object) :
     def visit_InitName (self, node) :
         name = self.initfunc = "init"
         self.write(name)
-    def visit_Context (self, node) :
-        for line in node.lines :
-            self.write(line + "\n")
 
 ##
 ##
 ##
 
-class AST (object) :
+class _Record (object) :
     def __init__ (self, *largs, **kargs) :
         for key in self._fields :
             setattr(self, key, None)
@@ -74,6 +76,44 @@ class AST (object) :
             setattr(self, key, val)
         for key, val in kargs.items() :
             setattr(self, key, val)
+
+##
+##
+##
+
+class Blame (_Record) :
+    _fields = []
+
+class ArcBlame (Blame) :
+    _fields = ["source", "target", "label"]
+    def __str__ (self) :
+        return "label of arc %r -> %r: %r" % (self.source, self.target, self.label)
+
+class TokenBlame (Blame) :
+    _fields = ["place", "token"]
+    def __str__ (self) :
+        return "token in place %r: %r" % (self.place, self.token)
+
+class PlaceBlame (Blame) :
+    _fields = ["place", "marking"]
+    def __str__ (self) :
+        return "marking of place %r: %r" % (self.place, self.marking)
+
+class GuardBlame (Blame) :
+    _fields = ["trans", "guard"]
+    def __str__ (self) :
+        return "guard of transition %r: %r" % (self.trans, self.guard)
+
+class ContextBlame (Blame) :
+    _fields = ["code"]
+    def __str__ (self) :
+        return "declaration: %r" % self.code
+
+##
+##
+##
+
+class AST (_Record) :
     def _locate_children (self, line, column) :
         found = []
         for field in self._fields :
@@ -101,6 +141,10 @@ class AST (object) :
             or (l0 < line < l1)) :
             return [self] + self._locate_children(line, column)
         return []
+    def blame (self, line, column) :
+        for node in reversed(self.locate(line, column)) :
+            if hasattr(node, "BLAME") :
+                return node.BLAME
 
 ##
 ## top level
@@ -168,7 +212,7 @@ class If (AST) :
 ##
 
 class Context (AST) :
-    _fields = ["lines"]
+    _fields = ["code"]
 
 class InitSucc (AST) :
     _fields = ["variable"]

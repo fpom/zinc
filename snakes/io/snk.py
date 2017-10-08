@@ -124,8 +124,11 @@ class Parser (object) :
             self.net.declare(decl)
     def parse_place (self) :
         name = self.get_text()
-        typ_ = self.get_text()
         tok = self.get_next()
+        typ_ = None
+        if tok.type in {token.NAME, token.STRING} :
+            typ_ = self.get_text(tok)
+            tok = self.get_next()
         if tok.string == "=" :
             init = self.parse_tokens()
         elif tok.type == token.NEWLINE :
@@ -176,7 +179,7 @@ if __name__ == "__main__" :
     p = Parser(open("test/simple.snk").read())
     net = p.parse()
     for place in net.place() :
-        print(place.name, "=", place.tokens)
+        print(place.name, "(%s)" % place.type, "=", place.tokens)
     for trans in net.transition() :
         print(trans.name, "if", repr(trans.guard))
         for place, label in trans.input() :

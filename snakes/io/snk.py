@@ -1,13 +1,12 @@
 import tokenize, token, io, ast
 import snakes.nets as nets
 
+# fix constants missing from module token
 _tok = next(tokenize.tokenize(io.BytesIO(b"").readline))
 token.tok_name[_tok.type] = "BACKQUOTE"
-
 for number, name in token.tok_name.items() :
     if not hasattr(token, name) :
         setattr(token, name, number)
-
 
 class ParseError (Exception) :
     def __init__ (self, msg, tok) :
@@ -82,14 +81,24 @@ class Parser (object) :
                 pass
             tok = next(self._toks)
         pos = tok.end[1]
-        close = {"{":"}", "(":")", "[":"]"}.get(tok.line[pos], tok.line[pos])
-        try :
-            end = tok.line.index(close, pos+1)
-        except ValueError :
+        left = tok.line[pos]
+        right = {"{":"}", "(":")", "[":"]"}.get(left, left)
+        count = 1
+        for i, c in enumerate(tok.line[pos+1:]) :
+            if c == right : # this case first for when left==right
+                count -= 1
+            elif c == left :
+                count += 1
+            if count == 0 :
+                end = pos + i + 1
+                break
+        else :
             raise ParseError("EOL while scanning code block", tok)
         code = tok.line[pos+1:end]
         while tok.end[1] <= end :
             tok = next(self._toks)
+        if tok.string != right :
+            raise ParseError("expected %r but got %r" % (right, tok.string), tok)
         return code
     def parse (self) :
         tok = self.get_next(self._allowed, [token.NEWLINE])
@@ -145,7 +154,7 @@ class Parser (object) :
         else :
             guard = self.tail(tok, True)
             if not guard.endswith(":") :
-                raise ParseError("expected ':' found NEWLINE", self._last_tok)
+                raise ParseError("expected ':', found NEWLINE", self._last_tok)
             guard = guard.rstrip(": \t")
         self._trans = name
         self.net.add_transition(self._nets.Transition(name, guard))
@@ -186,4 +195,3 @@ if __name__ == "__main__" :
             print("  ", place.name, ">", label)
         for place, label in trans.output() :
             print("  ", place.name, "<", label)
-

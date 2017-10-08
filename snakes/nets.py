@@ -2,73 +2,10 @@ from snakes import *
 from snakes.arcs import *
 from snakes.nodes import *
 from snakes.data import *
+from snakes.tokens import *
 
 import snakes.compil
 from snakes.compil import ast
-
-class BlackToken (object) :
-    def __new__ (cls) :
-        if not hasattr(cls, "dot") :
-            cls.dot = object.__new__(cls)
-        return cls.dot
-    def __hash__ (self) :
-        return hash(self.__class__.__name__)
-
-dot = BlackToken()
-
-@hashable
-class Marking (dict) :
-    def _hash_items (self) :
-        return self.items()
-    def __call__ (self, place) :
-        return self.get(place, mset())
-    def copy (self) :
-        return self.__class__((k, v.copy()) for k, v in self.items())
-    def __add__ (self, other) :
-        new = self.copy()
-        for k, v in other.items() :
-            if k not in new :
-                new[k] = v
-            else :
-                new[k].add(v)
-        return new
-    def __sub__ (self, other) :
-        new = self.copy()
-        for k, v in other.items() :
-            if new[k] == v :
-                del new[k]
-            else :
-                new[k] -= v
-        return new
-    def __le__ (self, other) :
-        return all(self(k) <= other(k) for k in self.keys())
-    def __lt__ (self, other) :
-        return (self != other) and (self <= other)
-    def __ge__ (self, other) :
-        return all(self(k) >= other(k) for k in other.keys())
-    def __gt__ (self, other) :
-        return (self != other) and (self >= other)
-    def __ast__ (self) :
-        m = {}
-        for place, tokens in self.items() :
-            if tokens :
-                l = m[place] = []
-                for t in tokens :
-                    if isinstance(t, Expression) :
-                        l.append(ast.Expression(
-                            t.code,
-                            BLAME=ast.TokenBlame(place, t.code)))
-                    elif isinstance(t, Value) :
-                        l.append(ast.Value(
-                            t.value,
-                            BLAME=ast.TokenBlame(place, t.value)))
-                    else :
-                        l.append(ast.Value(
-                            repr(t),
-                            BLAME=ast.TokenBlame(place, t)))
-        return ast.NewMarking([
-            ast.NewPlaceMarking(place, tokens, BLAME=ast.PlaceBlame(place, tokens))
-            for place, tokens in m.items()])
 
 class PetriNet (object) :
     def __init__ (self, name, lang="python") :

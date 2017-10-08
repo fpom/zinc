@@ -102,6 +102,14 @@ class mset (Counter) :
         if not other <= self :
             raise ValueError("not enough occurrences")
         return Counter.__sub__(self, other)
+    def __str__ (self) :
+        elt = []
+        for val, num in Counter.items(self) :
+            if num == 1 :
+                elt.append(str(val))
+            else :
+                elt.append("%s(*%s)" % (val, num))
+        return "{%s}" % ", ".join(elt)
     @mutation
     def __setitem__ (self, key, value) :
         if value < 0 :

@@ -1,16 +1,24 @@
-import operator
+import operator, logging
 from functools import reduce
 from snakes.data import mset, record, WordSet
 from snakes.compil import ast
+from snakes.tokens import Token
 
 class Node (object) :
     pass
 
 class Place (Node) :
-    def __init__ (self, name, tokens=[], props={}) :
+    def __init__ (self, name, tokens=[], type=None) :
+        toks = []
+        for t in tokens :
+            if not isinstance(t, Token) :
+                logging.warn("interpreted Python token %r in %s as source code %r"
+                             % (t, name, repr(t)))
+                t = Token(repr(t))
+            toks.append(t)
         self.name = name
-        self.tokens = mset(tokens)
-        self.props = record(props)
+        self.tokens = mset(toks)
+        self.type = type
     def __iter__ (self) :
         return iter(self.tokens)
     def is_empty (self) :

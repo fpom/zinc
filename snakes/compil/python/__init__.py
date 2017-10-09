@@ -1,6 +1,7 @@
 import io, types, traceback, sys
 from . import codegen as _codegen
 from snakes.compil import CompilationError
+from snakes.compil.python.rename import rename
 
 NAME = "Python"
 

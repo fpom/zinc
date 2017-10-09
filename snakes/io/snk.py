@@ -17,6 +17,8 @@ class ParseError (Exception) :
         Exception.__init__(self, "\n".join(mesg))
         self.tok = tok
 
+#TODO: handle plugins and propose a way to load/save extra info for them
+
 class Parser (object) :
     def __init__ (self, source, module=nets) :
         if isinstance(source, str) :
@@ -29,7 +31,11 @@ class Parser (object) :
         self._allowed = {"net", "declare", "lang"}
         self._arcs = {"val" : module.Value,
                       "var" : module.Variable,
-                      "expr" : module.Expression}
+                      "expr" : module.Expression,
+                      "flush" : module.Flush,
+                      "fill" : module.Fill,
+                      # TODO: handle other arcs
+                      }
         arcs = set(self._arcs)
         self._allowed_states = {
             "net" : {"place", "trans"},

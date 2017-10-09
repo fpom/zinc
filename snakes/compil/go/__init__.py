@@ -1,3 +1,5 @@
+from snakes.compil.go.rename import rename
+
 NAME = "Go"
 
 def codegen (tree, output=None) :

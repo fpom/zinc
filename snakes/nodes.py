@@ -1,6 +1,6 @@
-import operator, logging
+import operator, logging, collections
 from functools import reduce
-from snakes.data import mset, record, WordSet
+from snakes.data import mset, WordSet
 from snakes.compil import ast
 from snakes.tokens import Token
 
@@ -19,6 +19,9 @@ class Place (Node) :
         self.name = name
         self.tokens = mset(toks)
         self.type = type
+    def __repr__ (self) :
+        return "%s(%r, %r, %r)" % (self.__class__.__name__, self.name,
+                                   list(self.tokens), self.type)
     def __iter__ (self) :
         return iter(self.tokens)
     def is_empty (self) :
@@ -36,34 +39,21 @@ class Transition (Node) :
         ctx.names = WordSet(self.vars())
         ctx.marking = ctx.names.fresh(base="marking", add=True)
         ctx.succ = ctx.names.fresh(base="succ", add=True)
-        ctx.bounded = set()
-        flow_sub = []
-        flow_add = []
-        last = loopnest = []
+        ctx.sub = collections.defaultdict(mset)
+        ctx.add = collections.defaultdict(mset)
+        last = nest = []
         for place, label in sorted(self._input.items(), key=self._astkey) :
-            last = label.__bindast__(last, ctx.marking, place.name,
-                                     BLAME=ast.ArcBlame(place.name, self.name, label))
-            flow_sub.append(ast.NewPlaceMarking(
-                place.name,
-                label.__flowast__(),
-                BLAME=ast.ArcBlame(place.name, self.name, label)))
-            ctx.bounded.update(label.vars())
+            last = label.__ast__(last, place, self, True, ctx,
+                                 BLAME=ast.ArcBlame(place.name, self.name, label))
+        last.append(ast.IfGuard(ast.Expr(self.guard), []))
+        last = last[-1].body
         for place, label in self._output.items() :
-            flow_add.append(ast.NewPlaceMarking(
-                place.name,
-                label.__flowast__(),
-                BLAME=ast.ArcBlame(self.name, place.name, label)))
-        last.append(ast.If(ast.SourceExpr(self.guard,
-                                          BLAME=ast.GuardBlame(self.name, self.guard)), [
-            ast.AddSucc(
-                ctx.succ,
-                ast.Name(ctx.marking),
-                ast.NewMarking(flow_sub),
-                ast.NewMarking(flow_add))]))
+            last = label.__ast__(last, place, self, False, ctx,
+                                 BLAME=ast.ArcBlame(self.name, place.name, label))
+        last.append(ast.AddSuccIfEnoughTokens(ctx.succ, ctx.marking, ctx.sub, ctx.add,
+                                              NAMES=ctx.names))
         yield ast.DefSuccProc(ast.SuccProcName(self.name), ctx.marking, ctx.succ, [
-            ast.If(ast.And([ast.IsPlaceMarked(ctx.marking, p.name)
-                            for p in self._input]),
-                   loopnest)])
+            ast.IfInput(ctx.marking, [p.name for p in self._input], nest)])
         yield ast.DefSuccFunc(ast.SuccFuncName(self.name), ctx.marking, [
             ast.InitSucc(ctx.succ),
             ast.CallSuccProc(ast.SuccProcName(self.name), ctx.marking, ctx.succ),

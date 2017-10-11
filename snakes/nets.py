@@ -17,9 +17,10 @@ class PetriNet (object) :
         self._node = {}
     def __ast__ (self) :
         ctx = record(net=self)
-        mod = ast.Module([ast.Context(l, BLAME=ast.ContextBlame(l))
-                          for c in self._context for l in c.splitlines()] + [
-            ast.DefineMarking(list(self._place.values()))])
+        mod = ast.Module(self.name,
+                         [ast.Context(l, BLAME=ast.ContextBlame(l))
+                          for c in self._context for l in c.splitlines()]
+                         + [ast.DefineMarking(list(self._place.values()))])
         for t in self._trans.values() :
             mod.body.extend(t.__ast__(ctx.copy()))
         mod.body.append(ast.DefSuccProc(ast.SuccProcName(), "marking", "succ", [
@@ -30,7 +31,9 @@ class PetriNet (object) :
             ast.CallSuccProc(ast.SuccProcName(), "marking", "succ"),
             ast.ReturnSucc("succ")]))
         marking = self.get_marking().__ast__()
-        mod.body.append(ast.DefInitMarking(ast.InitName(), marking))
+        mod.body.extend([ast.DefInitFunc(ast.InitName(), marking),
+                         ast.SuccProcTable(),
+                         ast.SuccFuncTable()])
         return mod
     def declare (self, code) :
         self._context.append(code)

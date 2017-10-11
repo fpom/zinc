@@ -23,12 +23,20 @@ class Value (InputArc, OutputArc) :
         return "Value(%r)" % self.value
     def vars (self) :
         return set()
-    def __bindast__ (self, nest, marking, place, **args) :
-        node = ast.If(ast.MarkingContains(marking, place, self.value, **args), [])
+    def __ast__ (self, nest, place, trans, isin, ctx, **more) :
+        val = ast.Val(self.value)
+        if isin : # input arc
+            if place.name in ctx.sub and val in ctx.sub[place.name] :
+                # this value has already be checked, no need to do it again
+                ctx.sub[place.name].add([val])
+                return nest
+            ctx.sub[place.name].add([val])
+            node = ast.IfToken(ctx.marking, place.name, val, body=[], **more)
+        else :
+            node = ast.IfType(place, token=val, body=[], **more)
+            ctx.add[place.name].add([val])
         nest.append(node)
         return node.body
-    def __flowast__ (self, **args) :
-        return [ast.Value(self.value, **args)]
 
 class Variable (InputArc, OutputArc) :
     _order = 10
@@ -38,12 +46,20 @@ class Variable (InputArc, OutputArc) :
         return "Variable(%r)" % self.name
     def vars (self) :
         return {self.name}
-    def __bindast__ (self, nest, marking, place, **args) :
-        node = ast.For(self.name, ast.MarkingLookup("marking", place), [], **args)
+    def __ast__ (self, nest, place, trans, isin, ctx, **more) :
+        var = ast.Var(self.name)
+        if isin : # input arc
+            if place.name in ctx.sub and var in ctx.sub[place.name] :
+                # this variable has already be bound, no need to check again
+                ctx.sub[place.name].add([var])
+                return nest
+            ctx.sub[place.name].add([var])
+            node = ast.ForeachToken(ctx.marking, place.name, self.name, body=[], **more)
+        else :
+            node = ast.IfType(place, token=var, body=[], **more)
+            ctx.add[place.name].add([var])
         nest.append(node)
         return node.body
-    def __flowast__ (self, **args) :
-        return [ast.Name(self.name, **args)]
 
 class Expression (InputArc, OutputArc) :
     _order = 20
@@ -53,8 +69,20 @@ class Expression (InputArc, OutputArc) :
         return "Expression(%r)" % self.code
     def vars (self) :
         return set()
-    def __flowast__ (self, **args) :
-        return [ast.SourceExpr(self.code, **args)]
+    def __ast__ (self, nest, place, trans, isin, ctx, **more) :
+        expr = ast.Expr(self.code)
+        if isin : # input arc
+            if place.name in ctx.sub and expr in ctx.sub[place.name] :
+                # this expression has already be checked, no need to do it again
+                ctx.sub[place.name].add([expr])
+                return nest
+            ctx.sub[place.name].add([expr])
+            node = ast.IfToken(ctx.marking, place.name, self.code, body=[], **more)
+        else :
+            node = ast.IfType(place, token=expr, body=[], **more)
+            ctx.add[place.name].add([expr])
+        nest.append(node)
+        return node.body
 
 class MultiArc (InputArc, OutputArc, NotNestedArc) :
     def __init__ (self, first, *others) :

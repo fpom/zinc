@@ -127,6 +127,13 @@ class mset (Counter) :
         self.add(values)
         return self
     @mutation
+    def sub (self, values, times=1) :
+        self.subtract(list(iterate(values)) * times)
+    @mutation
+    def __isub__ (self, values) :
+        self.sub(values)
+        return self
+    @mutation
     def remove (self, values, times=1) :
         new = self - self.__class__(list(iterate(values)) * times)
         self.clear()
@@ -137,6 +144,10 @@ class mset (Counter) :
                 yield key
     def items (self) :
         return self.__iter__()
+    def domain (self) :
+        return set(self.keys())
+    def pairs (self) :
+        return Counter.items(self)
     def __len__ (self) :
         return sum(self.values(), 0)
     def size (self) :
@@ -234,8 +245,6 @@ class mset (Counter) :
         False
         """
         return (self != other) and (self >= other)
-    def domain (self) :
-        return set(self.keys())
 
 class WordSet (set) :
     """A set of words being able to generate fresh words.

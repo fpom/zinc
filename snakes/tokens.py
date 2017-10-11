@@ -1,12 +1,12 @@
-from snakes.data import hashable, mutation
+from snakes.data import hashable, mset
 from snakes.compil import ast
 
 class Token (object) :
     def __init__ (self, code) :
-        self.code = code.strip()
+        self.code = code
     def __ast__ (self, place) :
-        return ast.SourceExpr(self.code,
-                              BLAME=ast.TokenBlame(place, self.code))
+        return ast.Expr(self.code,
+                        BLAME=ast.TokenBlame(place, self.code))
     def __str__ (self) :
         return "(%s)" % self.code
     def __repr__ (self) :
@@ -58,6 +58,8 @@ dot = BlackToken()
 class Marking (dict) :
     def _hash_items (self) :
         return self.items()
+    def __repr__ (self) :
+        return "%s(%s)" % (self.__class__.__name__, dict.__repr__(self))
     def __call__ (self, place) :
         return self.get(place, mset())
     def copy (self) :
@@ -91,7 +93,5 @@ class Marking (dict) :
         for place, tokens in self.items() :
             if tokens :
                 m[place] = [t.__ast__(place) for t in tokens]
-        return ast.NewMarking([
-            ast.NewPlaceMarking(place, tokens, BLAME=ast.PlaceBlame(place, tokens))
-            for place, tokens in m.items()])
-
+        return [ast.PlaceMarking(place, tokens, BLAME=ast.PlaceBlame(place, tokens))
+                for place, tokens in m.items()]

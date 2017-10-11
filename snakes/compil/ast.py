@@ -1,68 +1,9 @@
-import time
+import time, io
 
-class CodeGenerator (object) :
-    def __init__ (self, output) :
-        self.output = output
-        self.succfunc = {}
-        self.succproc = {}
-        self.initfunc = None
-        self._indent = 0
-        self._line = 0
-        self._column = 0
-    def write (self, code) :
-        self.output.write(code)
-        nl = code.count("\n")
-        self._line += nl
-        if nl :
-            self._column = len(code) - code.rindex("\n") - 1
-        else :
-            self._column += len(code)
-    def visit (self, node) :
-        try :
-            handler = getattr(self, "visit_" + node.__class__.__name__)
-        except AttributeError :
-            raise NotImplementedError("missing handler for '%s'"
-                                      % node.__class__.__name__)
-        loc = (self._line, self._column)
-        span = self.output.tell()
-        handler(node)
-        node.loc = (loc, (self._line, self._column))
-        node.span = (span, self.output.tell())
-    def fill (self, code="") :
-        self.write("\n" + ("    " * self._indent) + code)
-    def children_visit (self, children, indent=False) :
-        if indent :
-            self._indent += 1
-        for child in children :
-            self.visit(child)
-        if indent :
-            self._indent -= 1
-    def timestamp (self) :
-        return time.strftime("%c")
-    def visit_Context (self, node) :
-        if node.code :
-            self.fill(node.code + "\n")
-    def visit_SuccProcName (self, node) :
-        if node.trans is None :
-            name = "addsucc"
-        elif node.trans not in self.succproc :
-            name = "addsucc_%03u" % (len(self.succproc) + 1)
-        else :
-            name = self.succproc[node.trans]
-        self.succproc[node.trans] = name
-        self.write(name)
-    def visit_SuccFuncName (self, node) :
-        if node.trans is None :
-            name = "succ"
-        elif node.trans not in self.succfunc :
-            name = "succ_%03u" % (len(self.succfunc) + 1)
-        else :
-            name = self.succfunc[node.trans]
-        self.succfunc[node.trans] = name
-        self.write(name)
-    def visit_InitName (self, node) :
-        name = self.initfunc = "init"
-        self.write(name)
+try:
+    import autopep8
+except :
+    autopep8 = None
 
 ##
 ##
@@ -76,9 +17,49 @@ class _Record (object) :
             setattr(self, key, val)
         for key, val in kargs.items() :
             setattr(self, key, val)
+    def _dump (self, out) :
+        out.write("%s(" % self.__class__.__name__)
+        for field in self._fields :
+            out.write("%s=" % field)
+            child = getattr(self, field)
+            if isinstance(child, _Record) :
+                child._dump(out)
+            elif isinstance(child, list) :
+                out.write("[")
+                for sub in child :
+                    if isinstance(sub, _Record) :
+                        sub._dump(out)
+                    else :
+                        out.write(repr(sub))
+                    if sub is not child[-1] :
+                        out.write(",\n")
+                out.write("]")
+            elif isinstance(child, dict) :
+                out.write("{")
+                for i, (key, sub) in enumerate(child.items()) :
+                    out.write("%r: " % key)
+                    if isinstance(sub, _Record) :
+                        sub._dump(out)
+                    else :
+                        out.write(repr(sub))
+                    if i < len(child) - 1 :
+                        out.write(",\n")
+                out.write("}")
+            else :
+                out.write(repr(child))
+            if field != self._fields[-1] :
+                out.write(",\n")
+        out.write(")")
+    def dump (self) :
+        out = io.StringIO()
+        self._dump(out)
+        if autopep8 is None :
+            return out.getvalue()
+        else :
+            return autopep8.fix_code(out.getvalue(), options={"aggressive": 1})
 
 ##
-##
+## record which net element is to blame for an error in the code
 ##
 
 class Blame (_Record) :
@@ -146,136 +127,198 @@ class AST (_Record) :
             if hasattr(node, "BLAME") :
                 return node.BLAME
 
-##
-## top level
-##
+"""
+Module(name, body=[
+    # context declared for the net
+    Context(source),
+    # marking structure
+    DefineMarking(places),
+    # for each transition
+    DefSuccProc(name=SuccProcName(trans), marking, succ, body=[
+        IfInput(marking, places, body=[
+            IfToken(marking, place, token, body=[
+                ForeachToken(marking, place, variable, body=[
+                    IfGuard(guard, body=[
+                        IfType(place, token, body=[
+                            AddSuccIfEnoughTokens(succ, old, sub, add)])])])])])]),
+    DefSuccFunc(name=SuccFuncName(trans), marking, body=[
+        InitSucc(name),
+        CallSuccProc(name=SuccProcName(trans), marking, succ),
+        ReturnSucc(name)]),
+    ...
+    ...
+    # once for all
+    DefSuccProc(name=SuccProcName(), marking, succ, body=[
+        # for each transition
+        CallSuccProc(name=SuccProcName(trans), marking, succ),
+        ...]),
+    # once for all
+    DefSuccFunc(name=SuccFuncName(), marking, body=[
+        InitSucc(name),
+        CallSuccProc(SuccProcName(), marking, succ),
+        ReturnSucc(name)]),
+    DefInitFunc(name=InitName(), marking),
+    SuccProcTable(),
+    SuccFuncTable()])
+"""
 
 class Module (AST) :
-    _fields = ["body"]
-
-##
-## marking structure
-##
-
-class MarkingLookup (AST) :
-    _fields = ["marking", "place"]
-
-class MarkingContains (AST) :
-    _fields = ["marking", "place", "value"]
-
-class NewMarking (AST) :
-    _fields = ["content"]
-
-class NewPlaceMarking (AST) :
-    _fields = ["place", "tokens"]
-
-class IsPlaceMarked (AST) :
-    _fields = ["marking", "place"]
-
-class AddMarking (AST) :
-    _fields = ["left", "right"]
-
-class SubMarking (AST) :
-    _fields = ["left", "right"]
-
-class DefineMarking (AST) :
-    _fields = []
-
-##
-## expressions
-##
-
-class Name (AST) :
-    _fields = ["name"]
-
-class Value (AST) :
-    _fields = ["value"]
-
-class SourceExpr (AST) :
-    _fields = ["source"]
-
-class And (AST) :
-    _fields = ["children"]
-
-##
-## generic control flow
-##
-
-class For (AST) :
-    _fields = ["variable", "collection", "body"]
-
-class If (AST) :
-    _fields = ["expr", "body"]
-
-##
-## specific statements
-##
+    _fields = ["name", "body"]
 
 class Context (AST) :
-    _fields = ["code"]
+    _fields = ["source"]
 
-class InitSucc (AST) :
-    _fields = ["variable"]
-
-class AddSucc (AST) :
-    _fields = ["variable", "old", "sub", "add"]
-
-class ReturnSucc (AST) :
-    _fields = ["variable"]
-
-##
-## functions
-##
-
-class DefSuccProc (AST) :
-    _fields = ["name", "marking", "succ", "body"]
+class DefineMarking (AST) :
+    _fields = ["places"]
 
 class SuccProcName (AST) :
     _fields = ["trans"]
 
-class CallSuccProc (AST) :
-    _fields = ["name", "marking", "succ"]
-
-class DefSuccFunc (AST) :
-    _fields = ["name", "marking", "body"]
-
 class SuccFuncName (AST) :
     _fields = ["trans"]
-
-class DefInitMarking (AST) :
-    _fields = ["name", "marking"]
 
 class InitName (AST) :
     _fields = []
 
+class Expr (AST) :
+    _fields = ["source"]
+    def __hash__ (self) :
+        return hash(self.source) ^ hash(self.__class__.__name__)
+    def __eq__ (self, other) :
+        try :
+            return (self.__class__ == other.__class__) and (self.source == other.source)
+        except :
+            return False
+    def __ne__ (self, other) :
+        return not self.__eq__(other)
+    def __repr__ (self) :
+        return "%s(%r)" % (self.__class__.__name__, self.source)
+
+class Var (Expr) :
+    _fields = ["source"]
+
+class Val (Expr) :
+    _fields = ["source"]
+
+class DefSuccProc (AST) :
+    _fields = ["name", "marking", "succ", "body"]
+
+class DefSuccFunc (AST) :
+    _fields = ["name", "marking", "body"]
+
+class DefInitFunc (AST) :
+    _fields = ["name", "marking"]
+
+class IfInput (AST) :
+    _fields = ["marking", "places", "body"]
+
+class IfToken (AST) :
+    _fields = ["marking", "place", "token", "body"]
+
+class ForeachToken (AST) :
+    _fields = ["marking", "place", "variable", "body"]
+
+class IfGuard (AST) :
+    _fields = ["guard", "body"]
+
+class IfType (AST) :
+    _fields = ["place", "token", "body"]
+
+class AddSuccIfEnoughTokens (AST) :
+    _fields = ["succ", "old", "sub", "add"]
+
+class InitSucc (AST) :
+    _fields = ["name"]
+
+class CallSuccProc (AST) :
+    _fields = ["name", "marking", "succ"]
+
+class ReturnSucc (AST) :
+    _fields = ["name"]
+
+class SuccProcTable (AST) :
+    _fields = []
+
+class SuccFuncTable (AST) :
+    _fields = []
+
+class PlaceMarking (AST) :
+    _fields = ["place", "tokens"]
+
 ##
 ##
 ##
 
-test = Module([
-    DefineMarking(),
-    DefSuccProc(SuccProcName("t1"), "marking", "succ", [
-        If(And([IsPlaceMarked("marking", "p1"),
-                IsPlaceMarked("marking", "p2")]), [
-            For("x", MarkingLookup("marking", "p1"), [
-                For("y", MarkingLookup("marking", "p2"), [
-                    If(SourceExpr("x != y"), [
-                        AddSucc("succ",
-                                AddMarking(SubMarking(Name("marking"),
-                                                      NewMarking({"p1": [Name("x")],
-                                                                  "p2": [Name("y")]})),
-                                           NewMarking({"p3": [SourceExpr("x+y")]})))])])])])]),
-    DefSuccFunc(SuccFuncName("t1"), "marking", [
-        InitSucc("succ"),
-        CallSuccProc(SuccProcName("t1"), "marking", "succ"),
-        ReturnSucc("succ")]),
-    DefSuccProc(SuccProcName(), "marking", "succ", [
-        CallSuccProc(SuccProcName("t1"), "marking", "succ"),
-        CallSuccProc(SuccProcName("t2"), "marking", "succ")]),
-    DefSuccFunc(SuccFuncName(), "marking", [
-        InitSucc("succ"),
-        CallSuccProc(SuccProcName(), "marking", "succ"),
-        ReturnSucc("succ")]),
-    DefInitMarking(InitName(),
-                   NewMarking({"p1": [Value("1"), Value("2"), Value("3")],
-                               "p2": [Value("0"), Value("1")]}))])
+class Indent (object) :
+    def __init__ (self, gen) :
+        self.gen = gen
+    def __enter__ (self) :
+        self.gen._indent += 1
+    def __exit__ (self, exc_type, exc_val, exc_tb) :
+        self.gen._indent -= 1
+
+class CodeGenerator (object) :
+    def __init__ (self, output) :
+        self.output = output
+        self.succfunc = {}
+        self.succproc = {}
+        self.initfunc = None
+        self._indent = 0
+        self._line = 0
+        self._column = 0
+    def indent (self) :
+        return Indent(self)
+    def write (self, code) :
+        self.output.write(code)
+        nl = code.count("\n")
+        self._line += nl
+        if nl :
+            self._column = len(code) - code.rindex("\n") - 1
+        else :
+            self._column += len(code)
+    def visit (self, node) :
+        try :
+            handler = getattr(self, "visit_" + node.__class__.__name__)
+        except AttributeError :
+            raise NotImplementedError("missing handler for '%s'"
+                                      % node.__class__.__name__)
+        loc = (self._line, self._column)
+        span = self.output.tell()
+        handler(node)
+        node.loc = (loc, (self._line, self._column))
+        node.span = (span, self.output.tell())
+    def fill (self, code="") :
+        self.write("\n" + ("    " * self._indent) + code)
+    def children_visit (self, children, indent=False) :
+        if indent :
+            self._indent += 1
+        for child in children :
+            self.visit(child)
+        if indent :
+            self._indent -= 1
+    def timestamp (self) :
+        return time.strftime("%c")
+    def visit_Context (self, node) :
+        if node.source :
+            self.fill(node.source + "\n")
+    def visit_SuccProcName (self, node) :
+        if node.trans is None :
+            name = "addsucc"
+        elif node.trans not in self.succproc :
+            name = "addsucc_%03u" % (len(self.succproc) + 1)
+        else :
+            name = self.succproc[node.trans]
+        self.succproc[node.trans] = name
+        self.write(name)
+    def visit_SuccFuncName (self, node) :
+        if node.trans is None :
+            name = "succ"
+        elif node.trans not in self.succfunc :
+            name = "succ_%03u" % (len(self.succfunc) + 1)
+        else :
+            name = self.succfunc[node.trans]
+        self.succfunc[node.trans] = name
+        self.write(name)
+    def visit_InitName (self, node) :
+        name = self.initfunc = "init"
+        self.write(name)

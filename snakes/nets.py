@@ -5,7 +5,7 @@ from snakes.data import *
 from snakes.tokens import *
 
 import snakes.compil
-from snakes.compil import ast
+from snakes.compil import Context
 
 class PetriNet (object) :
     def __init__ (self, name, lang="python") :
@@ -16,24 +16,24 @@ class PetriNet (object) :
         self._place = {}
         self._node = {}
     def __ast__ (self) :
-        ctx = record(net=self)
-        mod = ast.Module(self.name,
-                         [ast.Context(l, BLAME=ast.ContextBlame(l))
+        ctx = Context(net=self)
+        mod = ctx.Module(self.name,
+                         [ctx.Context(l, BLAME=ctx.ContextBlame(l))
                           for c in self._context for l in c.splitlines()]
-                         + [ast.DefineMarking(list(self._place.values()))])
+                         + [ctx.DefineMarking(list(self._place.values()))])
         for t in self._trans.values() :
-            mod.body.extend(t.__ast__(ctx.copy()))
-        mod.body.append(ast.DefSuccProc(ast.SuccProcName(), "marking", "succ", [
-            ast.CallSuccProc(ast.SuccProcName(t.name), "marking", "succ")
+            mod.body.extend(t.__ast__(Context(net=self)))
+        mod.body.append(ctx.DefSuccProc(ctx.SuccProcName(), "marking", "succ", [
+            ctx.CallSuccProc(ctx.SuccProcName(t.name), "marking", "succ")
             for t in self._trans.values()]))
-        mod.body.append(ast.DefSuccFunc(ast.SuccFuncName(), "marking", [
-            ast.InitSucc("succ"),
-            ast.CallSuccProc(ast.SuccProcName(), "marking", "succ"),
-            ast.ReturnSucc("succ")]))
+        mod.body.append(ctx.DefSuccFunc(ctx.SuccFuncName(), "marking", [
+            ctx.InitSucc("succ"),
+            ctx.CallSuccProc(ctx.SuccProcName(), "marking", "succ"),
+            ctx.ReturnSucc("succ")]))
         marking = self.get_marking().__ast__()
-        mod.body.extend([ast.DefInitFunc(ast.InitName(), marking),
-                         ast.SuccProcTable(),
-                         ast.SuccFuncTable()])
+        mod.body.extend([ctx.DefInitFunc(ctx.InitName(), marking),
+                         ctx.SuccProcTable(),
+                         ctx.SuccFuncTable()])
         return mod
     def declare (self, code) :
         self._context.append(code)

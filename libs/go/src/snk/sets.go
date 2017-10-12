@@ -34,6 +34,22 @@ func (self *Set) Pop () interface{} {
 	return nil
 }
 
+func (self *Set) Has (val interface{}) bool {
+	a, b := self.data[val]
+	return b && a
+}
+
+func (self *Set) Iter () <-chan interface{} {
+	ch := make(chan interface{})
+    go func() {
+        for key, _ := range self.data {
+            ch <- key
+        }
+        close(ch)
+    }()
+    return ch
+}
+
 func (self *Set) Copy () *Set {
 	result := NewSet()
 	for key, value := range self.data {

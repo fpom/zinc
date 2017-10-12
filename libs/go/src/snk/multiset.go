@@ -94,15 +94,17 @@ func (self *Mset) Iter () <-chan interface{} {
 
 func (self *Mset) Print () {
 	count := 0
-	fmt.Print("{")
+	fmt.Print("[")
 	for key, value := range self.data {
-		count += 1
-		fmt.Print(key, ": ", value)
-		if count < len(self.data) {
-			fmt.Print(", ")
+		for i := 0; i < value; i += 1 {
+			if count >  0 {
+				fmt.Print(", ")
+			}
+			fmt.Print(key)
+			count += 1
 		}
 	}	
-	fmt.Print("}")
+	fmt.Print("]")
 }
 
 func (self *Mset) Println () {

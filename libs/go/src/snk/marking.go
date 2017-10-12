@@ -46,26 +46,39 @@ func (self *Marking) NotEmpty (places ...string) bool {
 }
 
 func (self *Marking) Add (other *Marking) *Marking {
-	for key, more := range other.data {
-		if value, found := self.data[key] ; found {
-			value.Add(more)
+	for place, right := range other.data {
+		if left, found := self.data[place] ; found {
+			left.Add(right)
 		} else {
-			self.data[key] = more.Copy()
+			self.data[place] = right.Copy()
 		}
 	}
 	return self
 }
 
 func (self *Marking) Sub (other *Marking) *Marking {
-	for key, value := range other.data {
-		if more, found := self.data[key] ; found {
-			value.Sub(more)
-			if value.Empty() {
-				delete(self.data, key)
+	for place, right := range other.data {
+		if left, found := self.data[place] ; found {
+			left.Sub(right)
+			if left.Empty() {
+				delete(self.data, place)
 			}
 		}
 	}
 	return self
+}
+
+func (self *Marking) Geq (other *Marking) bool {
+	for key, value := range other.data {
+		if mine, found := self.data[key] ; found {
+			if ! mine.Geq(value) {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+	return true
 }
 
 func (self *Marking) Iter (place string) <-chan interface{} {
@@ -80,8 +93,15 @@ func (self *Marking) Iter (place string) <-chan interface{} {
 }
 
 func (self *Marking) Println () {
+	i := 0
+	fmt.Print("{")
 	for key, value := range self.data {
-		fmt.Print(key, " => ")
-		value.Println()
+		if i > 0 {
+			fmt.Print(", ")
+		}
+		i += 1
+		fmt.Print(`"`, key, `": `)
+		value.Print()
 	}	
+	fmt.Println("}")
 }

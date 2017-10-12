@@ -75,7 +75,9 @@ class Marking (dict) :
     def __sub__ (self, other) :
         new = self.copy()
         for k, v in other.items() :
-            if new[k] == v :
+            if k not in self :
+                raise ValueError("no such place %r" % k)
+            elif new[k] == v :
                 del new[k]
             else :
                 new[k] -= v

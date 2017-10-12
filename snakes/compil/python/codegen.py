@@ -35,9 +35,11 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_Module (self, node) :
         self.write("# %s\n\nNET = %r\n" % (self.timestamp(), node.name))
         self.children_visit(node.body)
-        self.write("\n%s" % inspect.getsource(reachable))
         self.write("\n%s" % inspect.getsource(statespace))
+        self.write("\n%s" % inspect.getsource(reachable))
         self.write("\n%s" % inspect.getsource(deadlocks))
+        self.write("\nif __name__ == '__main__':"
+                   "\n    print(len(reachable()), 'reachable states')")
     def visit_DefineMarking (self, node) :
         self.fill("from snakes.nets import Marking, mset, dot\n")
     def visit_DefSuccProc (self, node) :
@@ -51,12 +53,14 @@ class CodeGenerator (ast.CodeGenerator) :
                 self.fill(repr("successors for all transitions"))
         self.children_visit(node.body, True)
         self.write("\n")
+    def visit_Assign (self, node) :
+        self.fill("%s = %s" % (node.variable, node.expr))
     def visit_IfInput (self, node) :
-        self.fill("if %s:" % " and ".join("%s[%r]" % (node.marking, p)
+        self.fill("if %s:" % " and ".join("%s(%r)" % (node.marking, p)
                                           for p in node.places))
         self.children_visit(node.body, True)
     def visit_IfToken (self, node) :
-        self.fill("if %r in %s[%r]:" % (node.token.source, node.marking, node.place))
+        self.fill("if %s in %s[%r]:" % (node.token.source, node.marking, node.place))
         self.children_visit(node.body, True)
     def visit_ForeachToken (self, node) :
         self.fill("for %s in %s[%r]:" % (node.variable, node.marking, node.place))

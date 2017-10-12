@@ -1,7 +1,6 @@
 import operator
 from functools import reduce
 from snakes import ConstraintError
-from snakes.compil import ast
 
 class Arc (object) :
     pass
@@ -24,16 +23,18 @@ class Value (InputArc, OutputArc) :
     def vars (self) :
         return set()
     def __ast__ (self, nest, place, trans, isin, ctx, **more) :
-        val = ast.Val(self.value)
+        val = ctx.Val(self.value)
         if isin : # input arc
             if place.name in ctx.sub and val in ctx.sub[place.name] :
                 # this value has already be checked, no need to do it again
                 ctx.sub[place.name].add([val])
                 return nest
             ctx.sub[place.name].add([val])
-            node = ast.IfToken(ctx.marking, place.name, val, body=[], **more)
+            node = ctx.IfToken(ctx.marking, place.name, val, body=[], **more)
         else :
-            node = ast.IfType(place, token=val, body=[], **more)
+            if self.value not in ctx.assign :
+                ctx.assign[self.value] = (ctx.names.fresh(add=True), place.type)
+            node = ctx.IfType(place, token=val, body=[], **more)
             ctx.add[place.name].add([val])
         nest.append(node)
         return node.body
@@ -47,16 +48,19 @@ class Variable (InputArc, OutputArc) :
     def vars (self) :
         return {self.name}
     def __ast__ (self, nest, place, trans, isin, ctx, **more) :
-        var = ast.Var(self.name)
+        var = ctx.Var(self.name)
         if isin : # input arc
             if place.name in ctx.sub and var in ctx.sub[place.name] :
                 # this variable has already be bound, no need to check again
                 ctx.sub[place.name].add([var])
                 return nest
             ctx.sub[place.name].add([var])
-            node = ast.ForeachToken(ctx.marking, place.name, self.name, body=[], **more)
+            node = ctx.ForeachToken(ctx.marking, place.name, self.name, body=[], **more)
         else :
-            node = ast.IfType(place, token=var, body=[], **more)
+            if self.name not in ctx.assign :
+                ctx.assign[self.name] = (ctx.names.fresh(base=self.name, add=True),
+                                         place.type)
+            node = ctx.IfType(place, token=var, body=[], **more)
             ctx.add[place.name].add([var])
         nest.append(node)
         return node.body
@@ -70,17 +74,23 @@ class Expression (InputArc, OutputArc) :
     def vars (self) :
         return set()
     def __ast__ (self, nest, place, trans, isin, ctx, **more) :
-        expr = ast.Expr(self.code)
-        if isin : # input arc
-            if place.name in ctx.sub and expr in ctx.sub[place.name] :
-                # this expression has already be checked, no need to do it again
-                ctx.sub[place.name].add([expr])
+        if self.code in ctx.assign :
+            var = ctx.Var(ctx.assign[self.code][0])
+            if isin and place.name in ctx.sub and var in ctx.sub[place.name] :
+                ctx.sub[place.name].add([var])
                 return nest
-            ctx.sub[place.name].add([expr])
-            node = ast.IfToken(ctx.marking, place.name, self.code, body=[], **more)
         else :
-            node = ast.IfType(place, token=expr, body=[], **more)
-            ctx.add[place.name].add([expr])
+            var = ctx.Var(ctx.names.fresh(True))
+            ctx.assign[self.code] = (var.source, place.type)
+            nest.append(ctx.Assign(var.source, self.code,
+                                   BLAME=ctx.ArcBlame(place.name, trans.name,
+                                                      self.code)))
+        if isin :
+            ctx.sub[place.name].add([var])
+            node = ctx.IfToken(ctx.marking, place.name, var.source, body=[], **more)
+        else :
+            ctx.add[place.name].add([var])
+            node = ctx.IfType(place, token=var, body=[], **more)
         nest.append(node)
         return node.body
 

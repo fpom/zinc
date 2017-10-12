@@ -180,6 +180,9 @@ class SuccFuncName (AST) :
 class InitName (AST) :
     _fields = []
 
+class Assign (AST) :
+    _fields = ["variable", "expr"]
+
 class Expr (AST) :
     _fields = ["source"]
     def __hash__ (self) :

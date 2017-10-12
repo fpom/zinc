@@ -144,6 +144,8 @@ class Parser (object) :
         if tok.type in {token.NAME, token.STRING} :
             typ_ = self.get_text(tok)
             tok = self.get_next()
+        if typ_ is None and not self.net.lang.NONETYPE :
+            raise ParseError("place type required for %s" % self.net.lang.NAME, tok)
         if tok.string == "=" :
             init = self.parse_tokens()
         elif tok.type == token.NEWLINE :

@@ -24,12 +24,53 @@ def statespace () :
         succ.clear()
     return g
 
-def reachable ():
+def reachable (g=None):
     "compute all the reachable markings"
-    return set(statespace())
+    if g is None :
+        g = statespace()
+    return set(g)
 
-def deadlocks () :
-    return set(m for m, s in statespace().items() if not s)
+def deadlocks (g=None) :
+    "compute the set of deadlocks"
+    if g is None :
+        g = statespace()
+    return set(m for m, s in g.items() if not s)
+
+def main () :
+    import argparse
+    def dump (m) :
+        return repr({p : list(t) for p, t in m.items()})
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-s", dest="size",
+                        default=False, action="store_true",
+                        help="only print size")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-g", dest="mode", action="store_const", const="g",
+                       help="print full marking graph")
+    group.add_argument("-m", dest="mode", action="store_const", const="m",
+                       help="only print markings")
+    group.add_argument("-d", "--dead", dest="mode", action="store_const", const="d",
+                       help="only print deadlocks")
+    args = parser.parse_args()
+    g = statespace()
+    if args.mode in "gm" and args.size :
+        print("%s reachable states" % len(g))
+    elif args.mode == "d" and args.size :
+        print("%s deadlocks" % len(deadlocks(g)))
+    elif args.mode == "g" :
+        print("INIT ", dump(init()))
+        for num, (state, succ) in enumerate(g.items()) :
+            print("[%s]" % num, dump(state))
+            for s in succ :
+                print(">>>", dump(s))
+    else :
+        print("INIT ", dump(init()))
+        if args.mode == "m" :
+            get = reachable
+        else :
+            get = deadlocks
+        for num, state in enumerate(get(g)) :
+            print("[%s]" % num, dump(state))
 
 class CodeGenerator (ast.CodeGenerator) :
     def visit_Module (self, node) :
@@ -38,8 +79,9 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write("\n%s" % inspect.getsource(statespace))
         self.write("\n%s" % inspect.getsource(reachable))
         self.write("\n%s" % inspect.getsource(deadlocks))
+        self.write("\n%s" % inspect.getsource(main))
         self.write("\nif __name__ == '__main__':"
-                   "\n    print(len(reachable()), 'reachable states')")
+                   "\n    main()")
     def visit_DefineMarking (self, node) :
         self.fill("from snakes.nets import Marking, mset, dot\n")
     def visit_DefSuccProc (self, node) :

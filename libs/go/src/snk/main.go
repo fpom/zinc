@@ -18,10 +18,10 @@ func Main (name string, init func()*Marking, addsucc func(*Marking, *Set)) {
 		case "-h" :
 			fmt.Println("usage: ", name, " [-s] (-d|-g|-m|-h)")
 			fmt.Println("  options:")
-			fmt.Println("    -s   only show size")
-			fmt.Println("    -g   full marking graph")
-			fmt.Println("    -d   deadlocks")
-			fmt.Println("    -m   only markings")
+			fmt.Println("    -s   only print size")
+			fmt.Println("    -g   print full marking graph")
+			fmt.Println("    -m   only print markings")
+			fmt.Println("    -d   only print deadlocks")
 			return
 		default:
 			fmt.Println("invalid option ", a, ", try -h for help")
@@ -44,8 +44,12 @@ func Main (name string, init func()*Marking, addsucc func(*Marking, *Set)) {
 		}
 		fmt.Println(count, " deadlocks")
 	} else if mode == GRAPH {
+		fmt.Printf("INIT ")
+		init().Println()
 		Println(g)
 	} else {
+		fmt.Printf("INIT ")
+		init().Println()
 		num := 0
 		for state, succ := range *g {
 			if mode == MARKS || succ.Empty() {

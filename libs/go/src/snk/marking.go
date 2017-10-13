@@ -12,9 +12,36 @@ func NewMarking() *Marking {
 	}
 }
 
+func (self *Marking) Eq (other *Marking) bool {
+	if len(self.data) != len(other.data) {
+		return false
+	}
+	for place, left := range self.data {
+		if right, found := other.data[place] ; found {
+			if ! left.Eq(right) {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+	return true
+}
+
+//+++ snk.NewMarking().Eq(snk.NewMarking())
+
 func (self *Marking) Set (place string, tokens ...interface{}) {
 	self.data[place] = MakeMset(tokens...)
 }
+
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... a.Println()
+//... nil
+//>>> set(eval(out).keys()) == {"p1", "p2"}
+//>>> list(sorted(eval(out)["p1"])) == [1, 2, 2, 3]
+//>>> list(sorted(eval(out)["p2"])) == [1, 1, 4]
 
 func (self *Marking) Copy () *Marking {
 	result := NewMarking()
@@ -24,6 +51,51 @@ func (self *Marking) Copy () *Marking {
 	return result
 }
 
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... b := snk.NewMarking()
+//... b.Set("p1", 1, 2, 2, 3)
+//... b.Set("p2", 1, 1, 4)
+//... a.Eq(b)
+//=== true
+
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... b := snk.NewMarking()
+//... b.Set("p1", 1, 2, 2, 3)
+//... b.Set("p3", 1, 1, 4)
+//... a.Eq(b)
+//=== false
+
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... b := snk.NewMarking()
+//... b.Set("p1", 1, 2, 2, 3)
+//... a.Eq(b)
+//=== false
+
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... b := snk.NewMarking()
+//... b.Set("p1", 1, 2, 2, 3)
+//... b.Set("p2", 1, 1, 4)
+//... b.Set("p3", 1)
+//... a.Eq(b)
+//=== false
+
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... b := snk.NewMarking()
+//... b.Set("p1", 1, 2, 2, 3)
+//... b.Set("p2", 1, 4)
+//... a.Eq(b)
+//=== false
+
 func (self *Marking) Get (place string) *Mset {
 	if value, found := self.data[place] ; found {
 		return value
@@ -31,6 +103,24 @@ func (self *Marking) Get (place string) *Mset {
 		return NewMset()
 	}
 }
+
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... a.Get("p1").Eq(snk.MakeMset(1, 2, 2, 3))
+//=== true
+
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... a.Get("p2").Eq(snk.MakeMset(1, 1, 4))
+//=== true
+
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... a.Get("p3").Eq(snk.NewMset())
+//=== true
 
 func (self *Marking) NotEmpty (places ...string) bool {
 	for _, key := range places {
@@ -44,6 +134,30 @@ func (self *Marking) NotEmpty (places ...string) bool {
 	}
 	return true
 }
+
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... a.NotEmpty("p1")
+//=== true
+
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... a.NotEmpty("p1", "p2")
+//=== true
+
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... a.NotEmpty("p1", "p2", "p3")
+//=== false
+
+//### a := snk.NewMarking()
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Set("p2", 1, 1, 4)
+//... a.NotEmpty("p3")
+//=== false
 
 func (self *Marking) Add (other *Marking) *Marking {
 	for place, right := range other.data {

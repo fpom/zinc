@@ -3,7 +3,7 @@ package snk
 import "os"
 import "fmt"
 
-func Main (name string, init func()*Marking, addsucc func(*Marking, *Set)) {
+func Main (name string, init func()Marking, addsucc func(Marking, Set)) {
 	const GRAPH = 1
 	const MARKS = 2
 	const LOCKS = 3
@@ -34,11 +34,11 @@ func Main (name string, init func()*Marking, addsucc func(*Marking, *Set)) {
 	}
 	g := StateSpace(init, addsucc)
 	if mode < LOCKS && size {
-		fmt.Println(len(*g), " reachable states")
+		fmt.Println(len(g), " reachable states")
 	} else if mode == LOCKS && size {
 		count := 0
-		for _, succ := range *g {
-			if succ.Empty() {
+		for _, p := range g {
+			if p.succs.Empty() {
 				count += 1
 			}
 		}
@@ -51,10 +51,10 @@ func Main (name string, init func()*Marking, addsucc func(*Marking, *Set)) {
 		fmt.Printf("INIT ")
 		init().Println()
 		num := 0
-		for state, succ := range *g {
-			if mode == MARKS || succ.Empty() {
+		for _, p := range g {
+			if mode == MARKS || p.succs.Empty() {
 				fmt.Printf("[%d] ", num)
-				state.Println()
+				p.state.Println()
 				num += 1
 			}
 		}

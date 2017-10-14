@@ -12,15 +12,15 @@ var NET string = %(net)s
 """
 
 closing = """
-func StateSpace () *snk.MarkingGraph {
+func StateSpace () snk.Graph {
     return snk.StateSpace(Init, AddSucc)
 }
 
-func Reachable () *snk.Set {
+func Reachable () snk.Set {
     return snk.Reachable(Init, AddSucc)
 }
 
-func DeadLocks () *snk.Set {
+func DeadLocks () snk.Set {
     return snk.DeadLocks(Init, AddSucc)
 }
 
@@ -60,7 +60,7 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_DefSuccProc (self, node) :
         self.fill("func ")
         self.visit(node.name)
-        self.write(" (%s *snk.Marking, %s *snk.Set) {" % (node.marking, node.succ))
+        self.write(" (%s snk.Marking, %s snk.Set) {" % (node.marking, node.succ))
         with self.indent() :
             if node.name.trans :
                 self.fill("// successors of %r" % node.name.trans)
@@ -109,7 +109,7 @@ class CodeGenerator (ast.CodeGenerator) :
                                    node.token.source))
             self.children_visit(node.body, False)
     def _newmarking (self, name, marking, assign) :
-        self.fill("%s := snk.NewMarking()" % name)
+        self.fill("%s := snk.Marking{}" % name)
         for place, tokens in marking.items() :
             self.fill("%s.Set(%s" % (name, S(place)))
             for tok in tokens :
@@ -128,7 +128,7 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_DefSuccFunc (self, node) :
         self.fill("func ")
         self.visit(node.name)
-        self.write(" (%s *snk.Marking) *snk.Set {" % node.marking)
+        self.write(" (%s snk.Marking) snk.Set {" % node.marking)
         with self.indent() :
             if node.name.trans :
                 self.fill("// successors of %r" % node.name.trans)
@@ -137,7 +137,7 @@ class CodeGenerator (ast.CodeGenerator) :
         self.children_visit(node.body, True)
         self.fill("}\n")
     def visit_InitSucc (self, node) :
-        self.fill("%s := snk.NewSet()" % node.name)
+        self.fill("%s := snk.Set{}" % node.name)
     def visit_CallSuccProc (self, node) :
         self.fill()
         self.visit(node.name)
@@ -147,10 +147,10 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_DefInitFunc (self, node) :
         self.fill("func ")
         self.visit(node.name)
-        self.write(" () *snk.Marking {")
+        self.write(" () snk.Marking {")
         with self.indent() :
             self.fill("// initial marking")
-            self.fill("init := snk.NewMarking()")
+            self.fill("init := snk.Marking{}")
             for place in node.marking :
                 self.fill("init.Set(")
                 self.visit(place)
@@ -164,7 +164,7 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_SuccProcTable (self, node) :
         self.fill("// map transitions names to successor procs")
         self.fill('// "" maps to all-transitions proc')
-        self.fill("type SuccProcType func(*snk.Marking, *snk.Set)")
+        self.fill("type SuccProcType func(snk.Marking, snk.Set)")
         self.fill("func SuccProc (trans string) SuccProcType {")
         with self.indent() :
             self.fill("switch trans {")
@@ -177,7 +177,7 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_SuccFuncTable (self, node) :
         self.fill("// map transitions names to successor funcs")
         self.fill('// "" maps to all-transitions func')
-        self.fill("type SuccFuncType func(*snk.Marking)*snk.Set")
+        self.fill("type SuccFuncType func(snk.Marking)snk.Set")
         self.fill("func SuccFunc (trans string) SuccFuncType {")
         with self.indent() :
             self.fill("switch trans {")

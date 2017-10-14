@@ -1,6 +1,6 @@
 import os, os.path
 
-def walk(root='libs/go/src') :
+def walk(root='libs/go/src/snk') :
     for dirpath, dirnames, filenames in os.walk(root) :
         for name in filenames :
             if name.endswith('.go') :
@@ -17,6 +17,8 @@ class Test (object) :
         self.pychecks = []
     def codegen (self, outfile, indent="  ") :
         outfile.write('  // %s:%s\n' % (self.path, self.lineno))
+        if self.path in self.idx :
+            outfile.write('  ' + '  \n'.join(self.idx[self.path]) + '\n')
         outfile.write('  fmt.Println("### %s:%s")\n' % (self.path, self.lineno))
         if len(self.source) > 1 :
             outfile.write('  ' + '  \n'.join(self.source[:-1]) + '\n')
@@ -34,6 +36,10 @@ class Test (object) :
             return 1
         elif self.pychecks :
             env = {"out": "\n".join(output)}
+            def assign(**data) :
+                env.update(data)
+                return True
+            env["assign"] = assign
             ret = 0
             for check in self.pychecks :
                 try :
@@ -48,7 +54,7 @@ class Test (object) :
                         print("## failed")
                     else :
                         print("## failed with:")
-                        print(res.rstrip())
+                        print(str(res).rstrip())
             return ret
         return 0
 
@@ -70,6 +76,10 @@ def extract (root, path) :
             tests[-1].expected.append(line[6:].rstrip())
         elif line.startswith('//>>> ') :
             tests[-1].pychecks.append(line[6:].rstrip())
+        elif line.startswith('//*** ') :
+            if path not in Test.idx :
+                Test.idx[path] = []
+            Test.idx[path].append(line[6:].rstrip())
     print("+ %s (%s) = %s tests" % (path, package, len(tests)))
     return package, tests
 

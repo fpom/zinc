@@ -2,56 +2,53 @@ package snk
 
 import "fmt"
 
-type MarkingGraph map[*Marking]*Set
-
-func StateSpace (init func()*Marking, addsucc func(*Marking, *Set)) *MarkingGraph {
+func StateSpace (init func()Marking, addsucc func(Marking, Set)) Graph {
 	todo := MakeSet(init())
-	done := NewSet()
-	succ := NewSet()
-	graph := make(MarkingGraph)
-	for state_ := todo.Pop(); state_ != nil; state_ = todo.Pop() {
-		state := state_.(*Marking)
+	done := Set{}
+	succ := Set{}
+	graph := Graph{}
+	for state := todo.Pop(); state != nil; state = todo.Pop() {
 		done.Add(state)
 		addsucc(state, succ)
-		graph[state] = succ.Copy()
+		graph.AddArcs(state, succ)
 		for s := succ.Pop(); s != nil; s = succ.Pop() {
 			if ! (done.Has(s) || todo.Has(s)) {
 				todo.Add(s)
 			}
 		}
 	}
-	return &graph
+	return graph
 }
 
-func Reachable (init func()*Marking, addsucc func(*Marking, *Set)) *Set {
+func Reachable (init func()Marking, addsucc func(Marking, Set)) Set {
 	graph := StateSpace(init, addsucc)
-	reach := NewSet()
-	for state, _ := range *graph {
-		reach.Add(state)
+	reach := Set{}
+	for _, p := range graph {
+		reach.Add(p.state)
 	}
 	return reach
 }
 
-func DeadLocks (init func()*Marking, addsucc func(*Marking, *Set)) *Set {
+func DeadLocks (init func()Marking, addsucc func(Marking, Set)) Set {
 	graph := StateSpace(init, addsucc)
-	dead := NewSet()
-	for state, succ := range *graph {
-		if succ.Empty() {
-			dead.Add(state)
+	dead := Set{}
+	for _, p := range graph {
+		if p.succs.Empty() {
+			dead.Add(p.state)
 		}
 	}
 	return dead
 }
 
-func Println (graph *MarkingGraph) {
+func Println (graph Graph) {
 	i := 0
-	for state, succ := range *graph {
+	for _, p := range graph {
 		fmt.Printf("[%d] ", i)
 		i += 1
-		state.Println()
-		for s := range succ.Iter() {
+		p.state.Println()
+		for _, s := range p.succs {
 			fmt.Print(">>> ")
-			s.(*Marking).Println()
+			s.Println()
 		}
 	}
 }

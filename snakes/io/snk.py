@@ -1,205 +1,110 @@
-import tokenize, token, io, ast
-import snakes.nets as nets
+import ast, collections
 
-# fix constants missing from module token
-_tok = next(tokenize.tokenize(io.BytesIO(b"").readline))
-token.tok_name[_tok.type] = "BACKQUOTE"
-for number, name in token.tok_name.items() :
-    if not hasattr(token, name) :
-        setattr(token, name, number)
-
-class ParseError (Exception) :
-    def __init__ (self, msg, tok) :
-        l, c = tok.start
-        mesg = ["[%s:%s] %s" % (l, c+1, msg),
-                "   " + tok.line.rstrip(),
-                "   " + " " * c + "^"]
-        Exception.__init__(self, "\n".join(mesg))
-        self.tok = tok
-
-#TODO: handle plugins and propose a way to load/save extra info for them
+from snakes import nets
+from snakes.io import snkparse
+from snakes.data import flatten
 
 class Parser (object) :
-    def __init__ (self, source, module=nets) :
-        if isinstance(source, str) :
-            self._toks = tokenize.tokenize(io.BytesIO(source.encode()).readline)
-        elif isinstance(source, bytes) :
-            self._toks = tokenize.tokenize(io.BytesIO(source).readline)
-        self._nets = module
-        self._declare = []
-        self._lang = "python"
-        self._allowed = {"net", "declare", "lang"}
-        self._arcs = {"val" : module.Value,
-                      "var" : module.Variable,
-                      "expr" : module.Expression,
-                      "flush" : module.Flush,
-                      "fill" : module.Fill,
-                      # TODO: handle other arcs
-                      }
-        arcs = set(self._arcs)
-        self._allowed_states = {
-            "net" : {"place", "trans"},
-            "declare" : {"net", "declare", "lang"},
-            "lang" : {"net", "declare", "lang"},
-            "place" : {"place", "trans"},
-            "trans" : {"place", "trans"} | arcs}
-        for a in arcs :
-            self._allowed_states[a] = {"place", "trans"} | arcs
-    def tail (self, tok, include) :
-        t = next(self._toks)
-        while t.type != token.NEWLINE :
-            t = next(self._toks)
-        self._last_tok = t
-        if include :
-            return tok.line[tok.start[1]:].strip()
-        else :
-            return tok.line[tok.end[1]:].strip()
-    def _next (self) :
-        tok = next(self._toks)
-        while tok.type in {token.COMMENT, token.INDENT, token.DEDENT,
-                           token.BACKQUOTE, token.NL} :
-            tok = next(self._toks)
-        (self.lineno, self.offset), self.line = tok.end, tok.line
-        self._last_tok = tok
-        return tok
-    def get_next (self, expect=[], skip=[]) :
-        tok = self._next()
-        while tok.type in skip or tok.string in skip :
-            tok = self._next()
-        if expect and not (tok.type in expect or tok.string in expect) :
-            exp = [token.tok_name.get(e, repr(e)) for e in expect]
-            raise ParseError("expected %s but got %r (%s)"
-                             % ("|".join(exp), tok.string, token.tok_name[tok.type]),
-                             tok)
-        return tok
-    def get_text (self, tok=None) :
-        if tok is None :
-            tok = self.get_next([token.NAME, token.STRING])
-        if tok.type == token.STRING :
-            return ast.literal_eval(tok.string)
-        else :
-            return tok.string
-    def get_code (self, tok) :
-        while True :
-            if tok.string == "$" :
-                break
-            elif not tok.string.strip() :
-                pass
-            tok = next(self._toks)
-        pos = tok.end[1]
-        left = tok.line[pos]
-        right = {"{":"}", "(":")", "[":"]"}.get(left, left)
-        count = 1
-        for i, c in enumerate(tok.line[pos+1:]) :
-            if c == right : # this case first for when left==right
-                count -= 1
-            elif c == left :
-                count += 1
-            if count == 0 :
-                end = pos + i + 1
-                break
-        else :
-            raise ParseError("EOL while scanning code block", tok)
-        code = tok.line[pos+1:end]
-        while tok.end[1] <= end :
-            tok = next(self._toks)
-        if tok.string != right :
-            raise ParseError("expected %r but got %r" % (right, tok.string), tok)
-        return code
-    def parse (self) :
-        tok = self.get_next(self._allowed, [token.NEWLINE])
-        while tok.type != token.ENDMARKER :
-            try :
-                handler, args = getattr(self, "parse_" + tok.string), []
-            except AttributeError :
-                handler, args = self.parse_arc, [tok.string]
-            handler(*args)
-            self._allowed = self._allowed_states[tok.string] | {token.ENDMARKER}
-            tok = self.get_next(self._allowed, [token.NEWLINE])
-        try :
-            return self.net
-        except AttributeError :
-            raise ParseError("net description not found", None)
-    def parse_declare (self) :
-        tok = self.get_next()
-        if tok.type == token.STRING :
-            decl = self.get_text(tok)
-            self.get_next([token.NEWLINE])
-        else :
-            decl = self.tail(tok, True)
-        self._declare.append(decl)
-    def parse_lang (self) :
-        self._lang = self.get_text()
-    def parse_net (self) :
-        self._allowed.difference_update({"net", "declare", "lang"})
-        self.net = self._nets.PetriNet(self.get_text(), self._lang)
-        self.get_next([":"])
-        self.get_next([token.NEWLINE])
-        for decl in self._declare :
-            self.net.declare(decl)
-    def parse_place (self) :
-        name = self.get_text()
-        tok = self.get_next()
-        typ_ = None
-        if tok.type in {token.NAME, token.STRING} :
-            typ_ = self.get_text(tok)
-            tok = self.get_next()
-        if typ_ is None and not self.net.lang.NONETYPE :
-            raise ParseError("place type required for %s" % self.net.lang.NAME, tok)
-        if tok.string == "=" :
-            init = self.parse_tokens()
-        elif tok.type == token.NEWLINE :
-            init = []
-        else :
-            raise ParseError("expected '=' or NEWLINE, found %s"
-                             % token.tok_name[tok.type], tok)
-        self.net.add_place(self._nets.Place(name, init, typ_))
-    def parse_trans (self) :
-        name = self.get_text()
-        tok = self.get_next()
-        if tok.string == ":" :
-            guard = None
-        else :
-            guard = self.tail(tok, True)
-            if not guard.endswith(":") :
-                raise ParseError("expected ':', found NEWLINE", self._last_tok)
-            guard = guard.rstrip(": \t")
-        self._trans = name
-        self.net.add_transition(self._nets.Transition(name, guard))
-    def parse_arc (self, arc) :
-        place = self.get_text()
-        tok = self.get_next({"<", ">"})
-        isinput = tok.string == ">"
-        label = self.tail(tok, False)
-        if isinput :
-            self.net.add_input(place, self._trans, self._arcs[arc](label))
-        else :
-            self.net.add_output(place, self._trans, self._arcs[arc](label))
-    def parse_tokens (self) :
-        tok = self.get_next()
-        while True :
-            if tok.type in {token.NUMBER, token.NAME} :
-                yield self._nets.Token(tok.string)
-            elif tok.type == token.STRING :
-                yield self._nets.Token(repr(tok.string))
-            elif tok.type == token.ERRORTOKEN :
-                yield self._nets.Token(self.get_code(tok))
+    def __init__ (self, module=nets) :
+        self.n = module
+        self.p = snkparse.snkParser()
+    def parse (self, source) :
+        self.s = source
+        return self.p.parse(source, "spec", semantics=self)
+    def spec (self, st) :
+        net = self.n.PetriNet(st.net.name, lang=st.lang)
+        for decl in st.declare :
+            net.declare(decl)
+        for node in st.net.nodes :
+            if isinstance(node, self.n.Place) :
+                net.add_place(node)
             else :
-                raise ParseError("cannot interpret token %r" % tok.string, tok)
-            tok = self.get_next()
-            if tok.string == "," :
-                tok = self.get_next()
-            if tok.type == token.NEWLINE :
-                break
+                trans, inputs, outputs = node
+                net.add_transition(trans)
+                for place, label in inputs.items() :
+                    if len(label) == 1 :
+                        net.add_input(place, trans.name, label[0])
+                    else :
+                        net.add_input(place, trans.name, self.n.MultiArc(*label))
+                for place, label in outputs.items() :
+                    if len(label) == 1 :
+                        net.add_output(place, trans.name, label[0])
+                    else :
+                        net.add_output(place, trans.name, self.n.MultiArc(*label))
+        return net
+    def decl (self, st) :
+        return st.source
+    def place (self, st) :
+        return self.n.Place(st.name, (st.tokens or [])[::2], st.type)
+    def token (self, st) :
+        if st.number :
+            return self.n.Token(st.number)
+        elif st.text :
+            return self.n.Token(st.text)
+    def trans (self, st) :
+        inputs, outputs = collections.defaultdict(list), collections.defaultdict(list)
+        for isin, place, label in st.arcs :
+            if isin :
+                inputs[place].append(label)
+            else :
+                outputs[place].append(label)
+        return self.n.Transition(st.name, st.guard.strip()), inputs, outputs
+    def guard (self, st) :
+        if st.text :
+            return st.text
+        elif st.raw :
+            return st.raw
+    def arc (self, st) :
+        _arc = {"val" : self.n.Value,
+                "var" : self.n.Variable,
+                "expr" : self.n.Expression,
+                "flush" : self.n.Flush,
+                "fill" : self.n.Fill}
+        def mktuple (kind, label) :
+            for k, l in zip(kind, label) :
+                if k in _arc :
+                    yield _arc[k](l)
+                else :
+                    yield self.n.Tuple(*mktuple(k, l))
+        if st.tuple :
+            label = self.n.Tuple(*mktuple(st.tuple, st.label))
+        elif st.kind in _arc :
+            label = _arc[st.kind](st.label.strip())
+        if st.mod :
+            if st.mod.kind == "?" :
+                label = self.n.Test(label)
+            elif st.mod.kind == "!" :
+                label = self.n.Inhibitor(label, st.mod.guard)
+        return st.way == "<", st.place, label
+    def tuple (self, st) :
+        return tuple(st[1][::2])
+    def code (self, st) :
+        return self.s[st.parseinfo.pos:st.parseinfo.endpos]
+    def string (self, st) :
+        return "".join(flatten(st))
+    def text (self, st) :
+        if st.name :
+            return st.name
+        elif st.string :
+            return ast.literal_eval(st.string)
+        elif st.code :
+            return st.code
+
+def loads (source, module=nets) :
+    return Parser(module).parse(source)
+
+def load (stream, module=nets) :
+    return Parser(module).parse(stream.read())
 
 if __name__ == "__main__" :
-    p = Parser(open("test/simple.snk").read())
-    net = p.parse()
+    import sys
+    net = Parser().parse(sys.argv[-1])
+    print(repr(net))
     for place in net.place() :
-        print(place.name, "(%s)" % place.type, "=", place.tokens)
+        print(place)
     for trans in net.transition() :
-        print(trans.name, "if", repr(trans.guard))
+        print(trans)
         for place, label in trans.input() :
-            print("  ", place.name, ">", label)
+            print("<", place.name, label)
         for place, label in trans.output() :
-            print("  ", place.name, "<", label)
+            print(">", place.name, label)

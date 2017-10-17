@@ -127,12 +127,14 @@ class CodeGenerator (ast.CodeGenerator) :
             for i, (place, tokens) in enumerate(change.items()) :
                 if i > 0 :
                     self.write(", ")
-                self.write("%r: mset({" % place)
-                for j, (tok, num) in enumerate(tokens.pairs()) :
-                    if j > 0 :
+                self.write("%r: mset([" % place)
+                first = True
+                for tok in tokens :
+                    if not first :
                         self.write(", ")
-                    self.write("%s: %s" % (tok.source, num))
-                self.write("})")
+                    first = False
+                    self.write(tok.source)
+                self.write("])")
             self.write("})")
         self.fill("try:")
         with self.indent() :

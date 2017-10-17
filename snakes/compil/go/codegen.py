@@ -113,7 +113,11 @@ class CodeGenerator (ast.CodeGenerator) :
         for place, tokens in marking.items() :
             self.fill("%s.Set(%s" % (name, S(place)))
             for tok in tokens :
-                self.write(", %s" % assign.get(tok.source, tok.source)[0])
+                if tok.source in assign :
+                    src = assign[tok.source][0]
+                else :
+                    src = tok.source
+                self.write(", %s" % src)
             self.write(")")
     def visit_AddSuccIfEnoughTokens (self, node) :
         subvar = node.NAMES.fresh(base="sub", add=True)

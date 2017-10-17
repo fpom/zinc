@@ -4,18 +4,19 @@ declare """
 MAX = 5
 """
 
-net "my net" : 
+net "my net" :
     place p1 int = 0, 1, 2
     place p2 int = 1, 2, 3
-    place p3 int = ${MAX}
+    place p3 int = MAX
     place p4
     trans t1 x != y :
-        var  p1 > x
-        var  p2 > y
-        val  p3 > MAX
-        val  p3 < MAX
-        expr p4 < y + x + MAX
+        < p1 var = x
+        < p2 var = y
+        < p2 var = YY
+        < p3 val = MAX
+        > p3 val = MAX
+        > p4 expr = y + x + MAX
     trans t2 z < 2*MAX :
-        var  p4 > z
-        expr p1 < z - MAX
-        expr p2 < z - MAX + 1
+        > p4 var= z
+        < p1 expr = z - MAX
+        < p1 expr = z - MAX + 1

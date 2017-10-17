@@ -3,7 +3,6 @@ from . import codegen as _codegen
 from snakes.compil import CompilationError
 from snakes.compil.python.rename import rename
 
-NAME = "Python"
 NONETYPE = True
 
 def codegen (tree, output=None) :

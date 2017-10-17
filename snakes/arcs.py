@@ -27,15 +27,15 @@ class Value (InputArc, OutputArc) :
         if isin : # input arc
             if place.name in ctx.sub and val in ctx.sub[place.name] :
                 # this value has already be checked, no need to do it again
-                ctx.sub[place.name].add([val])
+                ctx.sub[place.name].append(val)
                 return nest
-            ctx.sub[place.name].add([val])
+            ctx.sub[place.name].append(val)
             node = ctx.IfToken(ctx.marking, place.name, val, body=[], **more)
         else :
             if self.value not in ctx.assign :
                 ctx.assign[self.value] = (ctx.names.fresh(add=True), place.type)
             node = ctx.IfType(place, token=val, body=[], **more)
-            ctx.add[place.name].add([val])
+            ctx.add[place.name].append(val)
         nest.append(node)
         return node.body
 
@@ -52,16 +52,16 @@ class Variable (InputArc, OutputArc) :
         if isin : # input arc
             if place.name in ctx.sub and var in ctx.sub[place.name] :
                 # this variable has already be bound, no need to check again
-                ctx.sub[place.name].add([var])
+                ctx.sub[place.name].append(var)
                 return nest
-            ctx.sub[place.name].add([var])
+            ctx.sub[place.name].append(var)
             node = ctx.ForeachToken(ctx.marking, place.name, self.name, body=[], **more)
         else :
             if self.name not in ctx.assign :
                 ctx.assign[self.name] = (ctx.names.fresh(base=self.name, add=True),
                                          place.type)
             node = ctx.IfType(place, token=var, body=[], **more)
-            ctx.add[place.name].add([var])
+            ctx.add[place.name].append(var)
         nest.append(node)
         return node.body
 
@@ -77,7 +77,7 @@ class Expression (InputArc, OutputArc) :
         if self.code in ctx.assign :
             var = ctx.Var(ctx.assign[self.code][0])
             if isin and place.name in ctx.sub and var in ctx.sub[place.name] :
-                ctx.sub[place.name].add([var])
+                ctx.sub[place.name].append(var)
                 return nest
         else :
             var = ctx.Var(ctx.names.fresh(True))
@@ -86,10 +86,10 @@ class Expression (InputArc, OutputArc) :
                                    BLAME=ctx.ArcBlame(place.name, trans.name,
                                                       self.code)))
         if isin :
-            ctx.sub[place.name].add([var])
+            ctx.sub[place.name].append(var)
             node = ctx.IfToken(ctx.marking, place.name, var.source, body=[], **more)
         else :
-            ctx.add[place.name].add([var])
+            ctx.add[place.name].append(var)
             node = ctx.IfType(place, token=var, body=[], **more)
         nest.append(node)
         return node.body
@@ -101,8 +101,15 @@ class MultiArc (InputArc, OutputArc, NotNestedArc) :
             if isinstance(c, NotNestedArc) :
                 raise ConstraintError("cannot nest %r" % c.__class__.__name__)
         self._order = max(c._order for c in self.components)
+    def __repr__ (self) :
+        return "%s(%s)" % (self.__class__.__name__,
+                           ", ".join(repr(c) for c in self.components))
     def vars (self) :
         return reduce(operator.or_, (c.vars() for c in self.components), set())
+    def __ast__ (self, nest, place, trans, isin, ctx, **more) :
+        for comp in self.components :
+            nest = comp.__ast__(nest, place, trans, isin, ctx, **more)
+        return nest
 
 class Tuple (InputArc, OutputArc) :
     def __init__ (self, first, *others) :
@@ -111,6 +118,9 @@ class Tuple (InputArc, OutputArc) :
             if isinstance(c, NotNestedArc) :
                 raise ConstraintError("cannot nest %r" % c.__class__.__name__)
         self._order = max(c._order for c in self.components)
+    def __repr__ (self) :
+        return "%s(%s)" % (self.__class__.__name__,
+                           ", ".join(repr(c) for c in self.components))
     def vars (self) :
         return reduce(operator.or_, (c.vars() for c in self.components), set())
 

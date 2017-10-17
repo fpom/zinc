@@ -15,6 +15,8 @@ class PetriNet (object) :
         self._trans = {}
         self._place = {}
         self._node = {}
+    def __repr__ (self) :
+        return "%s(%r, %r)" % (self.__class__.__name__, self.name, self.lang.name)
     def __ast__ (self) :
         ctx = Context(net=self)
         mod = ctx.Module(self.name,
@@ -74,16 +76,36 @@ class PetriNet (object) :
                                   % label.__class__.__name__)
         p = self.place(place)
         t = self.transition(trans)
+        if place in t.pre :
+            raise ConstraintError("arc from %s to %s already exists"
+                                  % (place, trans))
         t.add_input(p, label)
         p.post[trans] = t.pre[place] = label
+    def remove_input (self, place, trans) :
+        p = self.place(place)
+        t = self.transition(trans)
+        if place not in t.pre :
+            raise ConstraintError("not arc from %s to %s" % (place, trans))
+        t.remove_input(p)
+        del p.post[trans], t.pre[place]
     def add_output (self, place, trans, label) :
         if not isinstance(label, OutputArc) :
             raise ConstraintError("%r not allowed on output arcs"
                                   % label.__class__.__name__)
         p = self.place(place)
         t = self.transition(trans)
+        if place in t.post :
+            raise ConstraintError("arc from %s to %s already exists"
+                                  % (trans, place))
         t.add_output(p, label)
         p.pre[trans] = t.post[place] = label
+    def remove_output (self, place, trans) :
+        p = self.place(place)
+        t = self.transition(trans)
+        if place not in t.post :
+            raise ConstraintError("not arc from %s to %s" % (trans, place))
+        t.remove_output(p)
+        del p.pre[trans], t.post[place]
     def get_marking (self) :
         return Marking((p.name, p.tokens.copy()) for p in self.place()
                        if p.tokens)

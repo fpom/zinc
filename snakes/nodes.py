@@ -32,6 +32,8 @@ class Transition (Node) :
         self.guard = guard
         self._input = {}
         self._output = {}
+    def __repr__ (self) :
+        return "%s(%r, %r)" % (self.__class__.__name__, self.name, self.guard)
     def _astkey (self, arc) :
         return arc[1]._order
     def __ast__ (self, ctx) :
@@ -40,8 +42,8 @@ class Transition (Node) :
                    trans   = self,
                    marking = names.fresh(base="marking", add=True),
                    succ    = names.fresh(base="succ", add=True),
-                   sub     = collections.defaultdict(mset),
-                   add     = collections.defaultdict(mset),
+                   sub     = collections.defaultdict(list),
+                   add     = collections.defaultdict(list),
                    assign  = {})
         last = nest = []
         for place, label in sorted(self._input.items(), key=self._astkey) :
@@ -64,8 +66,12 @@ class Transition (Node) :
             ctx.ReturnSucc(ctx.succ)])
     def add_input (self, place, label) :
         self._input[place] = label
+    def remove_input (self, place) :
+        del self._input[place]
     def add_output (self, place, label) :
         self._output[place] = label
+    def remove_output (self, place) :
+        del self._output[place]
     def vars (self) :
         return reduce(operator.or_, (a.vars() for a in self._input.values()), set())
     def input (self) :

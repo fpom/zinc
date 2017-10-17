@@ -80,6 +80,33 @@ def iterate (value) :
         except TypeError :
             return iter([value])
 
+def flatten (value) :
+    """Flatten a nest of lists and tuples.
+    Like `iterate`, `flattent` does not decompose strings.
+
+    >>> list(flatten([1, [2, 3, (4, 5)], 6]))
+    [1, 2, 3, 4, 5, 6]
+    >>> list(flatten('hello'))
+    ['hello']
+    >>> list(flatten(['hello', ['world'], [], []]))
+    ['hello', 'world']
+
+    @param value: any object
+    @type value: `object`
+    @return: a 'flat' iterator on the elements of `value` and its
+        nested iterable objects (except strings)
+    @rtype: `generator`
+    """
+    if isinstance(value, (str, bytes)) :
+        yield value
+    else :
+        try :
+            for item in value :
+                for child in flatten(item) :
+                    yield child
+        except TypeError :
+            yield value
+
 @hashable
 class mset (Counter) :
     def _hash_items (self) :

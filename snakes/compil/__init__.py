@@ -1,8 +1,9 @@
 import importlib, string
 
 def getlang (name) :
-    modname = "snakes.compil." + name
-    return importlib.import_module(modname)
+    module = importlib.import_module("snakes.compil." + name)
+    module.name = name
+    return module
 
 class CompilationError (Exception) :
     def __init__ (self, msg, blame) :

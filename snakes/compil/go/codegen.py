@@ -169,27 +169,19 @@ class CodeGenerator (ast.CodeGenerator) :
         self.fill("// map transitions names to successor procs")
         self.fill('// "" maps to all-transitions proc')
         self.fill("type SuccProcType func(snk.Marking, snk.Set)")
-        self.fill("func SuccProc (trans string) SuccProcType {")
+        self.fill("var SuccProc map[string]SuccProcType = map[string]SuccProcType{")
         with self.indent() :
-            self.fill("switch trans {")
-            with self.indent() :
-                for trans, name in self.succproc.items() :
-                        self.fill("case %s: return %s" % (S(trans or ""), name))
-            self.fill("}")
-            self.fill("return nil")
+            for trans, name in self.succproc.items() :
+                self.fill("%s: %s," % (S(trans or ""), name))
         self.fill("}\n")
     def visit_SuccFuncTable (self, node) :
         self.fill("// map transitions names to successor funcs")
         self.fill('// "" maps to all-transitions func')
         self.fill("type SuccFuncType func(snk.Marking)snk.Set")
-        self.fill("func SuccFunc (trans string) SuccFuncType {")
+        self.fill("var SuccFunc map[string]SuccFuncType = map[string]SuccFuncType{")
         with self.indent() :
-            self.fill("switch trans {")
-            with self.indent() :
-                for trans, name in self.succfunc.items() :
-                        self.fill("case %s: return %s" % (S(trans or ""), name))
-            self.fill("}")
-            self.fill("return nil")
+            for trans, name in self.succfunc.items() :
+                self.fill("%s: %s," % (S(trans or ""), name))
         self.fill("}\n")
 
 if __name__ == "__main__" :

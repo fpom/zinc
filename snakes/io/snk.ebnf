@@ -7,17 +7,13 @@ spec =
     [nl]
     "lang" lang:text nl
     declare:{decl}
-    net:net
+    "net" net:text ":" nl
+        nodes:{trans|place}+
     $
     ;
 
 decl =
     "declare" source:text nl
-    ;
-
-net =
-    "net" name:text ":" nl
-    nodes:{trans|place}+
     ;
 
 place =
@@ -39,8 +35,8 @@ arc =
     | way:("<" | ">") place:text [mod:arcmod] kind:"val" "=" label:tail nl
     | way:("<" | ">") place:text [mod:arcmod] kind:"expr" "=" label:tail nl
     | way:("<" | ">") place:text [mod:arcmod] tuple:tuple "=" label:tuple nl
-    | way:"<" place:text kind:"flush" "=" label:tail nl
-    | way:">" place:text kind:"fill" "=" label:tail nl
+    | way:"<" place:text [mod:arcmod] kind:"flush" "=" label:tail nl
+    | way:">" place:text [mod:arcmod] kind:"fill" "=" label:tail nl
     ;
 
 arcmod =

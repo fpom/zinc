@@ -1,7 +1,13 @@
 import importlib, string
 
+from snakes import LanguageError
+
 def getlang (name) :
-    module = importlib.import_module("snakes.compil." + name)
+    name = name.lower()
+    try :
+        module = importlib.import_module("snakes.compil." + name)
+    except ImportError :
+        raise LanguageError("unsupported language %r" % name)
     module.name = name
     return module
 

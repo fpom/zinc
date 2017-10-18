@@ -127,41 +127,6 @@ class AST (_Record) :
             if hasattr(node, "BLAME") :
                 return node.BLAME
 
-"""
-Module(name, body=[
-    # context declared for the net
-    Context(source),
-    # marking structure
-    DefineMarking(places),
-    # for each transition
-    DefSuccProc(name=SuccProcName(trans), marking, succ, body=[
-        IfInput(marking, places, body=[
-            IfToken(marking, place, token, body=[
-                ForeachToken(marking, place, variable, body=[
-                    IfGuard(guard, body=[
-                        IfType(place, token, body=[
-                            AddSuccIfEnoughTokens(succ, old, sub, add)])])])])])]),
-    DefSuccFunc(name=SuccFuncName(trans), marking, body=[
-        InitSucc(name),
-        CallSuccProc(name=SuccProcName(trans), marking, succ),
-        ReturnSucc(name)]),
-    ...
-    ...
-    # once for all
-    DefSuccProc(name=SuccProcName(), marking, succ, body=[
-        # for each transition
-        CallSuccProc(name=SuccProcName(trans), marking, succ),
-        ...]),
-    # once for all
-    DefSuccFunc(name=SuccFuncName(), marking, body=[
-        InitSucc(name),
-        CallSuccProc(SuccProcName(), marking, succ),
-        ReturnSucc(name)]),
-    DefInitFunc(name=InitName(), marking),
-    SuccProcTable(),
-    SuccFuncTable()])
-"""
-
 class Module (AST) :
     _fields = ["name", "body"]
 

@@ -90,11 +90,24 @@ class snkParser(Parser):
             self._decl_()
         self._closure(block2)
         self.name_last_node('declare')
-        self._net_()
+        self._token('net')
+        self._text_()
         self.name_last_node('net')
+        self._token(':')
+        self._nl_()
+
+        def block5():
+            with self._choice():
+                with self._option():
+                    self._trans_()
+                with self._option():
+                    self._place_()
+                self._error('no available options')
+        self._positive_closure(block5)
+        self.name_last_node('nodes')
         self._check_eof()
         self.ast._define(
-            ['declare', 'lang', 'net'],
+            ['declare', 'lang', 'net', 'nodes'],
             []
         )
 
@@ -106,28 +119,6 @@ class snkParser(Parser):
         self._nl_()
         self.ast._define(
             ['source'],
-            []
-        )
-
-    @tatsumasu()
-    def _net_(self):  # noqa
-        self._token('net')
-        self._text_()
-        self.name_last_node('name')
-        self._token(':')
-        self._nl_()
-
-        def block2():
-            with self._choice():
-                with self._option():
-                    self._trans_()
-                with self._option():
-                    self._place_()
-                self._error('no available options')
-        self._positive_closure(block2)
-        self.name_last_node('nodes')
-        self.ast._define(
-            ['name', 'nodes'],
             []
         )
 
@@ -279,6 +270,9 @@ class snkParser(Parser):
                 self.name_last_node('way')
                 self._text_()
                 self.name_last_node('place')
+                with self._optional():
+                    self._arcmod_()
+                    self.name_last_node('mod')
                 self._token('flush')
                 self.name_last_node('kind')
                 self._token('=')
@@ -290,6 +284,9 @@ class snkParser(Parser):
                 self.name_last_node('way')
                 self._text_()
                 self.name_last_node('place')
+                with self._optional():
+                    self._arcmod_()
+                    self.name_last_node('mod')
                 self._token('fill')
                 self.name_last_node('kind')
                 self._token('=')
@@ -503,9 +500,6 @@ class snkSemantics(object):
         return ast
 
     def decl(self, ast):  # noqa
-        return ast
-
-    def net(self, ast):  # noqa
         return ast
 
     def place(self, ast):  # noqa

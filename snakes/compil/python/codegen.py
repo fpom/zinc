@@ -212,8 +212,8 @@ class CodeGenerator (ast.CodeGenerator) :
 
 if __name__ == "__main__" :
     import io
-    from snakes.io.snk import Parser
-    net = Parser(open("test/simple-python.snk").read()).parse()
+    from snakes.io.snk import load
+    net = load(open("test/simple-python.snk"))
     gen = CodeGenerator(io.StringIO())
     gen.visit(net.__ast__())
     print(gen.output.getvalue().rstrip())

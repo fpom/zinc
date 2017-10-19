@@ -126,16 +126,39 @@ class mset (Counter) :
         else :
             raise KeyError(value)
     def __sub__ (self, other) :
-        if not other <= self :
-            raise ValueError("not enough occurrences")
-        return Counter.__sub__(self, other)
+        """
+        >>> mset('abcd') - mset('ab') == mset('cd')
+        True
+        >>> mset('aabbcd') - mset('ab') == mset('abcd')
+        True
+        >>> mset('abcd') - mset('abcd') == mset('')
+        True
+        """
+        new = self.__class__()
+        for key in set(self) | set(other) :
+            count = self(key) - other(key)
+            if count > 0:
+                new[key] = count
+            elif count < 0 :
+                raise ValueError("not enough occurrences")
+        return new
+    @mutation
+    def discard (self, other) :
+        if not isinstance(other, mset) :
+            other = mset(other)
+        for key, count in list(self.pairs()) :
+            rem = other(key)
+            if rem >= count :
+                del self[key]
+            else :
+                self[key] -= rem
     def __str__ (self) :
         elt = []
         for val, num in Counter.items(self) :
             if num == 1 :
-                elt.append(str(val))
+                elt.append(repr(val))
             else :
-                elt.append("%s(*%s)" % (val, num))
+                elt.append("%r:%s" % (val, num))
         return "{%s}" % ", ".join(elt)
     @mutation
     def __setitem__ (self, key, value) :
@@ -210,6 +233,9 @@ class mset (Counter) :
             for key, val in Counter.items(self) :
                 self[key] = val * num
         return self
+    def __and__ (self, other) :
+        return self.__class__({key : min(self[key], other[key])
+                               for key in set(self) & set(other)})
     def __le__ (self, other) :
         """Test for inclusion.
 
@@ -278,28 +304,30 @@ class WordSet (set) :
     """
     def copy (self) :
         return self.__class__(self)
-    def fresh (self, add=False, min=1, base="",
+    def fresh (self, min=1, base="", add=True,
                allowed="abcdefghijklmnopqrstuvwxyz") :
         """Create a fresh word (ie, which is not in the set).
 
         >>> w = WordSet(['foo', 'bar'])
         >>> list(sorted(w))
         ['bar', 'foo']
-        >>> w.fresh(True, 3)
+        >>> w.fresh(3)
         'aaa'
         >>> list(sorted(w))
         ['aaa', 'bar', 'foo']
-        >>> w.fresh(True, 3)
+        >>> w.fresh(3)
         'baa'
+        >>> w.fresh(base='foo')
+        'fooa'
         >>> list(sorted(w))
-        ['aaa', 'baa', 'bar', 'foo']
+        ['aaa', 'baa', 'bar', 'foo', 'fooa']
 
-        @param add: add the created word to the set if `add=True`
-        @type add: `bool`
         @param min: minimal length of the new word
         @type min: `int`
         @param allowed: characters allowed in the new word
         @type allowed: `str`
+        @param add: add the created word to the set if `add=True`
+        @type add: `bool`
         @param base: prefix of generated words
         @type base: `str`
         """

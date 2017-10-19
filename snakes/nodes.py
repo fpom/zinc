@@ -1,7 +1,9 @@
 import operator, logging, collections
 from functools import reduce
+from snakes import TypingError
 from snakes.data import mset, WordSet
 from snakes.tokens import Token
+from snakes.arcs import MultiArc
 
 class Node (object) :
     pass
@@ -26,6 +28,20 @@ class Place (Node) :
     def is_empty (self) :
         return bool(self.tokens)
 
+class _Declarations (dict) :
+    def __init__ (self, names) :
+        dict.__init__(self)
+        self.names = names
+    def __setitem__ (self, name, type) :
+        if self.get(name, type) != type :
+            raise TypingError("variable '%s:%s' redeclared with type %r"
+                              % (name, self[name], type))
+        dict.__setitem__(self, name, type)
+    def new (self, type) :
+        name = self.names.fresh()
+        self[name] = type
+        return name
+
 class Transition (Node) :
     def __init__ (self, name, guard=None) :
         self.name = name
@@ -38,28 +54,82 @@ class Transition (Node) :
         return arc[1]._order
     def __ast__ (self, ctx) :
         names = WordSet(self.vars())
-        ctx.update(names   = names,
-                   trans   = self,
-                   marking = names.fresh(base="marking", add=True),
-                   succ    = names.fresh(base="succ", add=True),
-                   sub     = collections.defaultdict(list),
-                   add     = collections.defaultdict(list),
-                   assign  = {})
+        ctx.update(names    = names,
+                   marking  = names.fresh(base="marking"),
+                   succ     = names.fresh(base="succ"),
+                   sub      = collections.defaultdict(list),
+                   add      = collections.defaultdict(list),
+                   test     = collections.defaultdict(list),
+                   notempty = set(),
+                   declare  = _Declarations(names),
+                   bound    = {},
+                   trans    = self,
+        )
+        # input arcs
+        arcs = []
+        for place, label in self._input.items() :
+            if isinstance(label, MultiArc) :
+                arcs.extend((place, comp) for comp in label.components)
+            else :
+                arcs.append((place, label))
+        arcs.sort(key=self._astkey)
         last = nest = []
-        for place, label in sorted(self._input.items(), key=self._astkey) :
-            last = label.__ast__(last, place, self, True, ctx,
-                                 PLACE=place, ISIN=True, LABEL=label,
-                                 BLAME=ctx.ArcBlame(place.name, self.name, label))
-        last.append(ctx.IfGuard(ctx.Expr(self.guard), [],
-                                BLAME=ctx.GuardBlame(self.name, self.guard)))
-        last = last[-1].body
+        for place, label in arcs :
+            last = label.__astin__(last, place, ctx,
+                                   PLACE=place, ISIN=True, LABEL=label,
+                                   BLAME=ctx.ArcBlame(place.name, self.name, label))
+        # guard
+        if self.guard :
+            last.append(ctx.IfGuard(self.guard, [],
+                                    BLAME=ctx.GuardBlame(self.name, self.guard)))
+            last = last[-1].body
+        # output arcs
+        arcs = []
         for place, label in self._output.items() :
-            last = label.__ast__(last, place, self, False, ctx,
-                                 PLACE=place, ISIN=False, LABEL=label,
-                                 BLAME=ctx.ArcBlame(self.name, place.name, label))
-        last.append(ctx.AddSuccIfEnoughTokens(ctx.succ, ctx.marking, ctx.sub, ctx.add))
-        yield ctx.DefSuccProc(ctx.SuccProcName(self.name), ctx.marking, ctx.succ, [
-            ctx.IfInput(ctx.marking, [p.name for p in self._input], nest)])
+            if isinstance(label, MultiArc) :
+                arcs.extend((place, comp) for comp in label.components)
+            else :
+                arcs.append((place, label))
+        for place, label in arcs :
+            last = label.__astout__(last, place, ctx,
+                                    PLACE=place, ISIN=False, LABEL=label,
+                                    BLAME=ctx.ArcBlame(self.name, place.name, label))
+        # eliminate tokens that are both consumed & produced in the same place
+        for place in set(ctx.sub) & set(ctx.add) :
+            sub = mset(ctx.sub[place])
+            sub.discard(ctx.add[place])
+            add = mset(ctx.add[place])
+            add.discard(ctx.sub[place])
+            if sub :
+                ctx.sub[place] = list(sub)
+            else :
+                del ctx.sub[place]
+            if add :
+                ctx.add[place] = list(add)
+            else :
+                del ctx.add[place]
+        # eliminate empty places
+        for mk in (ctx.sub, ctx.add) :
+            for place, tokens in list(mk.items()) :
+                if not tokens :
+                    del mk[place]
+        # code to produce successor marking
+        if ctx.test :
+            for place, tokens in ctx.sub.items() :
+                ctx.test[place].extend(tokens)
+        else :
+            ctx.test = None
+        last.append(ctx.AddSuccIfEnoughTokens(ctx.succ, ctx.marking, ctx.test,
+                                              ctx.sub, ctx.add,
+                                              BLAME=ctx.TransitionBlame(self.name)))
+        # generate top-level functions
+        if ctx.notempty :
+            yield ctx.DefSuccProc(ctx.SuccProcName(self.name), ctx.marking, ctx.succ, [
+                ctx.Declare(dict(ctx.declare)),
+                ctx.IfInput(ctx.marking, ctx.notempty, nest)])
+        else :
+            yield ctx.DefSuccProc(ctx.SuccProcName(self.name), ctx.marking, ctx.succ, [
+                ctx.Declare(dict(ctx.declare))] + nest)
         yield ctx.DefSuccFunc(ctx.SuccFuncName(self.name), ctx.marking, [
             ctx.InitSucc(ctx.succ),
             ctx.CallSuccProc(ctx.SuccProcName(self.name), ctx.marking, ctx.succ),

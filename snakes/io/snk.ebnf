@@ -9,15 +9,15 @@ spec =
     declare:{decl}
     "net" net:text ":" nl
         nodes:{trans|place}+
-    $
+    [nl]$
     ;
 
 decl =
-    "declare" source:text nl
+    [nl] "declare" source:text nl
     ;
 
 place =
-    "place" name:text [type:text] ["=" tokens:(","%{ token }+)] nl
+    [nl] "place" name:text [type:text] ["=" tokens:(","%{ token }+)] nl
     ;
 
 token =
@@ -26,17 +26,15 @@ token =
     ;
 
 trans =
-    "trans" name:text [guard:/[^:]+/] ":" nl
+    [nl] "trans" name:text [guard:/[^:]+/] ":" nl
     arcs:{arc}+
     ;
 
 arc =
-    | way:("<" | ">") place:text [mod:arcmod] kind:"var" "=" label:tail nl
-    | way:("<" | ">") place:text [mod:arcmod] kind:"val" "=" label:tail nl
-    | way:("<" | ">") place:text [mod:arcmod] kind:"expr" "=" label:tail nl
-    | way:("<" | ">") place:text [mod:arcmod] tuple:tuple "=" label:tuple nl
-    | way:"<" place:text [mod:arcmod] kind:"flush" "=" label:tail nl
-    | way:">" place:text [mod:arcmod] kind:"fill" "=" label:tail nl
+    [nl] way:("<" | ">") place:text [mod:arcmod] kind:arckind "=" label:tail nl
+    ;
+
+arckind = "val" | "var" | "expr" | "tuple" | "flush" | "fill"
     ;
 
 arcmod =

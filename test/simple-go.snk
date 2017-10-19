@@ -17,6 +17,6 @@ net "my net" :
         > p3 val = MAX
         > p4 expr = y + x + MAX
     trans t2 z < 2*MAX :
-        > p4 var= z
-        < p1 expr = z - MAX
-        < p1 expr = z - MAX + 1
+        < p4 var = z
+        > p1 expr = z - MAX
+        > p1 expr = z - MAX + 1

@@ -15,7 +15,7 @@ class Arc (object) :
         self._nestable_in = reduce(and_,
                                    (a._nestable_in for a in chain(arcs, more.values())),
                                    self._nestable_in)
-        self._order = max(a._order for a in chain(arcs, more.values()))
+        self._order = max(a._order for a in chain(arcs, more.values())) + 1
         self.__dict__.update(more)
         return arcs
 
@@ -25,83 +25,95 @@ class InputArc (Arc) :
 class OutputArc (Arc) :
     pass
 
-class Value (InputArc, OutputArc) :
+class _Ast (object) :
+    def _bind (self, type, ctx, name=None) :
+        if self.source in ctx.bound :
+            return ctx.bound[self.source], False
+        elif name is None :
+            name = ctx.bound[self.source] = ctx.declare.new(type)
+            return name, True
+        else :
+            ctx.declare[name] = type
+            ctx.bound[self.source] = name
+            return name, True
+
+class _AstBindTestConsume (_Ast) :
+    def __astin__ (self, nest, place, ctx, **more) :
+        ctx.notempty.add(place)
+        varname, isnew = self._bind(place.type, ctx)
+        ctx.sub[place.name].append(varname)
+        if isnew :
+            nest.append(ctx.Assign(varname, self.source, **more))
+        node = ctx.IfToken(ctx.marking, place.name, varname, body=[], **more)
+        nest.append(node)
+        return node.body
+    def __astnotin__ (self, nest, place, ctx, guard, **more) :
+        varname, isnew = self._bind(place.type, ctx)
+        if isnew :
+            nest.append(ctx.Assign(varname, self.source, **more))
+        node = ctx.IfNoToken(ctx.marking, place.name, varname, body=[], **more)
+        nest.append(node)
+        return node.body
+
+class _AstTypeProduce (_Ast) :
+    def __astout__ (self, nest, place, ctx, **more) :
+        varname, isnew = self._bind(place.type, ctx)
+        ctx.add[place.name].append(varname)
+        if isnew :
+            nest.append(ctx.Assign(varname, self.source, **more))
+        node = ctx.IfType(place, varname, self.source, body=[], **more)
+        nest.append(node)
+        return node.body
+
+class Value (InputArc, OutputArc, _AstBindTestConsume, _AstTypeProduce) :
     _order = 0
     def __init__ (self, value) :
-        self.value = value
+        self.source = value
     def __repr__ (self) :
-        return "Value(%r)" % self.value
+        return "Value(%r)" % self.source
     def vars (self) :
         return set()
-    def __ast__ (self, nest, place, trans, isin, ctx, **more) :
-        val = ctx.Val(self.value)
-        if isin : # input arc
-            if place.name in ctx.sub and val in ctx.sub[place.name] :
-                # this value has already be checked, no need to do it again
-                ctx.sub[place.name].append(val)
-                return nest
-            ctx.sub[place.name].append(val)
-            node = ctx.IfToken(ctx.marking, place.name, val, body=[], **more)
-        else :
-            if self.value not in ctx.assign :
-                ctx.assign[self.value] = (ctx.names.fresh(add=True), place.type)
-            node = ctx.IfType(place, token=val, body=[], **more)
-            ctx.add[place.name].append(val)
-        nest.append(node)
-        return node.body
 
-class Variable (InputArc, OutputArc) :
-    _order = 10
-    def __init__ (self, name) :
-        self.name = name
-    def __repr__ (self) :
-        return "Variable(%r)" % self.name
-    def vars (self) :
-        return {self.name}
-    def __ast__ (self, nest, place, trans, isin, ctx, **more) :
-        var = ctx.Var(self.name)
-        if isin : # input arc
-            if place.name in ctx.sub and var in ctx.sub[place.name] :
-                # this variable has already be bound, no need to check again
-                ctx.sub[place.name].append(var)
-                return nest
-            ctx.sub[place.name].append(var)
-            node = ctx.ForeachToken(ctx.marking, place.name, self.name, body=[], **more)
-        else :
-            if self.name not in ctx.assign :
-                ctx.assign[self.name] = (ctx.names.fresh(base=self.name, add=True),
-                                         place.type)
-            node = ctx.IfType(place, token=var, body=[], **more)
-            ctx.add[place.name].append(var)
-        nest.append(node)
-        return node.body
-
-class Expression (InputArc, OutputArc) :
+class Expression (InputArc, OutputArc, _AstBindTestConsume, _AstTypeProduce) :
     _order = 20
     def __init__ (self, code) :
-        self.code = code
+        self.source = code
     def __repr__ (self) :
-        return "Expression(%r)" % self.code
+        return "Expression(%r)" % self.source
     def vars (self) :
         return set()
-    def __ast__ (self, nest, place, trans, isin, ctx, **more) :
-        if self.code in ctx.assign :
-            var = ctx.Var(ctx.assign[self.code][0])
-            if isin and place.name in ctx.sub and var in ctx.sub[place.name] :
-                ctx.sub[place.name].append(var)
-                return nest
+
+class Variable (InputArc, OutputArc, _AstTypeProduce) :
+    _order = 10
+    def __init__ (self, name) :
+        self.source = name
+    def __repr__ (self) :
+        return "Variable(%r)" % self.source
+    def vars (self) :
+        return {self.source}
+    def __astin__ (self, nest, place, ctx, **more) :
+        ctx.notempty.add(place)
+        varname, isnew = self._bind(place.type, ctx, self.source)
+        ctx.sub[place.name].append(varname)
+        if isnew :
+            node = ctx.ForeachToken(ctx.marking, place.name, varname, body=[], **more)
         else :
-            var = ctx.Var(ctx.names.fresh(True))
-            ctx.assign[self.code] = (var.source, place.type)
-            nest.append(ctx.Assign(var.source, self.code,
-                                   BLAME=ctx.ArcBlame(place.name, trans.name,
-                                                      self.code)))
-        if isin :
-            ctx.sub[place.name].append(var)
-            node = ctx.IfToken(ctx.marking, place.name, var, body=[], **more)
+            node = ctx.IfToken(ctx.marking, place.name, varname, body=[], **more)
+        nest.append(node)
+        return node.body
+    def __astnotin__ (self, nest, place, ctx, guard, **more) :
+        varname, isnew = self._bind(place.type, ctx, self.source)
+        if isnew and not guard :
+            node = ctx.IfEmpty(ctx.marking, place.name, body=[], **more)
+            del ctx.declare[varname]
+        elif isnew :
+            node = ctx.IfNoTokenSuchThat(ctx.marking, place.name, varname, guard,
+                                         body=[], **more)
+        elif guard :
+            raise ConstraintError("inhibition guard forbidden for %r"
+                                  " (bounded on another arc)" % self)
         else :
-            ctx.add[place.name].append(var)
-            node = ctx.IfType(place, token=var, body=[], **more)
+            node = ctx.IfNoToken(ctx.marking, place.name, varname, body=[], **more)
         nest.append(node)
         return node.body
 
@@ -114,10 +126,90 @@ class MultiArc (InputArc, OutputArc) :
                            ", ".join(repr(c) for c in self.components))
     def vars (self) :
         return reduce(or_, (c.vars() for c in self.components), set())
-    def __ast__ (self, nest, place, trans, isin, ctx, **more) :
-        for comp in self.components :
-            nest = comp.__ast__(nest, place, trans, isin, ctx, **more)
-        return nest
+
+class Flush (InputArc, _Ast) :
+    _order = 15
+    def __init__ (self, name) :
+        self.source = name
+    def __repr__ (self) :
+        return "%s(%r)" % (self.__class__.__name__, self.source)
+    def vars (self) :
+        return {self.source}
+    def __astin__ (self, nest, place, ctx, **more) :
+        varname, isnew = self._bind(("mset", place.type), ctx, self.source)
+        ctx.sub[place.name].append(("mset", varname))
+        if isnew :
+            node = ctx.GetPlace(varname, ctx.marking, place.name, **more)
+            ret = nest
+        else :
+            node = ctx.IfPlace(ctx.marking, place.name, varname, body=[], **more)
+            ret = node.body
+        nest.append(node)
+        return ret
+
+class Fill (OutputArc, _Ast) :
+    _order = 30
+    def __init__ (self, code) :
+        self.source = code
+    def __repr__ (self) :
+        return "%s(%r)" % (self.__class__.__name__, self.source)
+    def vars (self) :
+        return set()
+    def __astout__ (self, nest, place, ctx, **more) :
+        varname, isnew = self._bind(("mset", place.type), ctx)
+        ctx.add[place.name].append(("mset", varname))
+        if isnew :
+            nest.append(ctx.Assign(varname, self.source, **more))
+        node = ctx.IfAllType(place, varname, body=[], **more)
+        nest.append(node)
+        return node.body
+
+class Test (InputArc, OutputArc) :
+    _nestable_in = {MultiArc}
+    def __init__ (self, label) :
+        self._nest(label=label)
+    def __repr__ (self) :
+        return "%s(%r)" % (self.__class__.__name__, self.label)
+    def vars (self) :
+        return self.label.vars()
+    def __astin__ (self, nest, place, ctx, **more) :
+        if place.name in ctx.sub :
+            pos = len(ctx.sub[place.name])
+        else :
+            pos = 0
+        newnest = self.label.__astin__(nest, place, ctx, **more)
+        if place.name in ctx.sub :
+            tokens = ctx.sub[place.name]
+            new = len(tokens)
+            ctx.test[place.name].extend(tokens[pos - new:])
+            del tokens[pos - new:]
+        return newnest
+    def __astout__ (self, nest, place, ctx, **more) :
+        if place.name in ctx.add :
+            pos = len(ctx.add[place.name])
+        else :
+            pos = 0
+        newnest = self.label.__astout__(nest, place, ctx, **more)
+        if place.name in ctx.add :
+            tokens = ctx.add[place.name]
+            new = len(tokens)
+            del tokens[pos - new:]
+        return newnest
+
+class Inhibitor (InputArc) :
+    _nestable_in = {MultiArc}
+    def __init__ (self, label, guard=None) :
+        if isinstance(label, _AstBindTestConsume) and guard :
+            raise ConstraintError("inhibition guard forbidden together with %s"
+                                  % label)
+        self._nest(label=label)
+        self.guard = guard
+    def __repr__ (self) :
+        return "%s(%r, %r)" % (self.__class__.__name__, self.label, self.guard)
+    def vars (self) :
+        return self.label.vars()
+    def __astin__ (self, nest, place, ctx, **more) :
+        return self.label.__astnotin__(nest, place, ctx, self.guard, **more)
 
 class Tuple (InputArc, OutputArc) :
     def __init__ (self, first, *others) :
@@ -128,46 +220,9 @@ class Tuple (InputArc, OutputArc) :
     def vars (self) :
         return reduce(or_, (c.vars() for c in self.components), set())
 
-class Test (InputArc, OutputArc) :
-    _nestable_in = {MultiArc}
-    def __init__ (self, label) :
-        self._nest(label=label)
-    def __repr__ (self) :
-        return "%s(%r)" % (self.__class__.__name__, self.label)
-    def vars (self) :
-        return self.label.vars()
-
-class Inhibitor (InputArc) :
-    _nestable_in = {MultiArc}
-    def __init__ (self, label, guard=None) :
-        self._nest(label=label)
-        self.guard = guard
-    def __repr__ (self) :
-        return "%s(%r, %r)" % (self.__class__.__name__, self.label, self.guard)
-    def vars (self) :
-        return self.label.vars()
-
-class Flush (InputArc) :
-    _order = 15
-    _nestable_in = {Test, Inhibitor}
-    def __init__ (self, name) :
-        self.name = name
-    def __repr__ (self) :
-        return "%s(%r)" % (self.__class__.__name__, self.name)
-    def vars (self) :
-        return {self.name}
-
-class Fill (OutputArc) :
-    _order = 25
-    _nestable_in = {Test}
-    def __init__ (self, code) :
-        self.code = code
-    def __repr__ (self) :
-        return "%s(%r)" % (self.__class__.__name__, self.code)
-    def vars (self) :
-        return set()
-
 Value._nestable_in = {Tuple, Test, Inhibitor, MultiArc}
 Variable._nestable_in = {Tuple, Test, Inhibitor, MultiArc}
 Expression._nestable_in = {Tuple, Test, Inhibitor, MultiArc}
 Tuple._nestable_in = {Tuple, Test, Inhibitor, MultiArc}
+Flush._nestable_in = {Test}
+Fill._nestable_in = {Test, MultiArc}

@@ -23,8 +23,8 @@ class PetriNet (object) :
                          [ctx.Context(l, BLAME=ctx.ContextBlame(l))
                           for c in self._context for l in c.splitlines()]
                          + [ctx.DefineMarking(list(self._place.values()))])
-        for t in self._trans.values() :
-            mod.body.extend(t.__ast__(Context(net=self)))
+        for name, trans in sorted(self._trans.items()) :
+            mod.body.extend(trans.__ast__(Context(net=self)))
         mod.body.append(ctx.DefSuccProc(ctx.SuccProcName(), "marking", "succ", [
             ctx.CallSuccProc(ctx.SuccProcName(t.name), "marking", "succ")
             for t in self._trans.values()]))

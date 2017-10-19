@@ -1,0 +1,91 @@
+# test net with all features
+
+lang python
+
+declare """
+MAX = 5
+"""
+
+net "test net" :
+    place p1 int = 0, 1, 2
+    place p2 int = 1, 2, 3
+    place p3 int = MAX, (MAX+1)
+    place p4
+    # values
+    trans t01 :
+        < p1 val = 1
+        > p2 val = 2
+    # variables
+    trans t02 x > 0 :
+        < p1 var = x
+        > p2 var = x
+    # input multiarc, expressions
+    trans t03 x != y :
+        < p1 var  = x
+        < p1 var  = y
+        > p2 expr = x+y
+    # input expressions
+    trans t04 x > 0 :
+        < p1 var  = x
+        < p1 expr = x+1
+        > p2 expr = x+2
+    # output multiarc, expressions reuse, untyped output
+    trans t05 x != y :
+        < p1 var  = x
+        < p1 var  = y
+        < p1 expr = abs(x - y)
+        > p2 var  = x
+        > p2 expr = y+1
+        > p4 expr = abs(x - y)
+    # test on input
+    trans t06 x != y :
+        < p1 var  = x
+        < p2 ?var = y
+        > p3 expr = x+y
+    # test on input multiarc
+    trans t07 x != y :
+        < p1 var  = x
+        < p1 ?var = y
+        > p3 expr = x+y
+    # only test inputs
+    trans t08 x != y :
+        < p1 ?var = x
+        < p2 ?var = y
+        > p3 expr = x+y
+    # only tests in input multiarc
+    trans t09 x != y :
+        < p1 ?var = x
+        < p1 ?var = y
+        > p3 expr = x+y
+    # test on output
+    trans t10 x != y :
+        < p1 var  = x
+        < p2 var  = y
+        > p3 ?expr = x+y
+    # flush and fill arcs
+    trans t11 len(m) > 0 :
+        < p1 flush = m
+        > p2 fill  = m * 2
+    # test flush and test fill
+    trans t12 len(m) > 0 :
+        < p1 ?flush = m
+        > p2 ?fill  = m * 2
+    # multiarc fill
+    trans t13 len(m) > 0 :
+        < p1 flush = m
+        > p1 fill  = m
+        > p1 fill  = [x+1 for x in m]
+    # inhibitor value
+    trans t14 :
+        < p1 !val = 1
+        > p2 val  = 2
+    # inhibitor variable
+    trans t15 :
+        < p1 var       = x
+        < p2 !(y<x)var = y
+        > p3 val       = 2
+    # inhibitor expression
+    trans t16 :
+        < p1 var   = x
+        < p2 !expr = x+1
+        > p3 val   = 2

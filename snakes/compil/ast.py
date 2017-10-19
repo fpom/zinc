@@ -90,6 +90,11 @@ class ContextBlame (Blame) :
     def __str__ (self) :
         return "declaration: %r" % self.code
 
+class TransitionBlame (Blame) :
+    _fields = ["transition"]
+    def __str__ (self) :
+        return "transition: %r" % self.transition
+
 ##
 ##
 ##
@@ -150,23 +155,24 @@ class Assign (AST) :
 
 class Expr (AST) :
     _fields = ["source"]
-    def __hash__ (self) :
-        return hash(self.source) ^ hash(self.__class__.__name__)
-    def __eq__ (self, other) :
-        try :
-            return (self.__class__ == other.__class__) and (self.source == other.source)
-        except :
-            return False
-    def __ne__ (self, other) :
-        return not self.__eq__(other)
-    def __repr__ (self) :
-        return "%s(%r)" % (self.__class__.__name__, self.source)
 
-class Var (Expr) :
-    _fields = ["source"]
+#     def __hash__ (self) :
+#         return hash(self.source) ^ hash(self.__class__.__name__)
+#     def __eq__ (self, other) :
+#         try :
+#             return (self.__class__ == other.__class__) and (self.source == other.source)
+#         except :
+#             return False
+#     def __ne__ (self, other) :
+#         return not self.__eq__(other)
+#     def __repr__ (self) :
+#         return "%s(%r)" % (self.__class__.__name__, self.source)
 
-class Val (Expr) :
-    _fields = ["source"]
+# class Var (Expr) :
+#     _fields = ["source"]
+
+# class Val (Expr) :
+#     _fields = ["source"]
 
 class DefSuccProc (AST) :
     _fields = ["name", "marking", "succ", "body"]
@@ -177,11 +183,29 @@ class DefSuccFunc (AST) :
 class DefInitFunc (AST) :
     _fields = ["name", "marking"]
 
+class Declare (AST) :
+    _fields = ["variables"]
+
 class IfInput (AST) :
     _fields = ["marking", "places", "body"]
 
 class IfToken (AST) :
     _fields = ["marking", "place", "token", "body"]
+
+class IfPlace (AST) :
+    _fields = ["marking", "place", "variable", "body"]
+
+class GetPlace (AST) :
+    _fields = ["variable", "marking", "place"]
+
+class IfAllType (AST) :
+    _fields = ["place", "variable", "body"]
+
+class IfNoToken (AST) :
+    _fields = ["marking", "place", "token", "body"]
+
+class IfNoTokenSuchThat (AST) :
+    _fields = ["marking", "place", "variable", "guard", "body"]
 
 class ForeachToken (AST) :
     _fields = ["marking", "place", "variable", "body"]
@@ -193,7 +217,7 @@ class IfType (AST) :
     _fields = ["place", "token", "body"]
 
 class AddSuccIfEnoughTokens (AST) :
-    _fields = ["succ", "old", "sub", "add"]
+    _fields = ["succ", "old", "test", "sub", "add"]
 
 class InitSucc (AST) :
     _fields = ["name"]
@@ -218,12 +242,13 @@ class PlaceMarking (AST) :
 ##
 
 class Indent (object) :
-    def __init__ (self, gen) :
+    def __init__ (self, gen, inc=1) :
         self.gen = gen
+        self.inc = inc
     def __enter__ (self) :
-        self.gen._indent += 1
+        self.gen._indent += self.inc
     def __exit__ (self, exc_type, exc_val, exc_tb) :
-        self.gen._indent -= 1
+        self.gen._indent -= self.inc
 
 class CodeGenerator (object) :
     def __init__ (self, output) :
@@ -234,8 +259,8 @@ class CodeGenerator (object) :
         self._indent = 0
         self._line = 0
         self._column = 0
-    def indent (self) :
-        return Indent(self)
+    def indent (self, inc=1) :
+        return Indent(self, inc)
     def write (self, code) :
         self.output.write(code)
         nl = code.count("\n")
@@ -290,3 +315,8 @@ class CodeGenerator (object) :
     def visit_InitName (self, node) :
         name = self.initfunc = "init"
         self.write(name)
+
+if __name__ == "__main__" :
+    from snakes.io.snk import load
+    net = load(open("test/simple-python.snk"))
+    print(net.__ast__().dump())

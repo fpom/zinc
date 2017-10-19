@@ -105,6 +105,8 @@ class snkParser(Parser):
                 self._error('no available options')
         self._positive_closure(block5)
         self.name_last_node('nodes')
+        with self._optional():
+            self._nl_()
         self._check_eof()
         self.ast._define(
             ['declare', 'lang', 'net', 'nodes'],
@@ -113,6 +115,8 @@ class snkParser(Parser):
 
     @tatsumasu()
     def _decl_(self):  # noqa
+        with self._optional():
+            self._nl_()
         self._token('declare')
         self._text_()
         self.name_last_node('source')
@@ -124,6 +128,8 @@ class snkParser(Parser):
 
     @tatsumasu()
     def _place_(self):  # noqa
+        with self._optional():
+            self._nl_()
         self._token('place')
         self._text_()
         self.name_last_node('name')
@@ -164,6 +170,8 @@ class snkParser(Parser):
 
     @tatsumasu()
     def _trans_(self):  # noqa
+        with self._optional():
+            self._nl_()
         self._token('trans')
         self._text_()
         self.name_last_node('name')
@@ -184,120 +192,48 @@ class snkParser(Parser):
 
     @tatsumasu()
     def _arc_(self):  # noqa
-        with self._choice():
-            with self._option():
-                with self._group():
-                    with self._choice():
-                        with self._option():
-                            self._token('<')
-                        with self._option():
-                            self._token('>')
-                        self._error('no available options')
-                self.name_last_node('way')
-                self._text_()
-                self.name_last_node('place')
-                with self._optional():
-                    self._arcmod_()
-                    self.name_last_node('mod')
-                self._token('var')
-                self.name_last_node('kind')
-                self._token('=')
-                self._tail_()
-                self.name_last_node('label')
-                self._nl_()
-            with self._option():
-                with self._group():
-                    with self._choice():
-                        with self._option():
-                            self._token('<')
-                        with self._option():
-                            self._token('>')
-                        self._error('no available options')
-                self.name_last_node('way')
-                self._text_()
-                self.name_last_node('place')
-                with self._optional():
-                    self._arcmod_()
-                    self.name_last_node('mod')
-                self._token('val')
-                self.name_last_node('kind')
-                self._token('=')
-                self._tail_()
-                self.name_last_node('label')
-                self._nl_()
-            with self._option():
-                with self._group():
-                    with self._choice():
-                        with self._option():
-                            self._token('<')
-                        with self._option():
-                            self._token('>')
-                        self._error('no available options')
-                self.name_last_node('way')
-                self._text_()
-                self.name_last_node('place')
-                with self._optional():
-                    self._arcmod_()
-                    self.name_last_node('mod')
-                self._token('expr')
-                self.name_last_node('kind')
-                self._token('=')
-                self._tail_()
-                self.name_last_node('label')
-                self._nl_()
-            with self._option():
-                with self._group():
-                    with self._choice():
-                        with self._option():
-                            self._token('<')
-                        with self._option():
-                            self._token('>')
-                        self._error('no available options')
-                self.name_last_node('way')
-                self._text_()
-                self.name_last_node('place')
-                with self._optional():
-                    self._arcmod_()
-                    self.name_last_node('mod')
-                self._tuple_()
-                self.name_last_node('tuple')
-                self._token('=')
-                self._tuple_()
-                self.name_last_node('label')
-                self._nl_()
-            with self._option():
-                self._token('<')
-                self.name_last_node('way')
-                self._text_()
-                self.name_last_node('place')
-                with self._optional():
-                    self._arcmod_()
-                    self.name_last_node('mod')
-                self._token('flush')
-                self.name_last_node('kind')
-                self._token('=')
-                self._tail_()
-                self.name_last_node('label')
-                self._nl_()
-            with self._option():
-                self._token('>')
-                self.name_last_node('way')
-                self._text_()
-                self.name_last_node('place')
-                with self._optional():
-                    self._arcmod_()
-                    self.name_last_node('mod')
-                self._token('fill')
-                self.name_last_node('kind')
-                self._token('=')
-                self._tail_()
-                self.name_last_node('label')
-                self._nl_()
-            self._error('no available options')
+        with self._optional():
+            self._nl_()
+        with self._group():
+            with self._choice():
+                with self._option():
+                    self._token('<')
+                with self._option():
+                    self._token('>')
+                self._error('no available options')
+        self.name_last_node('way')
+        self._text_()
+        self.name_last_node('place')
+        with self._optional():
+            self._arcmod_()
+            self.name_last_node('mod')
+        self._arckind_()
+        self.name_last_node('kind')
+        self._token('=')
+        self._tail_()
+        self.name_last_node('label')
+        self._nl_()
         self.ast._define(
-            ['kind', 'label', 'mod', 'place', 'tuple', 'way'],
+            ['kind', 'label', 'mod', 'place', 'way'],
             []
         )
+
+    @tatsumasu()
+    def _arckind_(self):  # noqa
+        with self._choice():
+            with self._option():
+                self._token('val')
+            with self._option():
+                self._token('var')
+            with self._option():
+                self._token('expr')
+            with self._option():
+                self._token('tuple')
+            with self._option():
+                self._token('flush')
+            with self._option():
+                self._token('fill')
+            self._error('no available options')
 
     @tatsumasu()
     def _arcmod_(self):  # noqa
@@ -512,6 +448,9 @@ class snkSemantics(object):
         return ast
 
     def arc(self, ast):  # noqa
+        return ast
+
+    def arckind(self, ast):  # noqa
         return ast
 
     def arcmod(self, ast):  # noqa

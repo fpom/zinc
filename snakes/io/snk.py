@@ -9,10 +9,10 @@ class Parser (object) :
         self.n = module
         self.p = snkparse.snkParser()
     def parse (self, source, path) :
-        self._s = source
+        self._s = source.rstrip() + "\n"
         self._p = path
         self._l = {}
-        return self.p.parse(source, "spec", semantics=self)
+        return self.p.parse(self._s, "spec", semantics=self)
     def spec (self, st) :
         try :
             net = self.n.PetriNet(st.net, st.lang)
@@ -20,33 +20,40 @@ class Parser (object) :
             raise ParseError(str(err), None, None, self._p)
         for decl in st.declare :
             net.declare(decl)
-        for node in st.nodes :
+        for node, *rest in st.nodes :
             if isinstance(node, self.n.Place) :
-                net.add_place(node)
+                try :
+                    net.add_place(node)
+                except SNAKESError as err :
+                    raise ParseError(err, rest[0], None, self._p)
             else :
-                trans, inputs, outputs = node
-                net.add_transition(trans)
+                lineno, inputs, outputs = rest
+                try :
+                    net.add_transition(node)
+                except SNAKESError as err :
+                    raise ParseError(err, lineno, None, self._p)
                 for place, label in inputs.items() :
                     try :
                         if len(label) == 1 :
-                            net.add_input(place, trans.name, label[0])
+                            net.add_input(place, node.name, label[0])
                         else :
-                            net.add_input(place, trans.name, self.n.MultiArc(*label))
+                            net.add_input(place, node.name, self.n.MultiArc(*label))
                     except SNAKESError as err :
-                        raise ParseError(err, self._l[place, trans.name], None, self._p)
+                        raise ParseError(err, self._l[place, node.name], None, self._p)
                 for place, label in outputs.items() :
                     try :
                         if len(label) == 1 :
-                            net.add_output(place, trans.name, label[0])
+                            net.add_output(place, node.name, label[0])
                         else :
-                            net.add_output(place, trans.name, self.n.MultiArc(*label))
+                            net.add_output(place, node.name, self.n.MultiArc(*label))
                     except SNAKESError as err :
-                        raise ParseError(err, self._l[trans.name, place], None, self._p)
+                        raise ParseError(err, self._l[node.name, place], None, self._p)
         return net
     def decl (self, st) :
         return st.source
     def place (self, st) :
-        return self.n.Place(st.name, (st.tokens or [])[::2], st.type)
+        return (self.n.Place(st.name, (st.tokens or [])[::2], st.type),
+                st.parseinfo.line+1)
     def token (self, st) :
         if st.number :
             return self.n.Token(st.number)
@@ -61,7 +68,8 @@ class Parser (object) :
             else :
                 outputs[place].append(label)
                 self._l[st.name, place] = lineno
-        return self.n.Transition(st.name, st.guard.strip()), inputs, outputs
+        return (self.n.Transition(st.name, st.guard.strip()),
+                st.parseinfo.line+1, inputs, outputs)
     def guard (self, st) :
         if st.text :
             return st.text
@@ -97,7 +105,7 @@ class Parser (object) :
     def tuple (self, st) :
         return tuple(st[1][::2])
     def code (self, st) :
-        return self._s[st.parseinfo.pos:st.parseinfo.endpos]
+        return "".join(flatten(st))[1:-1].strip()
     def string (self, st) :
         return "".join(flatten(st))
     def text (self, st) :
@@ -116,7 +124,7 @@ def load (stream, module=nets) :
 
 if __name__ == "__main__" :
     import sys
-    net = Parser().parse(sys.argv[-1])
+    net = load(open(sys.argv[-1]))
     print(repr(net))
     for place in net.place() :
         print(place)

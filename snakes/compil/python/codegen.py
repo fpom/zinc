@@ -1,5 +1,6 @@
 import inspect
 import snakes.compil.ast as ast
+from snakes.compil import CompilationError
 
 ##
 ## to be included in the generated source code
@@ -95,53 +96,106 @@ class CodeGenerator (ast.CodeGenerator) :
                 self.fill(repr("successors for all transitions"))
         self.children_visit(node.body, True)
         self.write("\n")
+    def visit_Declare (self, node) :
+        pass
     def visit_Assign (self, node) :
         self.fill("%s = %s" % (node.variable, node.expr))
     def visit_IfInput (self, node) :
-        self.fill("if %s:" % " and ".join("%s(%r)" % (node.marking, p)
+        self.fill("if %s:" % " and ".join("%s(%r)" % (node.marking, p.name)
                                           for p in node.places))
         self.children_visit(node.body, True)
     def visit_IfToken (self, node) :
-        self.fill("if %s in %s[%r]:" % (node.token.source, node.marking, node.place))
+        self.fill("if %s in %s(%r):" % (node.token, node.marking, node.place))
         self.children_visit(node.body, True)
+    def visit_IfNoToken (self, node) :
+        self.fill("if %s not in %s(%r):" % (node.token, node.marking, node.place))
+        self.children_visit(node.body, True)
+    def visit_IfNoTokenSuchThat (self, node) :
+        self.fill("if not any(%s for %s in %s(%r)):"
+                  % (node.guard, node.variable, node.marking, node.place))
+        self.children_visit(node.body, True)
+    def visit_IfPlace (self, node) :
+        self.fill("if %s == %s(%r):" % (node.variable, node.marking, node.place))
+        self.children_visit(node.body, True)
+    def visit_IfAllType (self, node) :
+        if node.place.type :
+            var = node.CTX.names.fresh()
+            self.fill("if all(isinstance(%s, %s) for %s in %s):"
+                      % (var, node.place.type, var, node.variable))
+            self.children_visit(node.body, True)
+        else :
+            self.children_visit(node.body, False)
+    def visit_GetPlace (self, node) :
+        self.fill("%s = %s(%r)" % (node.variable, node.marking, node.place))
     def visit_ForeachToken (self, node) :
-        self.fill("for %s in %s[%r]:" % (node.variable, node.marking, node.place))
+        self.fill("for %s in %s(%r):" % (node.variable, node.marking, node.place))
         self.children_visit(node.body, True)
     def visit_IfGuard (self, node) :
-        self.fill("if %s:" % node.guard.source)
+        self.fill("if %s:" % node.guard)
         self.children_visit(node.body, True)
     def visit_IfType (self, node) :
-        if node.place.type is None :
+        if not node.place.type :
             self.children_visit(node.body, False)
         elif node.place.type.endswith("()") :
             self.fill("if %s(%s):" % (node.place.type[:-2], node.token.source))
             self.children_visit(node.body, True)
         else :
-            self.fill("if isinstance(%s, %s):" % (node.token.source, node.place.type))
+            self.fill("if isinstance(%s, %s):" % (node.token, node.place.type))
             self.children_visit(node.body, True)
-    def visit_AddSuccIfEnoughTokens (self, node) :
-        subvar = node.NAMES.fresh(base="sub", add=True)
-        addvar = node.NAMES.fresh(base="add", add=True)
-        for name, change in ((subvar, node.sub), (addvar, node.add)) :
-            self.fill("%s = Marking({" % name)
-            for i, (place, tokens) in enumerate(change.items()) :
-                if i > 0 :
-                    self.write(", ")
-                self.write("%r: mset([" % place)
-                first = True
-                for tok in tokens :
+    def _marking (self, var, marking, blame) :
+        self.fill("%s = Marking({" % var)
+        whole = {}
+        for i, (place, tokens) in enumerate(marking.items()) :
+            if i > 0 :
+                self.write(", ")
+            self.write("%r: mset([" % place)
+            first = True
+            for tok in tokens :
+                if isinstance(tok, tuple) :
+                    if tok[0] == "mset" :
+                        whole[place] = tok[1]
+                    else :
+                        raise CompilationError("unsupported type '%s(%s)'" % tok,
+                                               blame)
+                else :
                     if not first :
                         self.write(", ")
                     first = False
-                    self.write(tok.source)
-                self.write("])")
-            self.write("})")
-        self.fill("try:")
-        with self.indent() :
-            self.fill("%s.add(%s - %s + %s)" % (node.succ, node.old, subvar, addvar))
-        self.fill("except ValueError:")
-        with self.indent() :
-            self.fill("pass")
+                    self.write(tok)
+            self.write("])")
+        self.write("})")
+        for place, tokens in whole.items() :
+            self.fill("%s[%r].update(%s)" % (var, place, tokens))
+    def visit_AddSuccIfEnoughTokens (self, node) :
+        subvar = node.NAMES.fresh(base="sub", add=True)
+        addvar = node.NAMES.fresh(base="add", add=True)
+        subtest = False
+        if node.test :
+            testvar = node.NAMES.fresh(base="test", add=True)
+            self._marking(testvar, node.test, node.BLAME)
+            self.fill("if %s <= %s:" % (testvar, node.old))
+            indent = 1
+        elif node.sub :
+            subtest = True
+            self._marking(subvar, node.sub, node.BLAME)
+            self.fill("if %s <= %s:" % (subvar, node.old))
+            indent = 1
+        else :
+            indent = 0
+        with self.indent(indent) :
+            if node.sub and not subtest :
+                self._marking(subvar, node.sub, node.BLAME)
+            if node.add :
+                self._marking(addvar, node.add, node.BLAME)
+            if node.sub and node.add :
+                self.fill("%s.add(%s - %s + %s)" % (node.succ, node.old, subvar,
+                                                    addvar))
+            elif node.sub :
+                self.fill("%s.add(%s - %s)" % (node.succ, node.old, subvar))
+            elif node.add :
+                self.fill("%s.add(%s + %s)" % (node.succ, node.old, addvar))
+            else :
+                self.fill("%s.add(%s.copy())" % (node.succ, node.old))
     def visit_DefSuccFunc (self, node) :
         self.fill("def ")
         self.visit(node.name)
@@ -211,9 +265,9 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write("\n")
 
 if __name__ == "__main__" :
-    import io
+    import io, sys
     from snakes.io.snk import load
-    net = load(open("test/simple-python.snk"))
+    net = load(open(sys.argv[-1]))
     gen = CodeGenerator(io.StringIO())
     gen.visit(net.__ast__())
     print(gen.output.getvalue().rstrip())

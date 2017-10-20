@@ -219,6 +219,59 @@ class Tuple (InputArc, OutputArc) :
                            ", ".join(repr(c) for c in self.components))
     def vars (self) :
         return reduce(or_, (c.vars() for c in self.components), set())
+    def walk (self, *others) :
+        def _walk (*tuples, **args) :
+            path = args.pop("path", [])
+            l = len(self.components)
+            for t in tuples :
+                if not isinstance(t, tuple) :
+                    raise ValueError("not a tuple %r" % t)
+                elif len(t) != l  :
+                    raise ConstraintError("tuple length do not match")
+            for i, (first, *z) in enumerate(zip(self.components, *tuples)) :
+                if isinstance(first, Tuple) :
+                    for p, t in first.walk(*z) :
+                        yield [i] + p, t
+                else :
+                    yield path + [i], [first] + z
+        return _walk(*others)
+    def nest (self, items) :
+        slots = [None] * len(self.components)
+        for path, label in items :
+            if len(path) == 1 :
+                slots[path[0]] = label
+            elif slots[path[0]] is None :
+                slots[path[0]] = [(path[1:], label)]
+            else :
+                slots[path[0]].append((path[1:], label))
+        return tuple(c.nest(s) if isinstance(c, Tuple) else s
+                     for c, s in zip(self.components, slots))
+    def astuple (self) :
+        return tuple(c.astuple() if isinstance(c, Tuple) else c
+                     for c in self.components)
+    def __astin__ (self, nest, place, ctx, **more) :
+        ctx.notempty.add(place)
+        match = []
+        guard = []
+        for path, (label, type) in self.walk(place.type) :
+            if isinstance(label, (Value, Expression)) or label.source in ctx.bound :
+                var = ctx.declare.new(type)
+                guard.append(ctx.Eq(var, label.source, **more))
+            else :
+                var = label.source
+            match.append((path, var))
+            ctx.bound[label.source] = var
+        pattern = ctx.Pattern(self, self.nest(match), place.type)
+        ctx.sub[place.name].append(pattern)
+        node = ctx.ForeachToken(ctx.marking, place.name, pattern, body=[], **more)
+        nest.append(node)
+        if guard :
+            child = ctx.IfGuard(ctx.And(guard, **more), [], **more)
+            node.body.append(child)
+            node = child
+        return node.body
+    def __astout__ (self, nest, place, ctx, **more) :
+        pass
 
 Value._nestable_in = {Tuple, Test, Inhibitor, MultiArc}
 Variable._nestable_in = {Tuple, Test, Inhibitor, MultiArc}

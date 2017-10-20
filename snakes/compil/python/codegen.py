@@ -128,10 +128,26 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_GetPlace (self, node) :
         self.fill("%s = %s(%r)" % (node.variable, node.marking, node.place))
     def visit_ForeachToken (self, node) :
-        self.fill("for %s in %s(%r):" % (node.variable, node.marking, node.place))
+        if isinstance(node.variable, ast.Pattern) :
+            self.fill("for %s in %s(%r):" % (self._pattern(node.variable.tuple),
+                                             node.marking, node.place))
+        else :
+            self.fill("for %s in %s(%r):" % (node.variable, node.marking, node.place))
         self.children_visit(node.body, True)
+    def visit_And (self, node) :
+        for i, item in enumerate(node.items) :
+            if i > 0 :
+                self.write(" and ")
+            self.visit(item)
+    def visit_Eq (self, node) :
+        self.write("(%s) == (%s)" % (node.left, node.right))
     def visit_IfGuard (self, node) :
-        self.fill("if %s:" % node.guard)
+        if isinstance(node.guard, ast.AST) :
+            self.fill("if ")
+            self.visit(node.guard)
+            self.write(":")
+        else :
+            self.fill("if %s:" % node.guard)
         self.children_visit(node.body, True)
     def visit_IfType (self, node) :
         if not node.place.type :
@@ -142,6 +158,9 @@ class CodeGenerator (ast.CodeGenerator) :
         else :
             self.fill("if isinstance(%s, %s):" % (node.token, node.place.type))
             self.children_visit(node.body, True)
+    def _pattern (self, nest) :
+        return "(%s)" % ", ".join(self._pattern(n) if isinstance(n, tuple) else n
+                                  for n in nest)
     def _marking (self, var, marking, blame) :
         self.fill("%s = Marking({" % var)
         whole = {}
@@ -161,7 +180,10 @@ class CodeGenerator (ast.CodeGenerator) :
                     if not first :
                         self.write(", ")
                     first = False
-                    self.write(tok)
+                    if isinstance(tok, ast.Pattern) :
+                        self.write(self._pattern(tok.tuple))
+                    else :
+                        self.write(tok)
             self.write("])")
         self.write("})")
         for place, tokens in whole.items() :

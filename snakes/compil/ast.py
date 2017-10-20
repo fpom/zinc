@@ -186,6 +186,15 @@ class DefInitFunc (AST) :
 class Declare (AST) :
     _fields = ["variables"]
 
+class Eq (AST) :
+    _fields = ["left", "right"]
+
+class And (AST) :
+    _fields = ["items"]
+
+class Pattern (AST) :
+    _fields = ["arc", "tuple", "place"]
+
 class IfInput (AST) :
     _fields = ["marking", "places", "body"]
 

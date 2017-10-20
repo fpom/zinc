@@ -4,10 +4,37 @@ from snakes import nets, ParseError, SNAKESError
 from snakes.io import snkparse
 from snakes.data import flatten
 
-class Parser (object) :
+class TupleParser (object) :
+    def __init__ (self) :
+        self.p = snkparse.snkParser()
+    def parse (self, source) :
+        return self.p.parse(source, "tailtuple", semantics=self)
+    def tuple (self, st) :
+        def _tuple (l) :
+            if isinstance(l, list) :
+                return tuple(_tuple(x) for x in l)
+            else :
+                return l
+        return _tuple(st[1][::2])
+    def tailtuple (self, st) :
+        return st
+    def code (self, st) :
+        return "".join(flatten(st))[1:-1].strip()
+    def string (self, st) :
+        return "".join(flatten(st))
+    def text (self, st) :
+        if st.name :
+            return st.name
+        elif st.string :
+            return ast.literal_eval(st.string)
+        elif st.code :
+            return st.code
+
+class Parser (TupleParser) :
     def __init__ (self, module=nets) :
         self.n = module
         self.p = snkparse.snkParser()
+        self.t = TupleParser()
     def parse (self, source, path) :
         self._s = source.rstrip() + "\n"
         self._p = path
@@ -54,6 +81,18 @@ class Parser (object) :
     def place (self, st) :
         return (self.n.Place(st.name, (st.tokens or [])[::2], st.type),
                 st.parseinfo.line+1)
+    def placetype (self, st) :
+        if st.text :
+            return st.text
+        elif st.tuple :
+            return st.tuple
+    def placetuple (self, st) :
+        def mktuple (content) :
+            if isinstance(content, list) :
+                return tuple(mktuple(c) for c in content[1][::2])
+            else :
+                return content
+        return mktuple(st)
     def token (self, st) :
         if st.number :
             return self.n.Token(st.number)
@@ -82,13 +121,19 @@ class Parser (object) :
                 "flush" : self.n.Flush,
                 "fill" : self.n.Fill}
         def mktuple (kind, label) :
-            for k, l in zip(kind, label) :
-                if k in _arc :
-                    yield _arc[k](l)
-                else :
-                    yield self.n.Tuple(*mktuple(k, l))
-        if st.tuple :
-            label = self.n.Tuple(*mktuple(st.tuple, st.label))
+            if isinstance(kind, tuple) :
+                if not (isinstance(label, tuple) and len(kind) == len(label)) :
+                    raise ParseError("unmatched tuples %r and %r" % (kind, label),
+                                     st.parseinfo.line+1, None, self._p)
+                return self.n.Tuple(*(mktuple(k, l) for k, l in zip(kind, label)))
+            else :
+                return _arc[kind](label)
+        if isinstance(st.kind, tuple) :
+            try :
+                lbl = self.t.parse(st.label)
+            except Exception as err :
+                raise ParseError(str(err), st.parseinfo.line+1, None, self._p)
+            label = mktuple(st.kind, lbl)
         elif st.kind in _arc :
             label = _arc[st.kind](st.label.strip())
         if st.mod :
@@ -102,19 +147,6 @@ class Parser (object) :
             return self._mkarc(st)
         except SNAKESError as err :
             raise ParseError(str(err), st.parseinfo.line+1, None, self._p)
-    def tuple (self, st) :
-        return tuple(st[1][::2])
-    def code (self, st) :
-        return "".join(flatten(st))[1:-1].strip()
-    def string (self, st) :
-        return "".join(flatten(st))
-    def text (self, st) :
-        if st.name :
-            return st.name
-        elif st.string :
-            return ast.literal_eval(st.string)
-        elif st.code :
-            return st.code
 
 def loads (source, module=nets) :
     return Parser(module).parse(source, "<string>")

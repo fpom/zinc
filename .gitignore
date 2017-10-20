@@ -5,3 +5,4 @@ TODO
 __pycache__
 ,*
 +*
+.*.swp

@@ -17,7 +17,16 @@ decl =
     ;
 
 place =
-    [nl] "place" name:text [type:text] ["=" tokens:(","%{ token }+)] nl
+    [nl] "place" name:text [type:placetype] ["=" tokens:(","%{ token }+)] nl
+    ;
+
+placetype =
+    | tuple:placetuple
+    | text:text
+    ;
+
+placetuple =
+    "(" ","%{ placetuple | text }+ ")"
     ;
 
 token =
@@ -34,7 +43,7 @@ arc =
     [nl] way:("<" | ">") place:text [mod:arcmod] kind:arckind "=" label:tail nl
     ;
 
-arckind = "val" | "var" | "expr" | "tuple" | "flush" | "fill"
+arckind = "val" | "var" | "expr" | "flush" | "fill" | tuple
     ;
 
 arcmod =
@@ -44,6 +53,10 @@ arcmod =
 
 tuple =
     "(" ","%{ tuple | text | number }+ ")"
+    ;
+
+tailtuple =
+    tuple $
     ;
 
 tail =
@@ -65,21 +78,16 @@ text =
     ;
 
 code =
-    | '{' TEXTC '}'
-    | '(' TEXTP ')'
-    | '[' TEXTB ']'
+    | '{' CODEC '}'
+    | '[' CODEB ']'
     ;
 
-TEXTC =
-    { /([^{}]|\\[{}])*/ | TEXTC }
+CODEC =
+    { /([^{}]|\\[{}])*/ | CODEC }
     ;
 
-TEXTP =
-    { /([^()]|\\[()])*/ | TEXTP }
-    ;
-
-TEXTB =
-    { /([^\[\]]|\\[\[\]])*/ | TEXTB }
+CODEB =
+    { /([^\[\]]|\\[\[\]])*/ | CODEB }
     ;
 
 name =

@@ -134,7 +134,7 @@ class snkParser(Parser):
         self._text_()
         self.name_last_node('name')
         with self._optional():
-            self._text_()
+            self._placetype_()
             self.name_last_node('type')
         with self._optional():
             self._token('=')
@@ -152,6 +152,38 @@ class snkParser(Parser):
             ['name', 'tokens', 'type'],
             []
         )
+
+    @tatsumasu()
+    def _placetype_(self):  # noqa
+        with self._choice():
+            with self._option():
+                self._placetuple_()
+                self.name_last_node('tuple')
+            with self._option():
+                self._text_()
+                self.name_last_node('text')
+            self._error('no available options')
+        self.ast._define(
+            ['text', 'tuple'],
+            []
+        )
+
+    @tatsumasu()
+    def _placetuple_(self):  # noqa
+        self._token('(')
+
+        def sep0():
+            self._token(',')
+
+        def block0():
+            with self._choice():
+                with self._option():
+                    self._placetuple_()
+                with self._option():
+                    self._text_()
+                self._error('no available options')
+        self._positive_join(block0, sep0)
+        self._token(')')
 
     @tatsumasu()
     def _token_(self):  # noqa
@@ -228,11 +260,11 @@ class snkParser(Parser):
             with self._option():
                 self._token('expr')
             with self._option():
-                self._token('tuple')
-            with self._option():
                 self._token('flush')
             with self._option():
                 self._token('fill')
+            with self._option():
+                self._tuple_()
             self._error('no available options')
 
     @tatsumasu()
@@ -273,6 +305,11 @@ class snkParser(Parser):
         self._token(')')
 
     @tatsumasu()
+    def _tailtuple_(self):  # noqa
+        self._tuple_()
+        self._check_eof()
+
+    @tatsumasu()
     def _tail_(self):  # noqa
         self._pattern(r'.*?$')
 
@@ -307,51 +344,35 @@ class snkParser(Parser):
         with self._choice():
             with self._option():
                 self._token('{')
-                self._TEXTC_()
+                self._CODEC_()
                 self._token('}')
             with self._option():
-                self._token('(')
-                self._TEXTP_()
-                self._token(')')
-            with self._option():
                 self._token('[')
-                self._TEXTB_()
+                self._CODEB_()
                 self._token(']')
             self._error('no available options')
 
     @tatsumasu()
-    def _TEXTC_(self):  # noqa
+    def _CODEC_(self):  # noqa
 
         def block0():
             with self._choice():
                 with self._option():
                     self._pattern(r'([^{}]|\\[{}])*')
                 with self._option():
-                    self._TEXTC_()
+                    self._CODEC_()
                 self._error('no available options')
         self._closure(block0)
 
     @tatsumasu()
-    def _TEXTP_(self):  # noqa
-
-        def block0():
-            with self._choice():
-                with self._option():
-                    self._pattern(r'([^()]|\\[()])*')
-                with self._option():
-                    self._TEXTP_()
-                self._error('no available options')
-        self._closure(block0)
-
-    @tatsumasu()
-    def _TEXTB_(self):  # noqa
+    def _CODEB_(self):  # noqa
 
         def block0():
             with self._choice():
                 with self._option():
                     self._pattern(r'([^\[\]]|\\[\[\]])*')
                 with self._option():
-                    self._TEXTB_()
+                    self._CODEB_()
                 self._error('no available options')
         self._closure(block0)
 
@@ -441,6 +462,12 @@ class snkSemantics(object):
     def place(self, ast):  # noqa
         return ast
 
+    def placetype(self, ast):  # noqa
+        return ast
+
+    def placetuple(self, ast):  # noqa
+        return ast
+
     def token(self, ast):  # noqa
         return ast
 
@@ -459,6 +486,9 @@ class snkSemantics(object):
     def tuple(self, ast):  # noqa
         return ast
 
+    def tailtuple(self, ast):  # noqa
+        return ast
+
     def tail(self, ast):  # noqa
         return ast
 
@@ -474,13 +504,10 @@ class snkSemantics(object):
     def code(self, ast):  # noqa
         return ast
 
-    def TEXTC(self, ast):  # noqa
+    def CODEC(self, ast):  # noqa
         return ast
 
-    def TEXTP(self, ast):  # noqa
-        return ast
-
-    def TEXTB(self, ast):  # noqa
+    def CODEB(self, ast):  # noqa
         return ast
 
     def name(self, ast):  # noqa

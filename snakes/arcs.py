@@ -220,23 +220,20 @@ class Tuple (InputArc, OutputArc) :
                            ", ".join(repr(c) for c in self.components))
     def vars (self) :
         return reduce(or_, (c.vars() for c in self.components), set())
-    def walk (self, *others) :
-        def _walk (*tuples, **args) :
-            path = args.pop("path", [])
-            l = len(self.components)
-            for t in tuples :
-                if not isinstance(t, tuple) :
-                    raise ValueError("not a tuple %r" % t)
-                elif len(t) != l  :
-                    raise ConstraintError("tuple length do not match")
-            for i, (first, *z) in enumerate(zip(self.components, *tuples)) :
-                if isinstance(first, Tuple) :
-                    for p, t in first.walk(*z) :
-                        yield [i] + p, t
-                else :
-                    yield path + [i], [first] + z
-        return _walk(*others)
-    def nest (self, items) :
+    def _walk (self, *others) :
+        l = len(self.components)
+        for t in others :
+            if not isinstance(t, tuple) :
+                raise ValueError("not a tuple %r" % t)
+            elif len(t) != l  :
+                raise ConstraintError("tuple length do not match")
+        for i, (first, *z) in enumerate(zip(self.components, *others)) :
+            if isinstance(first, Tuple) :
+                for p, t in first._walk(*z) :
+                    yield [i] + p, t
+            else :
+                yield [i], [first] + z
+    def _fold (self, items) :
         slots = [None] * len(self.components)
         for path, label in items :
             if len(path) == 1 :
@@ -245,20 +242,17 @@ class Tuple (InputArc, OutputArc) :
                 slots[path[0]] = [(path[1:], label)]
             else :
                 slots[path[0]].append((path[1:], label))
-        return tuple(c.nest(s) if isinstance(c, Tuple) else s
+        return tuple(c._fold(s) if isinstance(c, Tuple) else s
                      for c, s in zip(self.components, slots))
-    def astuple (self) :
-        return tuple(c.astuple() if isinstance(c, Tuple) else c
-                     for c in self.components)
-    def nonetype (self) :
-        return tuple(c.nonetype() if isinstance(c, Tuple) else None
+    def _none (self) :
+        return tuple(c._none() if isinstance(c, Tuple) else None
                      for c in self.components)
     def __astin__ (self, nest, place, ctx, **more) :
         ctx.notempty.add(place)
         match = []
         guard = []
-        placetype = place.type or self.nonetype()
-        for path, (label, type) in self.walk(placetype) :
+        placetype = place.type or self._none()
+        for path, (label, type) in self._walk(placetype) :
             if isinstance(label, (Value, Expression)) or label.source in ctx.bound :
                 var = ctx.declare.new(type)
                 guard.append(ctx.Eq(var, label.source, **more))
@@ -266,7 +260,7 @@ class Tuple (InputArc, OutputArc) :
                 var = label.source
             match.append((path, var))
             ctx.bound[label.source] = var
-        pattern = ctx.Pattern(self, self.nest(match), placetype)
+        pattern = ctx.Pattern(self, self._fold(match), placetype)
         ctx.sub[place.name].append(pattern)
         node = ctx.ForeachToken(ctx.marking, place.name, pattern, body=[], **more)
         nest.append(node)
@@ -277,12 +271,12 @@ class Tuple (InputArc, OutputArc) :
         return node.body
     def __astout__ (self, nest, place, ctx, **more) :
         toadd = []
-        placetype = place.type or self.nonetype()
-        for path, (label, type) in self.walk(placetype) :
+        placetype = place.type or self._none()
+        for path, (label, type) in self._walk(placetype) :
             nest = label.__astout__(nest, record(name=place.name, type=type), ctx,
                                     **more)
             toadd.append((path, ctx.add[place.name].pop(-1)))
-        ctx.add[place.name].append(ctx.Pattern(self, self.nest(toadd), placetype))
+        ctx.add[place.name].append(ctx.Pattern(self, self._fold(toadd), placetype))
         return nest
 
 Value._nestable_in = {Tuple, Test, Inhibitor, MultiArc}

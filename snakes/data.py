@@ -355,3 +355,39 @@ class WordSet (set) :
         if add :
             self.add("".join(result))
         return "".join(result)
+
+class nest (tuple) :
+    def __new__ (cls, content) :
+        return tuple.__new__(cls, [cls(c) if isinstance(c, tuple) else c
+                                   for c in content])
+    def walk (self, *others) :
+        l = len(self)
+        for t in others :
+            if not isinstance(t, tuple) :
+                raise ValueError("not a tuple %r" % t)
+            elif len(t) != l  :
+                raise ValueError("tuple length do not match")
+        for i, (first, *z) in enumerate(zip(self, *others)) :
+            if isinstance(first, self.__class__) :
+                for p, t in first.walk(*z) :
+                    yield [i] + p, t
+            else :
+                yield [i], [first] + z
+    def fold (self, items, cls=None) :
+        if cls is None :
+            cls = self.__class__
+        slots = [None] * len(self)
+        for path, obj in items :
+            if len(path) == 1 :
+                slots[path[0]] = obj
+            elif slots[path[0]] is None :
+                slots[path[0]] = [(path[1:], obj)]
+            else :
+                slots[path[0]].append((path[1:], obj))
+        return cls(c.fold(s, cls) if isinstance(c, self.__class__) else s
+                   for c, s in zip(self, slots))
+    def map (self, fun, cls=None) :
+        if cls is None :
+            cls = self.__class__
+        return cls(c.map(fun, cls) if isinstance(c, self.__class__) else fun(c)
+                   for c in self)

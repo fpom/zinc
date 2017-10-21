@@ -2,6 +2,7 @@ from functools import reduce
 from operator import and_, or_
 from itertools import chain
 from snakes import ConstraintError
+from snakes.data import record
 
 class Arc (object) :
     def _nest (self, *arcs, **more) :
@@ -249,11 +250,15 @@ class Tuple (InputArc, OutputArc) :
     def astuple (self) :
         return tuple(c.astuple() if isinstance(c, Tuple) else c
                      for c in self.components)
+    def nonetype (self) :
+        return tuple(c.nonetype() if isinstance(c, Tuple) else None
+                     for c in self.components)
     def __astin__ (self, nest, place, ctx, **more) :
         ctx.notempty.add(place)
         match = []
         guard = []
-        for path, (label, type) in self.walk(place.type) :
+        placetype = place.type or self.nonetype()
+        for path, (label, type) in self.walk(placetype) :
             if isinstance(label, (Value, Expression)) or label.source in ctx.bound :
                 var = ctx.declare.new(type)
                 guard.append(ctx.Eq(var, label.source, **more))
@@ -261,7 +266,7 @@ class Tuple (InputArc, OutputArc) :
                 var = label.source
             match.append((path, var))
             ctx.bound[label.source] = var
-        pattern = ctx.Pattern(self, self.nest(match), place.type)
+        pattern = ctx.Pattern(self, self.nest(match), placetype)
         ctx.sub[place.name].append(pattern)
         node = ctx.ForeachToken(ctx.marking, place.name, pattern, body=[], **more)
         nest.append(node)
@@ -271,7 +276,14 @@ class Tuple (InputArc, OutputArc) :
             node = child
         return node.body
     def __astout__ (self, nest, place, ctx, **more) :
-        pass
+        toadd = []
+        placetype = place.type or self.nonetype()
+        for path, (label, type) in self.walk(placetype) :
+            nest = label.__astout__(nest, record(name=place.name, type=type), ctx,
+                                    **more)
+            toadd.append((path, ctx.add[place.name].pop(-1)))
+        ctx.add[place.name].append(ctx.Pattern(self, self.nest(toadd), placetype))
+        return nest
 
 Value._nestable_in = {Tuple, Test, Inhibitor, MultiArc}
 Variable._nestable_in = {Tuple, Test, Inhibitor, MultiArc}

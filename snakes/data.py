@@ -361,12 +361,6 @@ class nest (tuple) :
         return tuple.__new__(cls, [cls(c) if isinstance(c, tuple) else c
                                    for c in content])
     def walk (self, *others) :
-        l = len(self)
-        for t in others :
-            if not isinstance(t, tuple) :
-                raise ValueError("not a tuple %r" % t)
-            elif len(t) != l  :
-                raise ValueError("tuple length do not match")
         for i, (first, *z) in enumerate(zip(self, *others)) :
             if isinstance(first, self.__class__) :
                 for p, t in first.walk(*z) :

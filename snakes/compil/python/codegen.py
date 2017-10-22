@@ -149,14 +149,29 @@ class CodeGenerator (ast.CodeGenerator) :
         else :
             self.fill("if %s:" % node.guard)
         self.children_visit(node.body, True)
-    def visit_IfType (self, node) :
-        if not node.place.type :
-            self.children_visit(node.body, False)
-        elif node.place.type.endswith("()") :
-            self.fill("if %s(%s):" % (node.place.type[:-2], node.token.source))
-            self.children_visit(node.body, True)
+    def _matchtype (self, var, typ) :
+        if typ is None :
+            pass
+        elif isinstance(typ, tuple) :
+            yield "isinstance(%s, tuple)" % var
+            yield "len(%s) == %s" % (var, len(typ))
+            for i, sub in enumerate(typ) :
+                for cond in self._matchtype("%s[%s]" % (var, i), sub) :
+                    yield cond
+        elif typ.endswith("()") :
+            yield "%s(%s)" % (typ[:-2], var)
         else :
-            self.fill("if isinstance(%s, %s):" % (node.token, node.place.type))
+            yield "isinstance(%s, %s)" % (var, typ)
+    def visit_IfType (self, node) :
+        if isinstance(node.token, str) :
+            var = node.token
+        else :
+            var = node.token.source
+        match = list(self._matchtype(var, node.place.type))
+        if not match :
+            self.children_visit(node.body, False)
+        else :
+            self.fill("if %s:" % " and ".join(match))
             self.children_visit(node.body, True)
     def _pattern (self, nest) :
         return "(%s)" % ", ".join(self._pattern(n) if isinstance(n, tuple) else n

@@ -251,14 +251,15 @@ class Tuple (InputArc, OutputArc) :
         ctx.notempty.add(place)
         match = []
         guard = []
+        placetype = place.type or self._none()
         pvar = ctx.declare.new(place.type)
         node = ctx.ForeachToken(ctx.marking, place.name, pvar, **more)
         nest.append(node)
         nest = node.body
         if place.type :
-            nest.append(ctx.IfTuple(place, pvar, **more))
+            nest.append(ctx.IfTuple(record(name=place.name, type=placetype),
+                                    pvar, **more))
             nest = nest[0].body
-        placetype = place.type or self._none()
         for path, (label, type) in self._walk(placetype) :
             if isinstance(label, (Value, Expression)) or label.source in ctx.bound :
                 var = ctx.declare.new(type)

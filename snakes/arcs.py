@@ -108,8 +108,8 @@ class Variable (InputArc, OutputArc, _AstTypeProduce) :
             node = ctx.IfEmpty(ctx.marking, place.name, **more)
             del ctx.declare[varname]
         elif isnew :
-            node = ctx.IfNoTokenSuchThat(ctx.marking, place.name, varname, guard,
-                                         **more)
+            node = ctx.IfNoTokenSuchThat(ctx.marking, place.name, varname,
+                                         ctx.Expr(guard), **more)
         elif guard :
             raise ConstraintError("inhibition guard forbidden for %r"
                                   " (bounded on another arc)" % self)
@@ -251,24 +251,30 @@ class Tuple (InputArc, OutputArc) :
         ctx.notempty.add(place)
         match = []
         guard = []
+        pvar = ctx.declare.new(place.type)
+        node = ctx.ForeachToken(ctx.marking, place.name, pvar, **more)
+        nest.append(node)
+        nest = node.body
+        if place.type :
+            nest.append(ctx.IfTuple(place, pvar, **more))
+            nest = nest[0].body
         placetype = place.type or self._none()
         for path, (label, type) in self._walk(placetype) :
             if isinstance(label, (Value, Expression)) or label.source in ctx.bound :
                 var = ctx.declare.new(type)
+                nest.append(ctx.AssignItem(var, pvar, path, **more))
                 guard.append(ctx.Eq(ctx.Expr(var), ctx.Expr(label.source), **more))
             else :
                 var = label.source
+                nest.append(ctx.AssignItem(var, pvar, path, **more))
             match.append((path, var))
             ctx.bound[label.source] = var
-        pattern = ctx.Pattern(self, self._fold(match), placetype)
-        ctx.sub[place.name].append(pattern)
-        node = ctx.ForeachToken(ctx.marking, place.name, pattern, **more)
-        nest.append(node)
+        ctx.sub[place.name].append(ctx.Pattern(self, self._fold(match), placetype))
         if guard :
-            child = ctx.IfGuard(ctx.And(guard, **more), **more)
-            node.body.append(child)
-            node = child
-        return node.body
+            node = ctx.IfGuard(ctx.And(guard, **more), **more)
+            nest.append(node)
+            nest = node.body
+        return nest
     def __astout__ (self, nest, place, ctx, **more) :
         toadd = []
         placetype = place.type or self._none()

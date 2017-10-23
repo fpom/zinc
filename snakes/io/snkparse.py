@@ -79,16 +79,18 @@ class snkParser(Parser):
 
     @tatsumasu()
     def _spec_(self):  # noqa
-        with self._optional():
+
+        def block0():
             self._nl_()
+        self._closure(block0)
         self._token('lang')
         self._text_()
         self.name_last_node('lang')
         self._nl_()
 
-        def block2():
+        def block3():
             self._decl_()
-        self._closure(block2)
+        self._closure(block3)
         self.name_last_node('declare')
         self._token('net')
         self._text_()
@@ -96,17 +98,19 @@ class snkParser(Parser):
         self._token(':')
         self._nl_()
 
-        def block5():
+        def block6():
             with self._choice():
                 with self._option():
                     self._trans_()
                 with self._option():
                     self._place_()
                 self._error('no available options')
-        self._positive_closure(block5)
+        self._positive_closure(block6)
         self.name_last_node('nodes')
-        with self._optional():
+
+        def block8():
             self._nl_()
+        self._closure(block8)
         self._check_eof()
         self.ast._define(
             ['declare', 'lang', 'net', 'nodes'],
@@ -115,8 +119,10 @@ class snkParser(Parser):
 
     @tatsumasu()
     def _decl_(self):  # noqa
-        with self._optional():
+
+        def block0():
             self._nl_()
+        self._closure(block0)
         self._token('declare')
         self._text_()
         self.name_last_node('source')
@@ -128,8 +134,10 @@ class snkParser(Parser):
 
     @tatsumasu()
     def _place_(self):  # noqa
-        with self._optional():
+
+        def block0():
             self._nl_()
+        self._closure(block0)
         self._token('place')
         self._text_()
         self.name_last_node('name')
@@ -140,12 +148,12 @@ class snkParser(Parser):
             self._token('=')
             with self._group():
 
-                def sep3():
+                def sep4():
                     self._token(',')
 
-                def block3():
+                def block4():
                     self._token_()
-                self._positive_join(block3, sep3)
+                self._positive_join(block4, sep4)
             self.name_last_node('tokens')
         self._nl_()
         self.ast._define(
@@ -202,8 +210,10 @@ class snkParser(Parser):
 
     @tatsumasu()
     def _trans_(self):  # noqa
-        with self._optional():
+
+        def block0():
             self._nl_()
+        self._closure(block0)
         self._token('trans')
         self._text_()
         self.name_last_node('name')
@@ -213,9 +223,9 @@ class snkParser(Parser):
         self._token(':')
         self._nl_()
 
-        def block3():
+        def block4():
             self._arc_()
-        self._positive_closure(block3)
+        self._positive_closure(block4)
         self.name_last_node('arcs')
         self.ast._define(
             ['arcs', 'guard', 'name'],
@@ -224,8 +234,10 @@ class snkParser(Parser):
 
     @tatsumasu()
     def _arc_(self):  # noqa
-        with self._optional():
+
+        def block0():
             self._nl_()
+        self._closure(block0)
         with self._group():
             with self._choice():
                 with self._option():

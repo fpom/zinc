@@ -89,3 +89,33 @@ net "test net" :
         < p1 var   = x
         < p2 !expr = x+1
         > p3 val   = 2
+    # tuples
+    place p5 (int, int)
+    place p6 (str, (int, int), bool)
+    # input/output and nested
+    trans t17 :
+        < p5 (var, var) = (x, y)
+        < p6 (var, (var, var), var) = (z, (x, y), b)
+        > p6 (expr, (var, var), expr) = ({"%s+%s" % (x,y)}, (x, y), {x==y})
+    # partially matched tuples
+    trans t18 :
+        < p5 var = x
+        > p6 (expr, var, expr) = ({str(x)}, x, {max(x)>0})
+    # tests
+    trans t19 :
+        < p5 ?(var, val) = (x, 0)
+        > p6 ?(var, expr, val) = (x, {(x, x)}, True)
+    # multiarc
+    trans t20 :
+        < p5 (var, val) = (x, 0)
+        < p5 var = y
+        > p6 (val, var, val) = (x, y, True)
+        > p6 (var, (var, expr), val) = (x, (x, {x-1}), True)
+    # untyped :
+    trans t21 x < y :
+        < p4 (var, var) = (x, y)
+        > p4 (var, var) = (y, x)
+    # # inhibitor
+    # trans t22 :
+    #     < p5 !(var, val) = (x, 0)
+    #     > p4 (var, expr) = (x, {x+1})

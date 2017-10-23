@@ -4,20 +4,20 @@
 @@whitespace :: /[\t ]+/
 
 spec =
-    [nl]
+    {nl}
     "lang" lang:text nl
     declare:{decl}
     "net" net:text ":" nl
         nodes:{trans|place}+
-    [nl]$
+    {nl}$
     ;
 
 decl =
-    [nl] "declare" source:text nl
+    {nl} "declare" source:text nl
     ;
 
 place =
-    [nl] "place" name:text [type:placetype] ["=" tokens:(","%{ token }+)] nl
+    {nl} "place" name:text [type:placetype] ["=" tokens:(","%{ token }+)] nl
     ;
 
 placetype =
@@ -35,12 +35,12 @@ token =
     ;
 
 trans =
-    [nl] "trans" name:text [guard:/[^:]+/] ":" nl
+    {nl} "trans" name:text [guard:/[^:]+/] ":" nl
     arcs:{arc}+
     ;
 
 arc =
-    [nl] way:("<" | ">") place:text [mod:arcmod] kind:arckind "=" label:tail nl
+    {nl} way:("<" | ">") place:text [mod:arcmod] kind:arckind "=" label:tail nl
     ;
 
 arckind = "val" | "var" | "expr" | "flush" | "fill" | tuple

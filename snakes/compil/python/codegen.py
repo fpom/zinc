@@ -100,6 +100,10 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_Assign (self, node) :
         self.fill("%s = " % node.variable)
         self.visit(node.expr)
+    def visit_AssignItem (self, node) :
+        self.fill("%s = %s" % (node.variable, node.container))
+        for p in node.path :
+            self.write("[%s]" % p)
     def visit_IfInput (self, node) :
         self.fill("if %s:" % " and ".join("%s(%r)" % (node.marking, p.name)
                                           for p in node.places))
@@ -111,8 +115,9 @@ class CodeGenerator (ast.CodeGenerator) :
         self.fill("if %s not in %s(%r):" % (node.token, node.marking, node.place))
         self.children_visit(node.body, True)
     def visit_IfNoTokenSuchThat (self, node) :
-        self.fill("if not any(%s for %s in %s(%r)):"
-                  % (node.guard, node.variable, node.marking, node.place))
+        self.fill("if not any(")
+        self.visit(node.guard)
+        self.write(" for %s in %s(%r)):" % (node.variable, node.marking, node.place))
         self.children_visit(node.body, True)
     def visit_IfPlace (self, node) :
         self.fill("if %s == %s(%r):" % (node.variable, node.marking, node.place))
@@ -128,11 +133,7 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_GetPlace (self, node) :
         self.fill("%s = %s(%r)" % (node.variable, node.marking, node.place))
     def visit_ForeachToken (self, node) :
-        if isinstance(node.variable, ast.Pattern) :
-            self.fill("for %s in %s(%r):" % (self._pattern(node.variable.matcher),
-                                             node.marking, node.place))
-        else :
-            self.fill("for %s in %s(%r):" % (node.variable, node.marking, node.place))
+        self.fill("for %s in %s(%r):" % (node.variable, node.marking, node.place))
         self.children_visit(node.body, True)
     def visit_Expr (self, node) :
         self.write(node.source)
@@ -148,32 +149,33 @@ class CodeGenerator (ast.CodeGenerator) :
         self.visit(node.right)
         self.write(")")
     def visit_IfGuard (self, node) :
-        if isinstance(node.guard, ast.AST) :
-            self.fill("if ")
-            self.visit(node.guard)
-            self.write(":")
-        else :
-            self.fill("if %s:" % node.guard)
+        self.fill("if ")
+        self.visit(node.guard)
+        self.write(":")
         self.children_visit(node.body, True)
     def _matchtype (self, var, typ) :
         if typ is None :
             pass
         elif isinstance(typ, tuple) :
-            yield "isinstance(%s, tuple)" % var
-            yield "len(%s) == %s" % (var, len(typ))
+            yield True, "isinstance(%s, tuple)" % var
+            yield True, "len(%s) == %s" % (var, len(typ))
             for i, sub in enumerate(typ) :
                 for cond in self._matchtype("%s[%s]" % (var, i), sub) :
                     yield cond
         elif typ.endswith("()") :
-            yield "%s(%s)" % (typ[:-2], var)
+            yield False, "%s(%s)" % (typ[:-2], var)
         else :
-            yield "isinstance(%s, %s)" % (var, typ)
+            yield False, "isinstance(%s, %s)" % (var, typ)
     def visit_IfType (self, node) :
-        if isinstance(node.token, str) :
-            var = node.token
+        match = list(c[1] for c in self._matchtype(node.token, node.place.type))
+        if not match :
+            self.children_visit(node.body, False)
         else :
-            var = node.token.source
-        match = list(self._matchtype(var, node.place.type))
+            self.fill("if %s:" % " and ".join(match))
+            self.children_visit(node.body, True)
+    def visit_IfTuple (self, node) :
+        match = list(c[1] for c in self._matchtype(node.token, node.place.type)
+                     if c[0])
         if not match :
             self.children_visit(node.body, False)
         else :
@@ -280,9 +282,9 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write("])")
     def visit_SuccProcTable (self, node) :
         self.fill("# map transitions names to successor procs")
-        self.fill("# None maps to all-transitions proc")
+        self.fill("# '' maps to all-transitions proc")
         self.fill("succproc = {")
-        for i, (trans, name) in enumerate(self.succproc.items()) :
+        for i, (trans, name) in enumerate(sorted(self.succproc.items())) :
             if i == 0 == len(self.succproc) - 1 :
                 self.write("%r: %s}" % (trans, name))
             elif i == 0 :
@@ -294,9 +296,9 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write("\n")
     def visit_SuccFuncTable (self, node) :
         self.fill("# map transitions names to successor funcs")
-        self.fill("# None maps to all-transitions func")
+        self.fill("# '' maps to all-transitions func")
         self.fill("succfunc = {")
-        for i, (trans, name) in enumerate(self.succfunc.items()) :
+        for i, (trans, name) in enumerate(sorted(self.succfunc.items())) :
             if i == 0 == len(self.succfunc) - 1 :
                 self.write("%r: %s}" % (trans, name))
             elif i == 0 :

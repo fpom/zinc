@@ -32,9 +32,9 @@ class _Record (object) :
                 setattr(self, name, value)
                 self._fields.append(name)
             else :
-                raise TypeError("expected type %r for argument %r of %s, had %r"
-                                % (param.annotation.__name__, name,
-                                   self.__class__.__name__, value.__class__.__name__))
+                raise TypeError("unexpected type %r for argument %r of %s"
+                                % (value.__class__.__name__, name,
+                                   self.__class__.__name__, ))
     def _dump (self, out) :
         out.write("%s(" % self.__class__.__name__)
         for field in self._fields :
@@ -171,11 +171,11 @@ class DefineMarking (AST) :
         AST.__init__(self, places, **extra)
 
 class SuccProcName (AST) :
-    def __init__ (self, trans:[str, None]=None, **extra) :
+    def __init__ (self, trans:str="", **extra) :
         AST.__init__(self, trans, **extra)
 
 class SuccFuncName (AST) :
-    def __init__ (self, trans:[str, None]=None, **extra) :
+    def __init__ (self, trans:str="", **extra) :
         AST.__init__(self, trans, **extra)
 
 class InitName (AST) :
@@ -189,6 +189,10 @@ class Expr (AST) :
 class Assign (AST) :
     def __init__ (self, variable:str, expr:Expr, **extra) :
         AST.__init__(self, variable, expr, **extra)
+
+class AssignItem (AST) :
+    def __init__ (self, variable:str, container:str, path:list, **extra) :
+        AST.__init__(self, variable, container, path, **extra)
 
 class DefSuccProc (AST) :
     def __init__ (self, name:SuccProcName, marking:str, succ:str,
@@ -244,13 +248,12 @@ class IfNoToken (AST) :
         AST.__init__(self, marking, place, token, body, **extra)
 
 class IfNoTokenSuchThat (AST) :
-    def __init__ (self, marking:str, place:str, variable:str, guard:str,
+    def __init__ (self, marking:str, place:str, variable:str, guard:Expr,
                   body:list=[], **extra) :
         AST.__init__(self, marking, place, variable, guard, body, **extra)
 
 class ForeachToken (AST) :
-    def __init__ (self, marking:str, place:str, variable:[str, Pattern],
-                  body:list=[], **extra) :
+    def __init__ (self, marking:str, place:str, variable:str, body:list=[], **extra) :
         AST.__init__(self, marking, place, variable, body, **extra)
 
 class IfGuard (AST) :
@@ -258,6 +261,10 @@ class IfGuard (AST) :
         AST.__init__(self, guard, body, **extra)
 
 class IfType (AST) :
+    def __init__ (self, place:[Place, record], token:str, body:list=[], **extra) :
+        AST.__init__(self, place, token, body, **extra)
+
+class IfTuple (AST) :
     def __init__ (self, place:[Place, record], token:str, body:list=[], **extra) :
         AST.__init__(self, place, token, body, **extra)
 
@@ -347,7 +354,7 @@ class CodeGenerator (object) :
         if node.source :
             self.fill(node.source + "\n")
     def visit_SuccProcName (self, node) :
-        if node.trans is None :
+        if not node.trans :
             name = "addsucc"
         elif node.trans not in self.succproc :
             name = "addsucc_%03u" % (len(self.succproc) + 1)
@@ -356,7 +363,7 @@ class CodeGenerator (object) :
         self.succproc[node.trans] = name
         self.write(name)
     def visit_SuccFuncName (self, node) :
-        if node.trans is None :
+        if not node.trans :
             name = "succ"
         elif node.trans not in self.succfunc :
             name = "succ_%03u" % (len(self.succfunc) + 1)

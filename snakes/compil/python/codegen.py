@@ -1,6 +1,5 @@
 import inspect
-import snakes.compil.ast as ast
-from snakes.compil import CompilationError
+from snakes.compil import ast, CompilationError
 
 ##
 ## to be included in the generated source code
@@ -99,7 +98,8 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_Declare (self, node) :
         pass
     def visit_Assign (self, node) :
-        self.fill("%s = %s" % (node.variable, node.expr))
+        self.fill("%s = " % node.variable)
+        self.visit(node.expr)
     def visit_IfInput (self, node) :
         self.fill("if %s:" % " and ".join("%s(%r)" % (node.marking, p.name)
                                           for p in node.places))
@@ -129,18 +129,24 @@ class CodeGenerator (ast.CodeGenerator) :
         self.fill("%s = %s(%r)" % (node.variable, node.marking, node.place))
     def visit_ForeachToken (self, node) :
         if isinstance(node.variable, ast.Pattern) :
-            self.fill("for %s in %s(%r):" % (self._pattern(node.variable.tuple),
+            self.fill("for %s in %s(%r):" % (self._pattern(node.variable.matcher),
                                              node.marking, node.place))
         else :
             self.fill("for %s in %s(%r):" % (node.variable, node.marking, node.place))
         self.children_visit(node.body, True)
+    def visit_Expr (self, node) :
+        self.write(node.source)
     def visit_And (self, node) :
         for i, item in enumerate(node.items) :
             if i > 0 :
                 self.write(" and ")
             self.visit(item)
     def visit_Eq (self, node) :
-        self.write("(%s) == (%s)" % (node.left, node.right))
+        self.write("(")
+        self.visit(node.left)
+        self.write(") == (")
+        self.visit(node.right)
+        self.write(")")
     def visit_IfGuard (self, node) :
         if isinstance(node.guard, ast.AST) :
             self.fill("if ")
@@ -196,7 +202,7 @@ class CodeGenerator (ast.CodeGenerator) :
                         self.write(", ")
                     first = False
                     if isinstance(tok, ast.Pattern) :
-                        self.write(self._pattern(tok.tuple))
+                        self.write(self._pattern(tok.matcher))
                     else :
                         self.write(tok)
             self.write("])")

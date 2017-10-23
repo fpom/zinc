@@ -80,7 +80,7 @@ class Transition (Node) :
                                    BLAME=ctx.ArcBlame(place.name, self.name, label))
         # guard
         if self.guard :
-            last.append(ctx.IfGuard(self.guard, [],
+            last.append(ctx.IfGuard(ctx.Expr(self.guard),
                                     BLAME=ctx.GuardBlame(self.name, self.guard)))
             last = last[-1].body
         # output arcs
@@ -118,7 +118,7 @@ class Transition (Node) :
             for place, tokens in ctx.sub.items() :
                 ctx.test[place].extend(tokens)
         else :
-            ctx.test = None
+            ctx.test = {}
         last.append(ctx.AddSuccIfEnoughTokens(ctx.succ, ctx.marking, ctx.test,
                                               ctx.sub, ctx.add,
                                               BLAME=ctx.TransitionBlame(self.name)))

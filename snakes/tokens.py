@@ -1,12 +1,11 @@
 from snakes.data import hashable, mset
-from snakes.compil import ast
 
 class Token (object) :
     def __init__ (self, code) :
         self.code = code
-    def __ast__ (self, place) :
-        return ast.Expr(self.code,
-                        BLAME=ast.TokenBlame(place, self.code))
+    def __ast__ (self, place, ctx) :
+        return ctx.Expr(self.code,
+                        BLAME=ctx.TokenBlame(place, self.code))
     def __str__ (self) :
         return "(%s)" % self.code
     def __repr__ (self) :
@@ -90,10 +89,10 @@ class Marking (dict) :
         return all(self(k) >= other(k) for k in other.keys())
     def __gt__ (self, other) :
         return (self != other) and (self >= other)
-    def __ast__ (self) :
+    def __ast__ (self, ctx) :
         m = {}
         for place, tokens in self.items() :
             if tokens :
-                m[place] = [t.__ast__(place) for t in tokens]
-        return [ast.PlaceMarking(place, tokens, BLAME=ast.PlaceBlame(place, tokens))
+                m[place] = [t.__ast__(place, ctx) for t in tokens]
+        return [ctx.PlaceMarking(place, tokens, BLAME=ctx.PlaceBlame(place, tokens))
                 for place, tokens in m.items()]

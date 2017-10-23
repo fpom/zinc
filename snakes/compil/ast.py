@@ -1,4 +1,8 @@
-import time, io
+import time, io, inspect
+
+from snakes.data import mset, iterate, record
+from snakes.arcs import Tuple
+from snakes.nodes import Place
 
 try:
     import autopep8
@@ -10,13 +14,27 @@ except :
 ##
 
 class _Record (object) :
-    def __init__ (self, *largs, **kargs) :
-        for key in self._fields :
-            setattr(self, key, None)
-        for key, val in zip(self._fields, largs) :
-            setattr(self, key, val)
-        for key, val in kargs.items() :
-            setattr(self, key, val)
+    def __init__ (self, *l, **k) :
+        sign = inspect.signature(self.__init__)
+        args = sign.bind(*l, **k).arguments
+        self._fields = []
+        for name, value in args.items() :
+            # name, "=", value, "as", sign.parameters[name].annotation)
+            param = sign.parameters[name]
+            if param.kind == param.VAR_KEYWORD :
+                for n, v in value.items() :
+                    setattr(self, n, v)
+            elif (param.annotation == sign.empty
+                  or (value is None and None in iterate(param.annotation))
+                  or any(isinstance(value, a) for a in iterate(param.annotation))) :
+                if not value and param.annotation in (list, tuple, dict, set, mset) :
+                    value = param.annotation()
+                setattr(self, name, value)
+                self._fields.append(name)
+            else :
+                raise TypeError("expected type %r for argument %r of %s, had %r"
+                                % (param.annotation.__name__, name,
+                                   self.__class__.__name__, value.__class__.__name__))
     def _dump (self, out) :
         out.write("%s(" % self.__class__.__name__)
         for field in self._fields :
@@ -63,35 +81,41 @@ class _Record (object) :
 ##
 
 class Blame (_Record) :
-    _fields = []
+    pass
 
 class ArcBlame (Blame) :
-    _fields = ["source", "target", "label"]
+    def __init__ (self, source:str, target:str, label, **extra) :
+        Blame.__init__(self, source, target, label, **extra)
     def __str__ (self) :
         return "label of arc %r -> %r: %r" % (self.source, self.target, self.label)
 
 class TokenBlame (Blame) :
-    _fields = ["place", "token"]
+    def __init__ (self, place:str, token:str, **extra) :
+        Blame.__init__(self, place, token, **extra)
     def __str__ (self) :
         return "token in place %r: %r" % (self.place, self.token)
 
 class PlaceBlame (Blame) :
-    _fields = ["place", "marking"]
+    def __init__ (self, place:str, marking:list, **extra) :
+        Blame.__init__(self, place, marking, **extra)
     def __str__ (self) :
         return "marking of place %r: %r" % (self.place, self.marking)
 
 class GuardBlame (Blame) :
-    _fields = ["trans", "guard"]
+    def __init__ (self, trans:str, guard:str, **extra) :
+        Blame.__init__(self, trans, guard, **extra)
     def __str__ (self) :
         return "guard of transition %r: %r" % (self.trans, self.guard)
 
 class ContextBlame (Blame) :
-    _fields = ["code"]
+    def __init__ (self, code:str, **extra) :
+        Blame.__init__(self, code, **extra)
     def __str__ (self) :
         return "declaration: %r" % self.code
 
 class TransitionBlame (Blame) :
-    _fields = ["transition"]
+    def __init__ (self, transition:str, **extra) :
+        Blame.__init__(self, transition, **extra)
     def __str__ (self) :
         return "transition: %r" % self.transition
 
@@ -100,6 +124,8 @@ class TransitionBlame (Blame) :
 ##
 
 class AST (_Record) :
+    def __str__ (self) :
+        raise TypeError("cannot coerce %s to str" % self.__class__.__name__)
     def _locate_children (self, line, column) :
         found = []
         for field in self._fields :
@@ -133,118 +159,135 @@ class AST (_Record) :
                 return node.BLAME
 
 class Module (AST) :
-    _fields = ["name", "body"]
+    def __init__ (self, name:str, body:list=[], **extra) :
+        AST.__init__(self, name, body, **extra)
 
 class Context (AST) :
-    _fields = ["source"]
+    def __init__ (self, source:str, **extra) :
+        AST.__init__(self, source, **extra)
 
 class DefineMarking (AST) :
-    _fields = ["places"]
+    def __init__ (self, places:list, **extra) :
+        AST.__init__(self, places, **extra)
 
 class SuccProcName (AST) :
-    _fields = ["trans"]
+    def __init__ (self, trans:[str, None]=None, **extra) :
+        AST.__init__(self, trans, **extra)
 
 class SuccFuncName (AST) :
-    _fields = ["trans"]
+    def __init__ (self, trans:[str, None]=None, **extra) :
+        AST.__init__(self, trans, **extra)
 
 class InitName (AST) :
-    _fields = []
-
-class Assign (AST) :
-    _fields = ["variable", "expr"]
+    def __init__ (self, **extra) :
+        AST.__init__(self, **extra)
 
 class Expr (AST) :
-    _fields = ["source"]
+    def __init__ (self, source:str, **extra) :
+        AST.__init__(self, source, **extra)
 
-#     def __hash__ (self) :
-#         return hash(self.source) ^ hash(self.__class__.__name__)
-#     def __eq__ (self, other) :
-#         try :
-#             return (self.__class__ == other.__class__) and (self.source == other.source)
-#         except :
-#             return False
-#     def __ne__ (self, other) :
-#         return not self.__eq__(other)
-#     def __repr__ (self) :
-#         return "%s(%r)" % (self.__class__.__name__, self.source)
-
-# class Var (Expr) :
-#     _fields = ["source"]
-
-# class Val (Expr) :
-#     _fields = ["source"]
+class Assign (AST) :
+    def __init__ (self, variable:str, expr:Expr, **extra) :
+        AST.__init__(self, variable, expr, **extra)
 
 class DefSuccProc (AST) :
-    _fields = ["name", "marking", "succ", "body"]
+    def __init__ (self, name:SuccProcName, marking:str, succ:str,
+                  body:list=[], **extra) :
+        AST.__init__(self, name, marking, succ, body, **extra)
 
 class DefSuccFunc (AST) :
-    _fields = ["name", "marking", "body"]
+    def __init__ (self, name:SuccFuncName, marking:str, body:list=[], **extra) :
+        AST.__init__(self, name, marking, body, **extra)
 
 class DefInitFunc (AST) :
-    _fields = ["name", "marking"]
+    def __init__ (self, name:InitName, marking:list, **extra) :
+        AST.__init__(self, name, marking, **extra)
 
 class Declare (AST) :
-    _fields = ["variables"]
+    def __init__ (self, variables:dict, **extra) :
+        AST.__init__(self, variables, **extra)
 
-class Eq (AST) :
-    _fields = ["left", "right"]
+class Eq (Expr) :
+    def __init__ (self, left:Expr, right:Expr, **extra) :
+        AST.__init__(self, left, right, **extra)
 
-class And (AST) :
-    _fields = ["items"]
+class And (Expr) :
+    def __init__ (self, items:list, **extra) :
+        AST.__init__(self, items, **extra)
 
 class Pattern (AST) :
-    _fields = ["arc", "tuple", "place"]
+    def __init__ (self, arc:Tuple, matcher:tuple, placetype:tuple, **extra) :
+        AST.__init__(self, arc, matcher, placetype, **extra)
 
 class IfInput (AST) :
-    _fields = ["marking", "places", "body"]
+    def __init__ (self, marking:str, places:set, body:list=[], **extra) :
+        AST.__init__(self, marking, places, body, **extra)
 
 class IfToken (AST) :
-    _fields = ["marking", "place", "token", "body"]
+    def __init__ (self, marking:str, place:str, token:str, body:list=[], **extra) :
+        AST.__init__(self, marking, place, token, body, **extra)
 
 class IfPlace (AST) :
-    _fields = ["marking", "place", "variable", "body"]
+    def __init__ (self, marking:str, place:str, variable:str, body:list=[], **extra) :
+        AST.__init__(self, marking, place, variable, body, **extra)
 
 class GetPlace (AST) :
-    _fields = ["variable", "marking", "place"]
+    def __init__ (self, variable:str, marking:str, place:str, **extra) :
+        AST.__init__(self, variable, marking, place, **extra)
 
 class IfAllType (AST) :
-    _fields = ["place", "variable", "body"]
+    def __init__ (self, place:Place, variable:str, body:list=[], **extra) :
+        AST.__init__(self, place, variable, body, **extra)
 
 class IfNoToken (AST) :
-    _fields = ["marking", "place", "token", "body"]
+    def __init__ (self, marking:str, place:str, token:str, body:list=[], **extra) :
+        AST.__init__(self, marking, place, token, body, **extra)
 
 class IfNoTokenSuchThat (AST) :
-    _fields = ["marking", "place", "variable", "guard", "body"]
+    def __init__ (self, marking:str, place:str, variable:str, guard:str,
+                  body:list=[], **extra) :
+        AST.__init__(self, marking, place, variable, guard, body, **extra)
 
 class ForeachToken (AST) :
-    _fields = ["marking", "place", "variable", "body"]
+    def __init__ (self, marking:str, place:str, variable:[str, Pattern],
+                  body:list=[], **extra) :
+        AST.__init__(self, marking, place, variable, body, **extra)
 
 class IfGuard (AST) :
-    _fields = ["guard", "body"]
+    def __init__ (self, guard:Expr, body:list=[], **extra) :
+        AST.__init__(self, guard, body, **extra)
 
 class IfType (AST) :
-    _fields = ["place", "token", "body"]
+    def __init__ (self, place:[Place, record], token:str, body:list=[], **extra) :
+        AST.__init__(self, place, token, body, **extra)
 
 class AddSuccIfEnoughTokens (AST) :
-    _fields = ["succ", "old", "test", "sub", "add"]
+    def __init__ (self, succ:str, old:str, test:dict, sub:dict, add:dict, **extra) :
+        AST.__init__(self, succ, old, test, sub, add, **extra)
 
 class InitSucc (AST) :
-    _fields = ["name"]
+    def __init__ (self, name:str, **extra) :
+        AST.__init__ (self, name, **extra)
 
 class CallSuccProc (AST) :
-    _fields = ["name", "marking", "succ"]
+    def __init__ (self, name:SuccProcName, marking:str, succ:str, **extra) :
+        AST.__init__(self, name, marking, succ, **extra)
 
 class ReturnSucc (AST) :
-    _fields = ["name"]
+    def __init__ (self, name:str, **extra) :
+        AST.__init__(self, name, **extra)
 
 class SuccProcTable (AST) :
-    _fields = []
+    def __init__ (self, **extra) :
+        AST.__init__(self, **extra)
 
 class SuccFuncTable (AST) :
-    _fields = []
+    def __init__ (self, **extra) :
+        AST.__init__(self, **extra)
 
 class PlaceMarking (AST) :
-    _fields = ["place", "tokens"]
+    def __init__ (self, place:str, tokens:list, **extra) :
+        AST.__init__(self, place, tokens, **extra)
 
 ##
 ##

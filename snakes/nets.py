@@ -25,14 +25,14 @@ class PetriNet (object) :
                          + [ctx.DefineMarking(list(self._place.values()))])
         for name, trans in sorted(self._trans.items()) :
             mod.body.extend(trans.__ast__(Context(net=self)))
-        mod.body.append(ctx.DefSuccProc(ctx.SuccProcName(), "marking", "succ", [
+            mod.body.append(ctx.DefSuccProc(ctx.SuccProcName(), "marking", "succ", [
             ctx.CallSuccProc(ctx.SuccProcName(t.name), "marking", "succ")
             for t in self._trans.values()]))
         mod.body.append(ctx.DefSuccFunc(ctx.SuccFuncName(), "marking", [
             ctx.InitSucc("succ"),
             ctx.CallSuccProc(ctx.SuccProcName(), "marking", "succ"),
             ctx.ReturnSucc("succ")]))
-        marking = self.get_marking().__ast__()
+        marking = self.get_marking().__ast__(Context(net=self))
         mod.body.extend([ctx.DefInitFunc(ctx.InitName(), marking),
                          ctx.SuccProcTable(),
                          ctx.SuccFuncTable()])

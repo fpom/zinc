@@ -9,7 +9,7 @@ MAX = 5
 net "test net" :
     place p1 int = 0, 1, 2
     place p2 int = 1, 2, 3
-    place p3 int = MAX, (MAX+1)
+    place p3 int = MAX, {MAX+1}
     place p4
     # values
     trans t01 :
@@ -82,7 +82,7 @@ net "test net" :
     # inhibitor variable
     trans t15 :
         < p1 var       = x
-        < p2 !(y<x)var = y
+        < p2 ![y<x]var = y
         > p3 val       = 2
     # inhibitor expression
     trans t16 :

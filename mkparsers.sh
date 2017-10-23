@@ -1,6 +1,11 @@
 find snakes -name "*.ebnf" | while read EBNF
 do
-  echo "### $EBNF"
   TARGET=$(dirname $EBNF)/$(basename $EBNF .ebnf)parse.py
-  tatsu -o $TARGET $EBNF
+  if test "$EBNF" -nt "$TARGET"
+  then
+    echo "### $EBNF"
+    tatsu -o $TARGET $EBNF
+  else
+    echo "... $EBNF"
+  fi
 done

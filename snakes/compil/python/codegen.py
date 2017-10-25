@@ -109,18 +109,19 @@ class CodeGenerator (ast.CodeGenerator) :
                                           for p in node.places))
         self.children_visit(node.body, True)
     def visit_IfToken (self, node) :
-        self.fill("if %s in %s(%r):" % (node.token, node.marking, node.place))
+        self.fill("if %s in %s(%r):" % (node.token, node.marking, node.place.name))
         self.children_visit(node.body, True)
     def visit_IfNoToken (self, node) :
-        self.fill("if %s not in %s(%r):" % (node.token, node.marking, node.place))
+        self.fill("if %s not in %s(%r):" % (node.token, node.marking, node.place.name))
         self.children_visit(node.body, True)
     def visit_IfNoTokenSuchThat (self, node) :
         self.fill("if not any(")
         self.visit(node.guard)
-        self.write(" for %s in %s(%r)):" % (node.variable, node.marking, node.place))
+        self.write(" for %s in %s(%r)):"
+                   % (node.variable, node.marking, node.place.name))
         self.children_visit(node.body, True)
     def visit_IfPlace (self, node) :
-        self.fill("if %s == %s(%r):" % (node.variable, node.marking, node.place))
+        self.fill("if %s == %s(%r):" % (node.variable, node.marking, node.place.name))
         self.children_visit(node.body, True)
     def visit_IfAllType (self, node) :
         if node.place.type :
@@ -131,7 +132,7 @@ class CodeGenerator (ast.CodeGenerator) :
         else :
             self.children_visit(node.body, False)
     def visit_GetPlace (self, node) :
-        self.fill("%s = %s(%r)" % (node.variable, node.marking, node.place))
+        self.fill("%s = %s(%r)" % (node.variable, node.marking, node.place.name))
     def visit_ForeachToken (self, node) :
         self.fill("for %s in %s(%r):" % (node.variable, node.marking, node.place.name))
         self.children_visit(node.body, True)

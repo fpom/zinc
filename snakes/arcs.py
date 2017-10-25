@@ -45,14 +45,14 @@ class _AstBindTestConsume (_Ast) :
         ctx.sub[place.name].append(varname)
         if isnew :
             nest.append(ctx.Assign(varname, ctx.Expr(self.source), **more))
-        node = ctx.IfToken(ctx.marking, place.name, varname, **more)
+        node = ctx.IfToken(ctx.marking, place, varname, **more)
         nest.append(node)
         return node.body
     def __astnotin__ (self, nest, place, ctx, guard, **more) :
         varname, isnew = self._bind(place.type, ctx)
         if isnew :
             nest.append(ctx.Assign(varname, ctx.Expr(self.source), **more))
-        node = ctx.IfNoToken(ctx.marking, place.name, varname, **more)
+        node = ctx.IfNoToken(ctx.marking, place, varname, **more)
         nest.append(node)
         return node.body
 
@@ -99,22 +99,22 @@ class Variable (InputArc, OutputArc, _AstTypeProduce) :
         if isnew :
             node = ctx.ForeachToken(ctx.marking, place, varname, **more)
         else :
-            node = ctx.IfToken(ctx.marking, place.name, varname, **more)
+            node = ctx.IfToken(ctx.marking, place, varname, **more)
         nest.append(node)
         return node.body
     def __astnotin__ (self, nest, place, ctx, guard, **more) :
         varname, isnew = self._bind(place.type, ctx, self.source)
         if isnew and not guard :
-            node = ctx.IfEmpty(ctx.marking, place.name, **more)
+            node = ctx.IfEmpty(ctx.marking, place, **more)
             del ctx.declare[varname]
         elif isnew :
-            node = ctx.IfNoTokenSuchThat(ctx.marking, place.name, varname,
+            node = ctx.IfNoTokenSuchThat(ctx.marking, place, varname,
                                          ctx.Expr(guard), **more)
         elif guard :
             raise ConstraintError("inhibition guard forbidden for %r"
                                   " (bounded on another arc)" % self)
         else :
-            node = ctx.IfNoToken(ctx.marking, place.name, varname, **more)
+            node = ctx.IfNoToken(ctx.marking, place, varname, **more)
         nest.append(node)
         return node.body
 
@@ -143,10 +143,10 @@ class Flush (InputArc, _Ast) :
         varname, isnew = self._bind(("mset", place.type), ctx, self.source)
         ctx.sub[place.name].append(("mset", varname))
         if isnew :
-            node = ctx.GetPlace(varname, ctx.marking, place.name, **more)
+            node = ctx.GetPlace(varname, ctx.marking, place, **more)
             ret = nest
         else :
-            node = ctx.IfPlace(ctx.marking, place.name, varname, **more)
+            node = ctx.IfPlace(ctx.marking, place, varname, **more)
             ret = node.body
         nest.append(node)
         return ret
@@ -276,6 +276,7 @@ class Tuple (InputArc, OutputArc) :
             else :
                 var = label.source
                 nest.append(ctx.AssignItem(var, pvar, path, **more))
+                ctx.declare[var] = type
             match.append((path, var))
             ctx.bound[label.source] = var
         ctx.sub[place.name].append(ctx.Pattern(self, self._fold(match), placetype))

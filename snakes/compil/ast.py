@@ -228,15 +228,15 @@ class IfInput (AST) :
         AST.__init__(self, marking, places, body, **extra)
 
 class IfToken (AST) :
-    def __init__ (self, marking:str, place:str, token:str, body:list=[], **extra) :
+    def __init__ (self, marking:str, place:Place, token:str, body:list=[], **extra) :
         AST.__init__(self, marking, place, token, body, **extra)
 
 class IfPlace (AST) :
-    def __init__ (self, marking:str, place:str, variable:str, body:list=[], **extra) :
+    def __init__ (self, marking:str, place:Place, variable:str, body:list=[], **extra) :
         AST.__init__(self, marking, place, variable, body, **extra)
 
 class GetPlace (AST) :
-    def __init__ (self, variable:str, marking:str, place:str, **extra) :
+    def __init__ (self, variable:str, marking:str, place:Place, **extra) :
         AST.__init__(self, variable, marking, place, **extra)
 
 class IfAllType (AST) :
@@ -244,11 +244,11 @@ class IfAllType (AST) :
         AST.__init__(self, place, variable, body, **extra)
 
 class IfNoToken (AST) :
-    def __init__ (self, marking:str, place:str, token:str, body:list=[], **extra) :
+    def __init__ (self, marking:str, place:Place, token:str, body:list=[], **extra) :
         AST.__init__(self, marking, place, token, body, **extra)
 
 class IfNoTokenSuchThat (AST) :
-    def __init__ (self, marking:str, place:str, variable:str, guard:Expr,
+    def __init__ (self, marking:str, place:Place, variable:str, guard:Expr,
                   body:list=[], **extra) :
         AST.__init__(self, marking, place, variable, guard, body, **extra)
 

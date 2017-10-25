@@ -1,8 +1,7 @@
 from operator import attrgetter
-import collections
 
 from snakes.compil import ast
-from snakes import arcs
+from snakes import TypingError
 
 def S (text) :
     return '"%s"' % text.replace('"', '\\"')
@@ -38,7 +37,7 @@ class CodeGenerator (ast.CodeGenerator) :
         self.children_visit(node.body)
         self.fill(closing)
     def _typedef (self, typ, place) :
-        if typ is None :
+        if typ is None or typ in self.typedef :
             pass
         elif isinstance(typ, str) and typ.endswith("()") :
             self.typedef[typ] = "interface{}"
@@ -83,6 +82,7 @@ class CodeGenerator (ast.CodeGenerator) :
         name = self.initfunc = "Init"
         self.write(name)
     def visit_DefSuccProc (self, node) :
+        self.unused = set()
         self.fill("func ")
         self.visit(node.name)
         self.write(" (%s snk.Marking, %s snk.Set) {" % (node.marking, node.succ))
@@ -92,8 +92,15 @@ class CodeGenerator (ast.CodeGenerator) :
             else :
                 self.fill("// successors for all transitions")
         self.children_visit(node.body, True)
+        with self.indent() :
+            if self.unused :
+                self.fill("// work around 'declared and not used' compilation error")
+                self.fill("// variables are kept to be typechecked by the compiler")
+                for var in self.unused :
+                    self.fill("_ = %s" % var)
         self.fill("}\n")
     def visit_Declare (self, node) :
+        self.unused.update(node.variables)
         for var, typ in node.variables.items() :
             if isinstance(typ, tuple) and typ[0] == "mset" :
                 self.typedef[typ] = "snk.Mset"
@@ -102,10 +109,12 @@ class CodeGenerator (ast.CodeGenerator) :
         self.fill("%s = " % node.variable)
         self.visit(node.expr)
     def visit_AssignItem (self, node) :
+        self.unused.discard(node.container)
         self.fill("%s = %s" % (node.variable, node.container))
         for p in node.path :
             self.write("._%s" % p)
     def visit_Expr (self, node) :
+        self.unused.discard(node.source)
         self.write(node.source)
     def visit_IfInput (self, node) :
         self.fill("if %s.NotEmpty(%s) {"
@@ -113,21 +122,26 @@ class CodeGenerator (ast.CodeGenerator) :
         self.children_visit(node.body, True)
         self.fill("}")
     def visit_IfToken (self, node) :
+        self.unused.discard(node.token)
         self.fill("if %s.Get(%s).Count(%s) > 0 {"
-                  % (node.marking, S(node.place), node.token))
+                  % (node.marking, S(node.place.name), node.token))
         self.children_visit(node.body, True)
         self.fill("}")
     def visit_IfNoToken (self, node) :
+        self.unused.discard(node.token)
         self.fill("if %s.Get(%s).Count(%s) == 0 {"
-                  % (node.marking, S(node.place), node.token))
+                  % (node.marking, S(node.place.name), node.token))
         self.children_visit(node.body, True)
         self.fill("}")
     def visit_IfNoTokenSuchThat (self, node) :
         bvar = node.CTX.names.fresh()
+        tvar = node.CTX.names.fresh(base=node.variable)
         self.fill("%s := true" % bvar)
         self.fill("for %s := range %s.Iter(%s) {"
-                  % (node.variable, node.marking, S(node.place)))
+                  % (tvar, node.marking, S(node.place.name)))
         with self.indent() :
+            self.fill("%s = (%s).(%s)"
+                      % (node.variable, tvar, self.typedef[node.place.type]))
             self.fill("if ")
             self.visit(node.guard)
             self.write(" {")
@@ -140,7 +154,7 @@ class CodeGenerator (ast.CodeGenerator) :
         self.children_visit(node.body, True)
         self.fill("}")
     def visit_GetPlace (self, node) :
-        self.fill("%s = %s.Get(%s)" % (node.variable, node.marking, S(node.place)))
+        self.fill("%s = %s.Get(%s)" % (node.variable, node.marking, S(node.place.name)))
     def visit_ForeachToken (self, node) :
         var = node.NAMES.fresh(base=node.variable, add=True)
         self.fill("for %s := range %s.Iter(%s) {"
@@ -151,17 +165,19 @@ class CodeGenerator (ast.CodeGenerator) :
         self.children_visit(node.body, True)
         self.fill("}")
     def visit_IfPlace (self, node) :
+        self.unused.discard(node.variable)
         self.fill("if %s.Get(%s).Eq(%s) {"
-                  % (node.marking, S(node.place), node.variable))
+                  % (node.marking, S(node.place.name), node.variable))
         self.children_visit(node.body, True)
         self.fill("}")
     def visit_IfAllType (self, node) :
         if node.place.type :
+            self.unused.discard(node.variable)
             bvar = node.CTX.names.fresh()
             tvar = node.CTX.names.fresh()
             self.fill("%s := true" % bvar)
-            self.fill("for %s := range %s.Iter(%s) {"
-                      % (tvar, node.variable, S(node.place.name)))
+            self.fill("for %s := range %s.Iter() {"
+                      % (tvar, node.variable))
             with self.indent() :
                 self.fill("_, %s = (%s).(%s)"
                           % (bvar, tvar, self.typedef[node.place.type]))
@@ -191,6 +207,7 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write(")")
     def visit_IfType (self, node) :
         if isinstance(node.place.type, str) and node.place.type.endswith("()") :
+            self.unused.discard(node.token)
             self.fill("if %s(%s) {" % (node.place.type[:-2], node.token))
             self.children_visit(node.body, True)
             self.fill("}")
@@ -199,6 +216,7 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_IfTuple (self, node) :
         self.children_visit(node.body)
     def _pattern (self, matcher, placetype) :
+        self.unused.difference_update(matcher)
         return "%s{%s}" % (self.typedef[placetype],
                            ", ".join(self._pattern(m, t) if isinstance(m, tuple)
                                      else m for m, t in zip(matcher, placetype)))
@@ -221,9 +239,11 @@ class CodeGenerator (ast.CodeGenerator) :
                     self.fill("%s.Set(%s" % (name, S(place)))
                 self.write(", %s" % src)
                 found = True
+                self.unused.discard(src)
             if found :
                 self.write(")")
         for place, tokens in whole :
+            self.unused.discard(tokens)
             self.fill("%s.Update(%s, %s)" % (name, S(place), tokens))
     def visit_AddSuccIfEnoughTokens (self, node) :
         subtest = False

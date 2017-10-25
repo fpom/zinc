@@ -33,10 +33,10 @@ net "test net" :
     trans t05 x != y :
         < p1 var  = x
         < p1 var  = y
-        < p1 expr = abs(x - y)
+        < p1 expr = x - y
         > p2 var  = x
         > p2 expr = y+1
-        > p4 expr = abs(x - y)
+        > p4 expr = x - y
     # test on input
     trans t06 x != y :
         < p1 var  = x
@@ -110,8 +110,8 @@ net "test net" :
     trans t20 :
         < p5 (var, val) = (x, 0)
         < p5 var = y
-        > p6 (val, var, val) = (x, y, True)
-        > p6 (var, (var, expr), val) = (x, (x, {x-1}), true)
+        > p6 (val, var, val) = ({"hello"}, y, true)
+        > p6 (val, (var, expr), val) = ({"world"}, (x, {x-1}), true)
     # # inhibitor
     # trans t22 :
     #     < p5 !(var, val) = (x, 0)

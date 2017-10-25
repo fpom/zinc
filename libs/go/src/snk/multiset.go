@@ -49,6 +49,17 @@ func (self Mset) Copy () Mset {
 
 //+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Copy().Eq(snk.MakeMset(1, 2, 2, 3, 3, 3))
 
+func (self Mset) Len () int {
+	count := 0
+	for _, value := range self {
+		count += value
+	}
+	return count
+}
+
+//+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Len() == 6
+//+++ snk.Mset{}.Len() == 0
+
 func (self Mset) Mul (mul int) Mset {
 	copy := Mset{}
 	if mul <= 0 {

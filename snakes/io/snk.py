@@ -1,4 +1,4 @@
-import ast, collections
+import ast, collections, functools
 
 from snakes import nets, ParseError, SNAKESError
 from snakes.io import snkparse
@@ -119,6 +119,7 @@ class Parser (TupleParser) :
                 "var" : self.n.Variable,
                 "expr" : self.n.Expression,
                 "flush" : self.n.Flush,
+                "flush+" : functools.partial(self.n.Flush, notempty=True),
                 "fill" : self.n.Fill}
         def mktuple (kind, label) :
             if isinstance(kind, tuple) :

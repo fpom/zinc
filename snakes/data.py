@@ -142,6 +142,15 @@ class mset (Counter) :
             elif count < 0 :
                 raise ValueError("not enough occurrences")
         return new
+    def __add__ (self, other) :
+        """
+        >>> mset('abcd') + mset('ab') == mset('ab' + 'abcd')
+        True
+        """
+        new = self.__class__()
+        for key in set(self) | set(other) :
+            new[key] = self(key) + other(key)
+        return new
     @mutation
     def discard (self, other) :
         if not isinstance(other, mset) :

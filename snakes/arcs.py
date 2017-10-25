@@ -130,13 +130,16 @@ class MultiArc (InputArc, OutputArc) :
 
 class Flush (InputArc, _Ast) :
     _order = 15
-    def __init__ (self, name) :
+    def __init__ (self, name, notempty=False) :
         self.source = name
+        self.notempty = notempty
     def __repr__ (self) :
-        return "%s(%r)" % (self.__class__.__name__, self.source)
+        return "%s(%r, %s)" % (self.__class__.__name__, self.source, self.notempty)
     def vars (self) :
         return {self.source}
     def __astin__ (self, nest, place, ctx, **more) :
+        if self.notempty :
+            ctx.notempty.add(place)
         varname, isnew = self._bind(("mset", place.type), ctx, self.source)
         ctx.sub[place.name].append(("mset", varname))
         if isnew :

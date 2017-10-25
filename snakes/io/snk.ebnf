@@ -43,7 +43,7 @@ arc =
     {nl} way:("<" | ">") place:text [mod:arcmod] kind:arckind "=" label:tail nl
     ;
 
-arckind = "val" | "var" | "expr" | "flush" | "fill" | tuple
+arckind = "val" | "var" | "expr" | "flush+" | "flush" | "fill" | tuple
     ;
 
 arcmod =

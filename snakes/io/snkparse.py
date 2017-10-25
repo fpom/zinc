@@ -272,6 +272,8 @@ class snkParser(Parser):
             with self._option():
                 self._token('expr')
             with self._option():
+                self._token('flush+')
+            with self._option():
                 self._token('flush')
             with self._option():
                 self._token('fill')

@@ -65,7 +65,8 @@ net "test net" :
     # flush and fill arcs
     trans t11 len(m) > 0 :
         < p1 flush = m
-        > p2 fill  = m * 2
+        < p3 flush+ = n
+        > p2 fill  = m + n
     # test flush and test fill
     trans t12 len(m) > 0 :
         < p1 ?flush = m

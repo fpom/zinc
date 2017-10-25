@@ -36,6 +36,24 @@ func (self Marking) Set (place string, tokens ...interface{}) {
 //>>> list(sorted(m["p1"])) == [1, 2, 2, 3]
 //>>> list(sorted(m["p2"])) == [1, 1, 4]
 
+func (self Marking) Update (place string, tokens Mset) {
+	if _, found := self[place] ; found {
+		self[place].Add(tokens)
+	} else {
+		self[place] = tokens.Copy()
+	}
+}
+
+//### a := snk.Marking{}
+//... a.Set("p1", 1, 2, 2, 3)
+//... a.Update("p1", snk.MakeMset(1, 2, 2, 3))
+//... a.Update("p2", snk.MakeMset(1, 1, 4))
+//... b := snk.Marking{}
+//... b.Set("p1", 1, 2, 2, 3, 1, 2, 2, 3)
+//... b.Set("p2", 1, 1, 4)
+//... a.Eq(b)
+//=== true
+
 func (self Marking) Copy () Marking {
 	copy := Marking{}
 	for key, value := range self {

@@ -5,7 +5,7 @@ from snakes.compil.python.rename import rename
 
 NONETYPE = True
 
-def codegen (tree, output=None) :
+def ast2code (tree, output=None) :
     if output is None :
         out = io.StringIO()
     elif isinstance(output, str) :
@@ -18,7 +18,7 @@ def codegen (tree, output=None) :
         return gen
 
 def load (tree, name="net") :
-    gen = codegen(tree)
+    gen = ast2code(tree)
     ctx = {}
     try :
         exec(gen.output.getvalue(), ctx)

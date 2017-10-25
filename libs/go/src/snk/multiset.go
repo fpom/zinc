@@ -49,6 +49,19 @@ func (self Mset) Copy () Mset {
 
 //+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Copy().Eq(snk.MakeMset(1, 2, 2, 3, 3, 3))
 
+func (self Mset) Mul (mul int) Mset {
+	copy := Mset{}
+	if mul <= 0 {
+		return copy
+	}
+	for key, value := range self {
+		copy[key] = value * mul
+	}
+	return copy	
+}
+
+//+++ snk.MakeMset(1, 2, 2).Mul(2).Eq(snk.MakeMset(1, 1, 2, 2, 2, 2))
+
 func (self Mset) Add (other Mset) Mset {
 	for key, value := range other {
 		if count, found := self[key] ; found {

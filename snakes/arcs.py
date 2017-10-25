@@ -97,7 +97,7 @@ class Variable (InputArc, OutputArc, _AstTypeProduce) :
         varname, isnew = self._bind(place.type, ctx, self.source)
         ctx.sub[place.name].append(varname)
         if isnew :
-            node = ctx.ForeachToken(ctx.marking, place.name, varname, **more)
+            node = ctx.ForeachToken(ctx.marking, place, varname, **more)
         else :
             node = ctx.IfToken(ctx.marking, place.name, varname, **more)
         nest.append(node)
@@ -259,7 +259,7 @@ class Tuple (InputArc, OutputArc) :
         guard = []
         placetype = place.type or self._none()
         pvar = ctx.declare.new(place.type)
-        nest.append(ctx.ForeachToken(ctx.marking, place.name, pvar, **more))
+        nest.append(ctx.ForeachToken(ctx.marking, place, pvar, **more))
         nest = nest[-1].body
         if not self.matchtype(place.type) :
             nest.append(ctx.IfTuple(record(name=place.name, type=placetype),

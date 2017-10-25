@@ -133,7 +133,7 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_GetPlace (self, node) :
         self.fill("%s = %s(%r)" % (node.variable, node.marking, node.place))
     def visit_ForeachToken (self, node) :
-        self.fill("for %s in %s(%r):" % (node.variable, node.marking, node.place))
+        self.fill("for %s in %s(%r):" % (node.variable, node.marking, node.place.name))
         self.children_visit(node.body, True)
     def visit_Expr (self, node) :
         self.write(node.source)
@@ -186,7 +186,7 @@ class CodeGenerator (ast.CodeGenerator) :
                                   for n in nest)
     def _marking (self, var, marking, blame) :
         self.fill("%s = Marking({" % var)
-        whole = {}
+        whole = []
         for i, (place, tokens) in enumerate(marking.items()) :
             if i > 0 :
                 self.write(", ")
@@ -195,7 +195,7 @@ class CodeGenerator (ast.CodeGenerator) :
             for tok in tokens :
                 if isinstance(tok, tuple) :
                     if tok[0] == "mset" :
-                        whole[place] = tok[1]
+                        whole.append((place, tok[1]))
                     else :
                         raise CompilationError("unsupported type '%s(%s)'" % tok,
                                                blame)
@@ -209,11 +209,11 @@ class CodeGenerator (ast.CodeGenerator) :
                         self.write(tok)
             self.write("])")
         self.write("})")
-        for place, tokens in whole.items() :
+        for place, tokens in whole :
             self.fill("%s[%r].update(%s)" % (var, place, tokens))
     def visit_AddSuccIfEnoughTokens (self, node) :
-        subvar = node.NAMES.fresh(base="sub", add=True)
-        addvar = node.NAMES.fresh(base="add", add=True)
+        subvar = node.NAMES.fresh(base="sub")
+        addvar = node.NAMES.fresh(base="add")
         subtest = False
         if node.test :
             testvar = node.NAMES.fresh(base="test", add=True)

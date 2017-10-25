@@ -253,7 +253,7 @@ class IfNoTokenSuchThat (AST) :
         AST.__init__(self, marking, place, variable, guard, body, **extra)
 
 class ForeachToken (AST) :
-    def __init__ (self, marking:str, place:str, variable:str, body:list=[], **extra) :
+    def __init__ (self, marking:str, place:Place, variable:str, body:list=[], **extra) :
         AST.__init__(self, marking, place, variable, body, **extra)
 
 class IfGuard (AST) :

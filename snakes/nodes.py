@@ -80,8 +80,8 @@ class Transition (Node) :
                                    BLAME=ctx.ArcBlame(place.name, self.name, label))
         # guard
         if self.guard :
-            last.append(ctx.IfGuard(ctx.Expr(self.guard),
-                                    BLAME=ctx.GuardBlame(self.name, self.guard)))
+            last.append(ctx.If(ctx.Expr(self.guard),
+                               BLAME=ctx.GuardBlame(self.name, self.guard)))
             last = last[-1].body
         # output arcs
         arcs = []

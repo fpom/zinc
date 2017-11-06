@@ -96,6 +96,7 @@ class CodeGenerator (ast.CodeGenerator) :
             if self.unused :
                 self.fill("// work around 'declared and not used' compilation error")
                 self.fill("// variables are kept to be typechecked by the compiler")
+                self.fill("return")
                 for var in self.unused :
                     self.fill("_ = %s" % var)
         self.fill("}\n")
@@ -164,6 +165,8 @@ class CodeGenerator (ast.CodeGenerator) :
                       % (node.variable, var, self.typedef[node.place.type]))
         self.children_visit(node.body, True)
         self.fill("}")
+    def visit_Break (self, node) :
+        self.fill("break")
     def visit_IfPlace (self, node) :
         self.unused.discard(node.variable)
         self.fill("if %s.Get(%s).Eq(%s) {"
@@ -188,12 +191,16 @@ class CodeGenerator (ast.CodeGenerator) :
             self.fill("}")
         else :
             self.children_visit(node.body, False)
-    def visit_IfGuard (self, node) :
+    def visit_If (self, node) :
         self.fill("if ")
         self.visit(node.guard)
         self.write(" {")
         self.children_visit(node.body, True)
         self.fill("}")
+    def visit_TrueConst (self, node) :
+        self.write("true")
+    def visit_FalseConst (self, node) :
+        self.write("false")
     def visit_And (self, node) :
         for i, item in enumerate(node.items) :
             if i > 0 :

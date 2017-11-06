@@ -281,10 +281,22 @@ class Tuple (InputArc, OutputArc) :
             ctx.bound[label.source] = var
         ctx.sub[place.name].append(ctx.Pattern(self, self._fold(match), placetype))
         if guard :
-            node = ctx.IfGuard(ctx.And(guard, **more), **more)
+            node = ctx.If(ctx.And(guard, **more), **more)
             nest.append(node)
             nest = node.body
         return nest
+    def __astnotin__ (self, nest, place, ctx, guard, **more) :
+        notempty = place not in ctx.notempty
+        bvar = ctx.declare.new(ctx.net.lang.BOOL)
+        nest.append(ctx.Assign(bvar, ctx.TrueConst(), **more))
+        child = self.__astin__(nest, place, ctx, **more)
+        ctx.sub[place.name].pop(-1)
+        if notempty :
+            ctx.notempty.discard(place)
+        child.append(ctx.Assign(bvar, ctx.FalseConst(), **more))
+        child.append(ctx.Break(**more))
+        nest.append(ctx.If(ctx.Expr(bvar), **more))
+        return nest[-1].body
     def __astout__ (self, nest, place, ctx, **more) :
         toadd = []
         placetype = place.type or self._none()

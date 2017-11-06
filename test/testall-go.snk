@@ -112,7 +112,6 @@ net "test net" :
         < p5 var = y
         > p6 (val, var, val) = ({"hello"}, y, true)
         > p6 (val, (var, expr), val) = ({"world"}, (x, {x-1}), true)
-    # # inhibitor
-    # trans t22 :
-    #     < p5 !(var, val) = (x, 0)
-    #     > p4 (var, expr) = (x, {x+1})
+    # inhibitor
+    trans t21 :
+        < p5 !(var, val) = (x, 0)

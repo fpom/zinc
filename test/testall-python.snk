@@ -116,7 +116,6 @@ net "test net" :
     trans t21 x < y :
         < p4 (var, var) = (x, y)
         > p4 (var, var) = (y, x)
-    # # inhibitor
-    # trans t22 :
-    #     < p5 !(var, val) = (x, 0)
-    #     > p4 (var, expr) = (x, {x+1})
+    # inhibitor
+    trans t22 :
+        < p5 !(var, val) = (x, 0)

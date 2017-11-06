@@ -186,6 +186,14 @@ class Expr (AST) :
     def __init__ (self, source:str, **extra) :
         AST.__init__(self, source, **extra)
 
+class TrueConst (Expr) :
+    def __init__ (self, **extra) :
+        AST.__init__(self, **extra)
+
+class FalseConst (Expr) :
+    def __init__ (self, **extra) :
+        AST.__init__(self, **extra)
+
 class Assign (AST) :
     def __init__ (self, variable:str, expr:Expr, **extra) :
         AST.__init__(self, variable, expr, **extra)
@@ -256,7 +264,10 @@ class ForeachToken (AST) :
     def __init__ (self, marking:str, place:Place, variable:str, body:list=[], **extra) :
         AST.__init__(self, marking, place, variable, body, **extra)
 
-class IfGuard (AST) :
+class Break (AST) :
+    pass
+
+class If (AST) :
     def __init__ (self, guard:Expr, body:list=[], **extra) :
         AST.__init__(self, guard, body, **extra)
 

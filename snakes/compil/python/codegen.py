@@ -136,8 +136,14 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_ForeachToken (self, node) :
         self.fill("for %s in %s(%r):" % (node.variable, node.marking, node.place.name))
         self.children_visit(node.body, True)
+    def visit_Break (self, node) :
+        self.fill("break")
     def visit_Expr (self, node) :
         self.write(node.source)
+    def visit_TrueConst (self, node) :
+        self.write("True")
+    def visit_FalseConst (self, node) :
+        self.write("False")
     def visit_And (self, node) :
         for i, item in enumerate(node.items) :
             if i > 0 :
@@ -149,7 +155,7 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write(") == (")
         self.visit(node.right)
         self.write(")")
-    def visit_IfGuard (self, node) :
+    def visit_If (self, node) :
         self.fill("if ")
         self.visit(node.guard)
         self.write(":")

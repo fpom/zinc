@@ -4,6 +4,7 @@ from snakes.compil import CompilationError
 from snakes.compil.python.rename import rename
 
 NONETYPE = True
+BOOL = "bool"
 
 def ast2code (tree, output=None) :
     if output is None :

@@ -1,10 +1,13 @@
 import io, types, traceback, sys
 from . import codegen as _codegen
-from snakes.compil import CompilationError
+from snakes.compil import CompilationError, BaseDeclare
 from snakes.compil.python.rename import rename
 
 NONETYPE = True
 BOOL = "bool"
+
+class Declare (BaseDeclare) :
+    pass
 
 def ast2code (tree, output=None) :
     if output is None :

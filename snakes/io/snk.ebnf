@@ -13,7 +13,7 @@ spec =
     ;
 
 decl =
-    {nl} "declare" source:text nl
+    {nl} "declare" ['@' level:text] source:text nl
     ;
 
 place =

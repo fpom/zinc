@@ -49,7 +49,7 @@ def main () :
                        help="print full marking graph")
     group.add_argument("-m", dest="mode", action="store_const", const="m",
                        help="only print markings")
-    group.add_argument("-d", "--dead", dest="mode", action="store_const", const="d",
+    group.add_argument("-d", dest="mode", action="store_const", const="d",
                        help="only print deadlocks")
     args = parser.parse_args()
     g = statespace()

@@ -45,8 +45,8 @@ class Parser (TupleParser) :
             net = self.n.PetriNet(st.net, st.lang)
         except SNAKESError as err :
             raise ParseError(str(err), None, None, self._p)
-        for decl in st.declare :
-            net.declare(decl)
+        for lvl, decl in st.declare :
+            net.declare(decl, lvl)
         for node, *rest in st.nodes :
             if isinstance(node, self.n.Place) :
                 try :
@@ -77,7 +77,7 @@ class Parser (TupleParser) :
                         raise ParseError(err, self._l[node.name, place], None, self._p)
         return net
     def decl (self, st) :
-        return st.source
+        return st.level, st.source
     def place (self, st) :
         return (self.n.Place(st.name, (st.tokens or [])[::2], st.type),
                 st.parseinfo.line+1)

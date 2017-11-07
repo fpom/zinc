@@ -1,3 +1,4 @@
+import re
 from operator import attrgetter
 
 from snakes.compil import ast
@@ -7,10 +8,7 @@ def S (text) :
     return '"%s"' % text.replace('"', '\\"')
 
 preamble = """// %(timestamp)s
-package main
-
-import "snk"
-var NET string = %(net)s
+package %(package)s
 """
 
 closing = """
@@ -31,11 +29,22 @@ func main () {
 }
 """
 
+_letter = re.compile("\W+")
+
 class CodeGenerator (ast.CodeGenerator) :
+    def visit_Context (self, node) :
+        node.decl('import "snk"', "import")
+        node.decl("type Token struct {}")
+        node.decl("var DOT Token = Token{}")
+        node.decl("var NET string = %s\n" % S(node.NET.name))
+        ast.CodeGenerator.visit_Context(self, node)
     def visit_Module (self, node) :
-        self.write(preamble % {"timestamp" : self.timestamp(), "net" : S(node.name)})
+        self.write(preamble % {"timestamp" : self.timestamp(),
+                               "package" : node.name})
         self.children_visit(node.body)
         self.fill(closing)
+    def _tupledef (self, typ) :
+        return "_".join([""] + [_letter.sub("", self.typedef[t]) for t in typ] + [""])
     def _typedef (self, typ, place) :
         if typ is None or typ in self.typedef :
             pass
@@ -46,7 +55,7 @@ class CodeGenerator (ast.CodeGenerator) :
         elif isinstance(typ, tuple) :
             fields = [self._typedef(t, "%s._%s" % (place, i))
                       for i, t in enumerate(typ)]
-            name = self.typedef[typ] = "tuple%03u" % len(self.typedef)
+            name = self.typedef[typ] = self._tupledef(typ)
             self.fill("// tokens in %r" % place)
             self.fill("type %s struct {" % name)
             with self.indent() :
@@ -344,5 +353,5 @@ if __name__ == "__main__" :
     from snakes.io.snk import load
     net = load(open(sys.argv[-1]))
     gen = CodeGenerator(io.StringIO())
-    gen.visit(net.__ast__())
+    gen.visit(net.__ast__("main"))
     print(gen.output.getvalue().rstrip())

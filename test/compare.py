@@ -1,8 +1,16 @@
 import ast, collections
-from snakes.tokens import Marking, mset
+
+from snakes.tokens import Marking, mset, dot
+
+def load_token (tok) :
+    if tok == {} :
+        return dot
+    return tok
 
 def load_state (text) :
-    return Marking({p : mset(t) for p, t in ast.literal_eval(text).items()})
+    text = text.replace("BlackToken()", "{}")
+    return Marking({place : mset(load_token(t) for t in tokens)
+                    for place, tokens in ast.literal_eval(text).items()})
 
 def load (infile) :
     g = {}

@@ -7,30 +7,36 @@ MAX = 5
 """
 
 net "test net" :
+    place p0 = dot # ensure finite execution
     place p1 int = 0, 1, 2
     place p2 int = 1, 2, 3
     place p3 int = MAX, {MAX+1}
     place p4
     # values
     trans t01 :
+        < p0 val = dot
         < p1 val = 1
         > p2 val = 2
     # variables
     trans t02 x > 0 :
+        < p0 val = dot
         < p1 var = x
         > p2 var = x
     # input multiarc, expressions
     trans t03 x != y :
+        < p0 val = dot
         < p1 var  = x
         < p1 var  = y
         > p2 expr = x+y
     # input expressions
     trans t04 x > 0 :
+        < p0 val = dot
         < p1 var  = x
         < p1 expr = x+1
         > p2 expr = x+2
     # output multiarc, expressions reuse, untyped output
     trans t05 x != y :
+        < p0 val = dot
         < p1 var  = x
         < p1 var  = y
         < p1 expr = abs(x - y)
@@ -39,54 +45,65 @@ net "test net" :
         > p4 expr = abs(x - y)
     # test on input
     trans t06 x != y :
+        < p0 val = dot
         < p1 var  = x
         < p2 ?var = y
         > p3 expr = x+y
     # test on input multiarc
     trans t07 x != y :
+        < p0 val = dot
         < p1 var  = x
         < p1 ?var = y
         > p3 expr = x+y
     # only test inputs
     trans t08 x != y :
+        < p0 val = dot
         < p1 ?var = x
         < p2 ?var = y
         > p3 expr = x+y
     # only tests in input multiarc
     trans t09 x != y :
+        < p0 val = dot
         < p1 ?var = x
         < p1 ?var = y
         > p3 expr = x+y
     # test on output
     trans t10 x != y :
+        < p0 val = dot
         < p1 var  = x
         < p2 var  = y
         > p3 ?expr = x+y
     # flush and fill arcs
     trans t11 len(m) > 0 :
+        < p0 val = dot
         < p1 flush = m
         < p3 flush+ = n
         > p2 fill  = m + n
     # test flush and test fill
     trans t12 len(m) > 0 :
+        < p0 val = dot
         < p1 ?flush = m
         > p2 ?fill  = m * 2
     # multiarc fill
     trans t13 len(m) > 0 :
+        < p0 val = dot
         < p1 flush = m
         > p1 fill  = m
         > p1 fill  = [x+1 for x in m]
     # inhibitor value
     trans t14 :
+        < p0 val = dot
         < p1 !val = 1
         > p2 val  = 2
     # inhibitor variable
     trans t15 :
+        < p0 val = dot
         < p1 var       = x
         < p2 ![y<x]var = y
         > p3 val       = 2
     # inhibitor expression
     trans t16 :
+        < p0 val = dot
         < p1 var   = x
         < p2 !expr = x+1
         > p3 val   = 2
@@ -95,27 +112,33 @@ net "test net" :
     place p6 (str, (int, int), bool)
     # input/output and nested
     trans t17 :
+        < p0 val = dot
         < p5 (var, var) = (x, y)
         < p6 (var, (var, var), var) = (z, (x, y), b)
         > p6 (expr, (var, var), expr) = ({"%s+%s" % (x,y)}, (x, y), {x==y})
     # partially matched tuples
     trans t18 :
+        < p0 val = dot
         < p5 var = x
         > p6 (expr, var, expr) = ({str(x)}, x, {max(x)>0})
     # tests
     trans t19 :
+        < p0 val = dot
         < p5 ?(var, val) = (x, 0)
-        > p6 ?(var, expr, val) = (x, {(x, x)}, True)
+        > p6 ?(var, expr, val) = (x, {(x+1, x)}, True)
     # multiarc
     trans t20 :
+        < p0 val = dot
         < p5 (var, val) = (x, 0)
         < p5 var = y
-        > p6 (val, var, val) = (x, y, True)
-        > p6 (var, (var, expr), val) = (x, (x, {x-1}), True)
+        > p6 (expr, var, val) = ({str(x)}, y, True)
+        > p6 (expr, (var, expr), val) = ({str(x)}, (x, {x-1}), True)
     # untyped :
     trans t21 x < y :
+        < p0 val = dot
         < p4 (var, var) = (x, y)
         > p4 (var, var) = (y, x)
     # inhibitor
     trans t22 :
+        < p0 val = dot
         < p5 !(var, val) = (x, 0)

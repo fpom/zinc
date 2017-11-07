@@ -163,8 +163,12 @@ class Module (AST) :
         AST.__init__(self, name, body, **extra)
 
 class Context (AST) :
-    def __init__ (self, source:str, **extra) :
-        AST.__init__(self, source, **extra)
+    def __init__ (self, decl:object, body:list=[], **extra) :
+        AST.__init__(self, decl, body, **extra)
+
+class ContextLine (AST) :
+    def __init__ (self, code:str, **extra) :
+        AST.__init__(self, code, **extra)
 
 class DefineMarking (AST) :
     def __init__ (self, places:list, **extra) :
@@ -362,8 +366,11 @@ class CodeGenerator (object) :
     def timestamp (self) :
         return time.strftime("%c")
     def visit_Context (self, node) :
-        if node.source :
-            self.fill(node.source + "\n")
+        node.body = []
+        for lvl, line in node.decl :
+            node.body.append(ContextLine(line, BLAME=ContextBlame(line)))
+            self.fill(line)
+        self.fill()
     def visit_SuccProcName (self, node) :
         if not node.trans :
             name = "addsucc"

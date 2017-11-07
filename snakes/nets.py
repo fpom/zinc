@@ -11,18 +11,17 @@ class PetriNet (object) :
     def __init__ (self, name, lang="python") :
         self.name = name
         self.lang = snakes.compil.getlang(lang)
-        self._context = []
+        self.declare = self.lang.Declare()
         self._trans = {}
         self._place = {}
         self._node = {}
     def __repr__ (self) :
         return "%s(%r, %r)" % (self.__class__.__name__, self.name, self.lang.name)
-    def __ast__ (self) :
+    def __ast__ (self, name="net") :
         ctx = Context(net=self)
-        mod = ctx.Module(self.name,
-                         [ctx.Context(l, BLAME=ctx.ContextBlame(l))
-                          for c in self._context for l in c.splitlines()]
-                         + [ctx.DefineMarking(list(self._place.values()))])
+        mod = ctx.Module(name,
+                         [ctx.Context(self.declare.copy()),
+                          ctx.DefineMarking(list(self._place.values()))])
         for name, trans in sorted(self._trans.items()) :
             mod.body.extend(trans.__ast__(Context(net=self)))
         mod.body.append(ctx.DefSuccProc(ctx.SuccProcName(), "marking", "succ", [
@@ -37,8 +36,6 @@ class PetriNet (object) :
                          ctx.SuccProcTable(),
                          ctx.SuccFuncTable()])
         return mod
-    def declare (self, code) :
-        self._context.append(code)
     def _add_node (self, node, store) :
         if node.name in self._node :
             raise ConstraintError("a node %r exists" % node.name)

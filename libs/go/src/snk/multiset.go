@@ -208,3 +208,19 @@ func (self Mset) Println () {
 //... a.Println()
 //... nil
 //>>> list(sorted(eval(out))) == [1, 2, 2, 3, 3, 3]
+
+type mapfunc func (interface{}, int) (interface{}, int)
+
+func (self Mset) Map (f mapfunc) Mset {
+	copy := Mset{}
+	for k0, n0 := range self {
+		k1, n1 := f(k0, n0)
+		copy[k1] = n1
+	}
+	return copy
+}
+
+//### a := snk.MakeMset(1, 2, 2)
+//... b := a.Map(func (v interface{}, n int) (interface{}, int) {return v.(int)+1, n})
+//... b.Eq(snk.MakeMset(2, 3, 3))
+//=== true

@@ -124,11 +124,15 @@ class snkParser(Parser):
             self._nl_()
         self._closure(block0)
         self._token('declare')
+        with self._optional():
+            self._token('@')
+            self._text_()
+            self.name_last_node('level')
         self._text_()
         self.name_last_node('source')
         self._nl_()
         self.ast._define(
-            ['source'],
+            ['level', 'source'],
             []
         )
 

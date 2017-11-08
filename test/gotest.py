@@ -18,10 +18,10 @@ class Test (object) :
     def codegen (self, outfile, indent="  ") :
         outfile.write('  // %s:%s\n' % (self.path, self.lineno))
         if self.path in self.idx :
-            outfile.write('  ' + '  \n'.join(self.idx[self.path]) + '\n')
+            outfile.write('  ' + '\n  '.join(self.idx[self.path]) + '\n')
         outfile.write('  fmt.Println("### %s:%s")\n' % (self.path, self.lineno))
         if len(self.source) > 1 :
-            outfile.write('  ' + '  \n'.join(self.source[:-1]) + '\n')
+            outfile.write('  ' + '\n  '.join(self.source[:-1]) + '\n')
         outfile.write('  fmt.Println(%s)\n' % self.source[-1])
     def check (self, output) :
         if self.source[-1] == "nil" and output[-1] == "<nil>" :
@@ -60,18 +60,19 @@ class Test (object) :
 
 def extract (root, path) :
     package = None
+    imports = set()
     tests = []
     for num, line in enumerate(open(os.path.join(root, path))) :
         if line.startswith('package ') :
             package = line.split()[-1]
         elif line.startswith('//+++ ') :
-            tests.append(Test(path, num+1, [line[6:].strip()], ['true']))
+            tests.append(Test(path, num+1, [line[6:].rstrip()], ['true']))
         elif line.startswith('//--- ') :
-            tests.append(Test(path, num+1, [line[6:].strip()], ['false']))
+            tests.append(Test(path, num+1, [line[6:].rstrip()], ['false']))
         elif line.startswith('//### ') :
-            tests.append(Test(path, num+1, [line[6:].strip()]))
+            tests.append(Test(path, num+1, [line[6:].rstrip()]))
         elif line.startswith('//... ') :
-            tests[-1].source.append(line[6:].strip())
+            tests[-1].source.append(line[6:].rstrip())
         elif line.startswith('//=== ') :
             tests[-1].expected.append(line[6:].rstrip())
         elif line.startswith('//>>> ') :
@@ -80,13 +81,17 @@ def extract (root, path) :
             if path not in Test.idx :
                 Test.idx[path] = []
             Test.idx[path].append(line[6:].rstrip())
+        elif line.startswith("//$$$ ") :
+            imports.update(line[6:].strip().split())
     print("+ %s (%s) = %s tests" % (path, package, len(tests)))
-    return package, tests
+    return package, imports, tests
 
-def codegen (packages, tests, out) :
+def codegen (packages, imports, tests, out) :
     funcs = []
     out.write('package main\n\nimport "fmt"\n')
     for p in packages :
+        out.write('import "%s"\n' % p)
+    for p in imports - packages :
         out.write('import "%s"\n' % p)
     out.write("\n")
     for i, t in enumerate(tests) :
@@ -137,12 +142,13 @@ if __name__ == "__main__" :
         sys.exit(1)
     if not gofile.endswith(".go") :
         gofile += ".go"
-    packages, tests = set(), []
+    packages, imports, tests = set(), set(), []
     for path in walk(root) :
-        p, t = extract(root, path)
+        p, i, t = extract(root, path)
         packages.add(p)
+        imports.update(i)
         tests.extend(t)
-    codegen(packages, tests, open(gofile, "w"))
+    codegen(packages, imports, tests, open(gofile, "w"))
     print("= %s tests" % len(tests))
     output = run(gofile)
     failed = check(tests, output)

@@ -31,10 +31,13 @@ class PetriNet (object) :
             ctx.InitSucc("succ"),
             ctx.CallSuccProc(ctx.SuccProcName(), "marking", "succ"),
             ctx.ReturnSucc("succ")]))
+        mod.body.append(ctx.DefSuccIter(ctx.SuccIterName(), [
+            ctx.SuccIterName(t.name) for n, t in sorted(self._trans.items())]))
         marking = self.get_marking().__ast__(Context(net=self))
         mod.body.extend([ctx.DefInitFunc(ctx.InitName(), marking),
                          ctx.SuccProcTable(),
-                         ctx.SuccFuncTable()])
+                         ctx.SuccFuncTable(),
+                         ctx.SuccIterTable()])
         return mod
     def _add_node (self, node, store) :
         if node.name in self._node :

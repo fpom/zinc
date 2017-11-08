@@ -18,12 +18,14 @@ class _Record (object) :
         sign = inspect.signature(self.__init__)
         args = sign.bind(*l, **k).arguments
         self._fields = []
+        self._extras = []
         for name, value in args.items() :
             # name, "=", value, "as", sign.parameters[name].annotation)
             param = sign.parameters[name]
             if param.kind == param.VAR_KEYWORD :
                 for n, v in value.items() :
                     setattr(self, n, v)
+                    self._extras.append(n)
             elif (param.annotation == sign.empty
                   or (value is None and None in iterate(param.annotation))
                   or any(isinstance(value, a) for a in iterate(param.annotation))) :
@@ -182,6 +184,10 @@ class SuccFuncName (AST) :
     def __init__ (self, trans:str="", **extra) :
         AST.__init__(self, trans, **extra)
 
+class SuccIterName (AST) :
+    def __init__ (self, trans:str="", **extra) :
+        AST.__init__(self, trans, **extra)
+
 class InitName (AST) :
     def __init__ (self, **extra) :
         AST.__init__(self, **extra)
@@ -214,6 +220,10 @@ class DefSuccProc (AST) :
 class DefSuccFunc (AST) :
     def __init__ (self, name:SuccFuncName, marking:str, body:list=[], **extra) :
         AST.__init__(self, name, marking, body, **extra)
+
+class DefSuccIter (AST) :
+    def __init__ (self, name:SuccFuncName, iterators:list=[], **extra) :
+        AST.__init__(self, name, iterators, **extra)
 
 class DefInitFunc (AST) :
     def __init__ (self, name:InitName, marking:list, **extra) :
@@ -307,6 +317,10 @@ class SuccFuncTable (AST) :
     def __init__ (self, **extra) :
         AST.__init__(self, **extra)
 
+class SuccIterTable (AST) :
+    def __init__ (self, **extra) :
+        AST.__init__(self, **extra)
+
 class PlaceMarking (AST) :
     def __init__ (self, place:str, tokens:list, **extra) :
         AST.__init__(self, place, tokens, **extra)
@@ -329,6 +343,7 @@ class CodeGenerator (object) :
         self.output = output
         self.succfunc = {}
         self.succproc = {}
+        self.succiter = {}
         self.initfunc = None
         self._indent = 0
         self._line = 0
@@ -388,6 +403,15 @@ class CodeGenerator (object) :
         else :
             name = self.succfunc[node.trans]
         self.succfunc[node.trans] = name
+        self.write(name)
+    def visit_SuccIterName (self, node) :
+        if not node.trans :
+            name = "itersucc"
+        elif node.trans not in self.succfunc :
+            name = "itersucc_%03u" % (len(self.succfunc) + 1)
+        else :
+            name = self.succiter[node.trans]
+        self.succiter[node.trans] = name
         self.write(name)
     def visit_InitName (self, node) :
         name = self.initfunc = "init"

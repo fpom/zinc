@@ -34,10 +34,10 @@ func Main (name string, init func()Marking, addsucc func(Marking, Set)) {
 	}
 	g := StateSpace(init, addsucc)
 	if mode < LOCKS && size {
-		fmt.Println(len(g), " reachable states")
+		fmt.Println(g.Len(), " reachable states")
 	} else if mode == LOCKS && size {
 		count := 0
-		for _, p := range g {
+		for _, p := range g.data {
 			if p.succs.Empty() {
 				count += 1
 			}
@@ -51,7 +51,7 @@ func Main (name string, init func()Marking, addsucc func(Marking, Set)) {
 		fmt.Printf("INIT ")
 		init().Println()
 		num := 0
-		for _, p := range g {
+		for _, p := range g.data {
 			if mode == MARKS || p.succs.Empty() {
 				fmt.Printf("[%d] ", num)
 				p.state.Println()

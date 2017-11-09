@@ -119,10 +119,15 @@ class Transition (Node) :
                 ctx.test[place].extend(tokens)
         else :
             ctx.test = {}
-        last.append(ctx.AddSuccIfEnoughTokens(ctx.succ, ctx.marking, ctx.test,
-                                              ctx.sub, ctx.add,
-                                              BLAME=ctx.TransitionBlame(self.name)))
-        # generate top-level functions
+        tip = ctx.IfEnoughTokens(ctx.marking, ctx.test, ctx.sub, ctx.add,
+                                 BLAME=ctx.TransitionBlame(self.name))
+        last.append(tip)
+        stop = [tip]
+        inest = tip.copy(nest, stop)
+        itip = stop[0]
+        # generate top-level succ proc
+        tip.body.append(ctx.AddSucc(ctx.succ, ctx.marking, ctx.test, ctx.sub, ctx.add,
+                                    BLAME=ctx.TransitionBlame(self.name)))
         if ctx.notempty :
             yield ctx.DefSuccProc(ctx.SuccProcName(self.name), ctx.marking, ctx.succ, [
                 ctx.Declare(dict(ctx.declare)),
@@ -130,10 +135,15 @@ class Transition (Node) :
         else :
             yield ctx.DefSuccProc(ctx.SuccProcName(self.name), ctx.marking, ctx.succ, [
                 ctx.Declare(dict(ctx.declare))] + nest)
+        # generate top-level succ func
         yield ctx.DefSuccFunc(ctx.SuccFuncName(self.name), ctx.marking, [
             ctx.InitSucc(ctx.succ),
             ctx.CallSuccProc(ctx.SuccProcName(self.name), ctx.marking, ctx.succ),
             ctx.ReturnSucc(ctx.succ)])
+        # generate top-level succ iterator
+        itip.body.append(ctx.YieldEvent(ctx.marking, ctx.test, ctx.sub, ctx.add,
+                                        BLAME=ctx.TransitionBlame(self.name)))
+        yield ctx.DefSuccIter(ctx.SuccIterName(self.name), ctx.marking, inest)
     def add_input (self, place, label) :
         self._input[place] = label
     def remove_input (self, place) :

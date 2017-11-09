@@ -211,7 +211,7 @@ class Inhibitor (InputArc) :
     def __repr__ (self) :
         return "%s(%r, %r)" % (self.__class__.__name__, self.label, self.guard)
     def vars (self) :
-        return self.label.vars()
+        return set()
     def __astin__ (self, nest, place, ctx, **more) :
         return self.label.__astnotin__(nest, place, ctx, self.guard, **more)
 

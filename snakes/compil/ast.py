@@ -37,6 +37,25 @@ class _Record (object) :
                 raise TypeError("unexpected type %r for argument %r of %s"
                                 % (value.__class__.__name__, name,
                                    self.__class__.__name__, ))
+    @classmethod
+    def copy (cls, value, stop=[]) :
+        if isinstance(value, _Record) :
+            args = {}
+            for name in value._extras :
+                args[name] = getattr(value, name)
+            for name in value._fields :
+                args[name] = cls.copy(getattr(value, name), stop)
+            ret = value.__class__(**args)
+        elif isinstance(value, (list, set, tuple, mset)) :
+            ret = value.__class__(cls.copy(v, stop) for v in value)
+        elif hasattr(value, "copy") and callable(getattr(value, "copy")) :
+            ret = value.copy()
+        else :
+            ret = value
+        for i, v in enumerate(stop) :
+            if v is value :
+                stop[i] = ret
+        return ret
     def _dump (self, out) :
         out.write("%s(" % self.__class__.__name__)
         for field in self._fields :
@@ -222,8 +241,8 @@ class DefSuccFunc (AST) :
         AST.__init__(self, name, marking, body, **extra)
 
 class DefSuccIter (AST) :
-    def __init__ (self, name:SuccFuncName, iterators:list=[], **extra) :
-        AST.__init__(self, name, iterators, **extra)
+    def __init__ (self, name:SuccIterName, marking:str, body:list=[], **extra) :
+        AST.__init__(self, name, marking, body, **extra)
 
 class DefInitFunc (AST) :
     def __init__ (self, name:InitName, marking:list, **extra) :
@@ -293,9 +312,20 @@ class IfTuple (AST) :
     def __init__ (self, place:[Place, record], token:str, body:list=[], **extra) :
         AST.__init__(self, place, token, body, **extra)
 
-class AddSuccIfEnoughTokens (AST) :
-    def __init__ (self, succ:str, old:str, test:dict, sub:dict, add:dict, **extra) :
-        AST.__init__(self, succ, old, test, sub, add, **extra)
+class IfEnoughTokens (AST) :
+    def __init__ (self, old:str, test:dict, sub:dict, add:dict,
+                  body:list=[], **extra) :
+        AST.__init__(self, old, test, sub, add, body, **extra)
+
+class AddSucc (AST) :
+    def __init__ (self, succ:str, old:str, test:dict, sub:dict, add:dict,
+                  body:list=[], **extra) :
+        AST.__init__(self, succ, old, test, sub, add, body, **extra)
+
+class YieldEvent (AST) :
+    def __init__ (self, old:str, test:dict, sub:dict, add:dict,
+                  body:list=[], **extra) :
+        AST.__init__(self, old, test, sub, add, body, **extra)
 
 class InitSucc (AST) :
     def __init__ (self, name:str, **extra) :
@@ -407,8 +437,8 @@ class CodeGenerator (object) :
     def visit_SuccIterName (self, node) :
         if not node.trans :
             name = "itersucc"
-        elif node.trans not in self.succfunc :
-            name = "itersucc_%03u" % (len(self.succfunc) + 1)
+        elif node.trans not in self.succiter :
+            name = "itersucc_%03u" % (len(self.succiter) + 1)
         else :
             name = self.succiter[node.trans]
         self.succiter[node.trans] = name

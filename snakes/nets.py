@@ -31,7 +31,7 @@ class PetriNet (object) :
             ctx.InitSucc("succ"),
             ctx.CallSuccProc(ctx.SuccProcName(), "marking", "succ"),
             ctx.ReturnSucc("succ")]))
-        mod.body.append(ctx.DefSuccIter(ctx.SuccIterName(), [
+        mod.body.append(ctx.DefSuccIter(ctx.SuccIterName(), "marking", [
             ctx.SuccIterName(t.name) for n, t in sorted(self._trans.items())]))
         marking = self.get_marking().__ast__(Context(net=self))
         mod.body.extend([ctx.DefInitFunc(ctx.InitName(), marking),

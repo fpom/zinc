@@ -43,7 +43,7 @@ class BlackToken (Token) :
     def __str__ (self) :
         return "dot"
     def __repr__ (self) :
-        return "%s()" % self.__class__.__name__
+        return "dot"
     def __new__ (cls) :
         if not hasattr(cls, "dot") :
             cls.dot = object.__new__(cls)

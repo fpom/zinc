@@ -2,37 +2,43 @@ package snk
 
 import "hashstructure" 
 
-type pair struct {
+type gnode struct {
 	state Marking
 	succs Set
 }
 
-type Graph map[uint64]pair
+type Graph struct {
+	data map[uint64]gnode
+}
+
+func NewGraph () Graph {
+	return Graph{make(map[uint64]gnode)}
+}
 
 func MakeGraph (markings ...Marking) Graph {
-	graph := Graph{}
+	graph := NewGraph()
 	for _, m := range markings {
-		graph.Add(m, Set{})
+		graph.Add(m, NewSet())
 	}
 	return graph
 }
 
 func (self Graph) Empty () bool {
-	return len(self) == 0
+	return len(self.data) == 0
 }
 
 func (self Graph) Len () int {
-	return len(self)
+	return len(self.data)
 }
 
 func (self Graph) lookup (m Marking) (uint64, bool) {
-	slot, err := hashstructure.Hash(m, nil)
+	slot, err := hashstructure.Hash(m.data, nil)
 	if err != nil {
 		panic(err)
 	}
 	perturb := slot
 	for true {
-		if value, found := self[slot]; !found {
+		if value, found := self.data[slot]; !found {
 			return slot, false
 		} else if value.state.Eq(m) {
 			return slot, true
@@ -47,14 +53,14 @@ func (self Graph) lookup (m Marking) (uint64, bool) {
 func (self Graph) Add (m Marking, s Set) {
 	slot, found := self.lookup(m)
 	if ! found {
-		self[slot] = pair{m, s}
+		self.data[slot] = gnode{m, s}
 	}
 }
 
 func (self Graph) AddArcs (m Marking, s Set) {
 	slot, found := self.lookup(m)
 	if ! found {
-		self[slot] = pair{m, Set{}}
+		self.data[slot] = gnode{m, NewSet()}
 	}
-	self[slot].succs.Update(s)
+	self.data[slot].succs.Update(s)
 }

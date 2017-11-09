@@ -5,6 +5,8 @@ from snakes.compil import ast, CompilationError
 ## to be included in the generated source code
 ##
 
+event = init = addsucc = itersucc = None
+
 def statespace () :
     "compute the marking graph"
     todo = set([init()])
@@ -14,6 +16,7 @@ def statespace () :
     while todo:
         state = todo.pop()
         done.add(state)
+        succ.clear()
         addsucc(state, succ)
         if state not in g :
             g[state] = set()
@@ -21,7 +24,29 @@ def statespace () :
         succ.difference_update(done)
         succ.difference_update(todo)
         todo.update(succ)
+    return g
+
+def lts () :
+    "compute the labelled transition system (ie, detailled marking graph)"
+    todo = set([init()])
+    done = set()
+    succ = set()
+    g = {}
+    while todo:
+        state = todo.pop()
+        done.add(state)
         succ.clear()
+        for ev in itersucc(state) :
+            if state not in g :
+                g[state] = {}
+            if ev not in g[state] :
+                g[state][ev] = set()
+            s = state - ev.sub + ev.add
+            g[state][ev].add(s)
+            succ.add(s)
+        succ.difference_update(done)
+        succ.difference_update(todo)
+        todo.update(succ)
     return g
 
 def reachable (g=None):
@@ -46,14 +71,19 @@ def main () :
                         help="only print size")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-g", dest="mode", action="store_const", const="g",
-                       help="print full marking graph")
+                       help="print marking graph")
+    group.add_argument("-l", dest="mode", action="store_const", const="l",
+                       help="print LTS (detailled marking graph)")
     group.add_argument("-m", dest="mode", action="store_const", const="m",
                        help="only print markings")
     group.add_argument("-d", dest="mode", action="store_const", const="d",
                        help="only print deadlocks")
     args = parser.parse_args()
-    g = statespace()
-    if args.mode in "gm" and args.size :
+    if args.mode == "l" and not args.size :
+        g = lts()
+    else :
+        g = statespace()
+    if args.mode in "gml" and args.size :
         print("%s reachable states" % len(g))
     elif args.mode == "d" and args.size :
         print("%s deadlocks" % len(deadlocks(g)))
@@ -62,8 +92,8 @@ def main () :
         for num, (state, succ) in enumerate(g.items()) :
             print("[%s]" % num, dump(state))
             for s in succ :
-                print(">>>", dump(s))
-    else :
+                print(">", dump(s))
+    elif args.mode in "md" :
         print("INIT ", dump(init()))
         if args.mode == "m" :
             get = reachable
@@ -71,19 +101,32 @@ def main () :
             get = deadlocks
         for num, state in enumerate(get(g)) :
             print("[%s]" % num, dump(state))
+    elif args.mode == "l" :
+        for num, (state, events) in enumerate(g.items()) :
+            print("[%s]" % num, dump(state))
+            for ev, succ in events.items() :
+                print("@", repr(ev.trans), "=", ev.mode)
+                print("  -", dump(ev.sub))
+                print("  +", dump(ev.add))
+                for s in succ :
+                    print("  >", dump(s))
 
 class CodeGenerator (ast.CodeGenerator) :
     def visit_Module (self, node) :
         self.write("# %s\n\nNET = %r\n" % (self.timestamp(), node.name))
+        self.write("import itertools, collections")
         self.children_visit(node.body)
         self.write("\n%s" % inspect.getsource(statespace))
+        self.write("\n%s" % inspect.getsource(lts))
         self.write("\n%s" % inspect.getsource(reachable))
         self.write("\n%s" % inspect.getsource(deadlocks))
         self.write("\n%s" % inspect.getsource(main))
         self.write("\nif __name__ == '__main__':"
                    "\n    main()")
     def visit_DefineMarking (self, node) :
-        self.fill("from snakes.nets import Marking, mset, dot\n")
+        self.fill("from snakes.nets import Marking, mset, dot, hdict")
+        self.fill("event = collections.namedtuple('event', "
+                  "['trans', 'mode', 'sub', 'add'])\n")
     def visit_DefSuccProc (self, node) :
         self.fill("def ")
         self.visit(node.name)
@@ -218,36 +261,84 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write("})")
         for place, tokens in whole :
             self.fill("%s[%r].update(%s)" % (var, place, tokens))
-    def visit_AddSuccIfEnoughTokens (self, node) :
-        subvar = node.NAMES.fresh(base="sub")
-        addvar = node.NAMES.fresh(base="add")
+    def visit_IfEnoughTokens (self, node) :
+        if not hasattr(node.CTX, "subvar") :
+            node.CTX.subvar = node.NAMES.fresh(base="sub")
+        if not hasattr(node.CTX, "addvar") :
+            node.CTX.addvar = node.NAMES.fresh(base="add")
         subtest = False
         if node.test :
-            testvar = node.NAMES.fresh(base="test", add=True)
-            self._marking(testvar, node.test, node.BLAME)
-            self.fill("if %s <= %s:" % (testvar, node.old))
+            if not hasattr(node.CTX, "testvar") :
+                node.CTX.testvar = node.NAMES.fresh(base="test", add=True)
+            self._marking(node.CTX.testvar, node.test, node.BLAME)
+            self.fill("if %s <= %s:" % (node.CTX.testvar, node.old))
             indent = 1
         elif node.sub :
             subtest = True
-            self._marking(subvar, node.sub, node.BLAME)
-            self.fill("if %s <= %s:" % (subvar, node.old))
+            self._marking(node.CTX.subvar, node.sub, node.BLAME)
+            self.fill("if %s <= %s:" % (node.CTX.subvar, node.old))
             indent = 1
         else :
             indent = 0
         with self.indent(indent) :
             if node.sub and not subtest :
-                self._marking(subvar, node.sub, node.BLAME)
+                self._marking(node.CTX.subvar, node.sub, node.BLAME)
             if node.add :
-                self._marking(addvar, node.add, node.BLAME)
-            if node.sub and node.add :
-                self.fill("%s.add(%s - %s + %s)" % (node.succ, node.old, subvar,
-                                                    addvar))
-            elif node.sub :
-                self.fill("%s.add(%s - %s)" % (node.succ, node.old, subvar))
-            elif node.add :
-                self.fill("%s.add(%s + %s)" % (node.succ, node.old, addvar))
+                self._marking(node.CTX.addvar, node.add, node.BLAME)
+            self.children_visit(node.body, False)
+    def visit_AddSucc (self, node) :
+        if node.sub and node.add :
+            self.fill("%s.add(%s - %s + %s)" % (node.succ, node.old,
+                                                node.CTX.subvar,
+                                                node.CTX.addvar))
+        elif node.sub :
+            self.fill("%s.add(%s - %s)" % (node.succ, node.old, node.CTX.subvar))
+        elif node.add :
+            self.fill("%s.add(%s + %s)" % (node.succ, node.old, node.CTX.addvar))
+        else :
+            self.fill("%s.add(%s.copy())" % (node.succ, node.old))
+    def visit_YieldEvent (self, node) :
+        mvar = node.CTX.names.fresh(base="mode")
+        self.fill("%s = hdict({" % mvar)
+        for i, v in enumerate(node.CTX.trans.vars()) :
+            if i > 0 :
+                self.write(", ")
+            self.write("%r: %s" % (v, node.CTX.bound[v]))
+        self.write("})")
+        if node.sub and node.add :
+            self.fill("yield event(%r, %s, %s, %s)"
+                      % (node.CTX.trans.name, mvar, node.CTX.subvar, node.CTX.addvar))
+        elif node.sub :
+            self.fill("yield event(%r, %s, %s, Marking())"
+                      % (node.CTX.trans.name, mvar, node.CTX.subvar))
+        elif node.add :
+            self.fill("yield event(%r, %s, Marking(), %s)"
+                      % (node.CTX.trans.name, mvar, node.CTX.addvar))
+        else :
+            self.fill("yield event(%r, %s, Marking(), Marking())"
+                      % (node.CTX.trans.name, mvar))
+    def visit_DefSuccIter (self, node) :
+        self.fill("def ")
+        self.visit(node.name)
+        self.write(" (%s):" % node.marking)
+        with self.indent() :
+            if node.name.trans :
+                self.fill(repr("successors of %r" % node.name.trans))
+                self.children_visit(node.body, False)
             else :
-                self.fill("%s.add(%s.copy())" % (node.succ, node.old))
+                self.fill("return itertools.chain(")
+                last = len(node.body) - 1
+                for i, name in enumerate(node.body) :
+                    if i > 0 :
+                        ######### "return itertools.chain("
+                        self.fill("                       ")
+                    self.visit(name)
+                    self.write("(%s)" % node.marking)
+                    if i < last :
+                        self.write(",")
+                    else :
+                        self.write(")")
+        self.write("\n")
     def visit_DefSuccFunc (self, node) :
         self.fill("def ")
         self.visit(node.name)
@@ -311,6 +402,20 @@ class CodeGenerator (ast.CodeGenerator) :
             elif i == 0 :
                 self.write("%r: %s," % (trans, name))
             elif i == len(self.succfunc) - 1 :
+                self.fill("            %r: %s}" % (trans, name))
+            else :
+                self.fill("            %r: %s," % (trans, name))
+        self.write("\n")
+    def visit_SuccIterTable (self, node) :
+        self.fill("# map transitions names to successor iterators")
+        self.fill("# '' maps to all-transitions iterator")
+        self.fill("succiter = {")
+        for i, (trans, name) in enumerate(sorted(self.succiter.items())) :
+            if i == 0 == len(self.succiter) - 1 :
+                self.write("%r: %s}" % (trans, name))
+            elif i == 0 :
+                self.write("%r: %s," % (trans, name))
+            elif i == len(self.succiter) - 1 :
                 self.fill("            %r: %s}" % (trans, name))
             else :
                 self.fill("            %r: %s," % (trans, name))

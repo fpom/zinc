@@ -1,10 +1,16 @@
 package snk
 
-import "hashstructure" 
+import "hashstructure"
 
-type Set map[uint64]Marking
+type Set struct {
+	data map[uint64]Marking
+}
 
-//*** a := snk.Marking{}
+func NewSet () Set {
+	return Set{make(map[uint64]Marking)}
+}
+
+//*** a := snk.NewMarking()
 //*** a.Set("p1", 1)
 //*** b := a.Copy()
 //*** b.Set("p2", 2)
@@ -12,7 +18,7 @@ type Set map[uint64]Marking
 //*** c.Set("p3", 3)
 
 func MakeSet (markings ...Marking) Set {
-	set := Set{}
+	set := NewSet()
 	for _, m := range markings {
 		set.Add(m)
 	}
@@ -36,28 +42,34 @@ func MakeSet (markings ...Marking) Set {
 //=== false
 
 func (self Set) Empty () bool {
-	return len(self) == 0
+	return len(self.data) == 0
 }
 
-//+++ snk.Set{}.Empty()
-//--- snk.MakeSet(snk.Marking{}).Empty()
+func (self Set) NotEmpty () bool {
+	return len(self.data) > 0
+}
+
+//+++ snk.NewSet().Empty()
+//--- snk.MakeSet(snk.NewMarking()).Empty()
+//--- snk.NewSet().NotEmpty()
+//+++ snk.MakeSet(snk.NewMarking()).NotEmpty()
 
 func (self Set) Len () int {
-	return len(self)
+	return len(self.data)
 }
 
-//+++ snk.Set{}.Len() == 0
-//+++ snk.MakeSet(snk.Marking{}).Len() == 1
-//+++ snk.MakeSet(snk.Marking{}, snk.Marking{}).Len() == 1
+//+++ snk.NewSet().Len() == 0
+//+++ snk.MakeSet(snk.NewMarking()).Len() == 1
+//+++ snk.MakeSet(snk.NewMarking(), snk.NewMarking()).Len() == 1
 
 func (self Set) lookup (m Marking) (uint64, bool) {
-	slot, err := hashstructure.Hash(m, nil)
+	slot, err := hashstructure.Hash(m.data, nil)
 	if err != nil {
 		panic(err)
 	}
 	perturb := slot
 	for true {
-		if value, found := self[slot]; !found {
+		if value, found := self.data[slot]; !found {
 			return slot, false
 		} else if value.Eq(m) {
 			return slot, true
@@ -69,11 +81,11 @@ func (self Set) lookup (m Marking) (uint64, bool) {
 	return 0, false
 }
 
-func (self Set) Add (m Marking) {
-	slot, found := self.lookup(m)
-	if ! found {
-		self[slot] = m
+func (self Set) Add (m Marking) Set {
+	if slot, found := self.lookup(m); !found {
+		self.data[slot] = m
 	}
+	return self
 }
 
 //### s := snk.MakeSet(a, b)
@@ -81,15 +93,13 @@ func (self Set) Add (m Marking) {
 //=== 2
 
 //### s := snk.MakeSet(a, b)
-//... s.Add(c)
-//... s.Add(c)
+//... s.Add(c).Add(c)
 //... s.Len()
 //=== 3
 
 func (self Set) Discard (m Marking) Set {
-	slot, found := self.lookup(m)
-	if found {
-		delete(self, slot)
+	if slot, found := self.lookup(m); found {
+		delete(self.data, slot)
 	}
 	return self
 }
@@ -101,14 +111,11 @@ func (self Set) Discard (m Marking) Set {
 //=== true
 
 func (self Set) Pop () Marking {
-	for key, value := range self {
-		delete(self, key)
-		if value == nil {
-			panic("nil Marking in Set")
-		}
+	for key, value := range self.data {
+		delete(self.data, key)
 		return value
 	}
-	return nil
+	panic("empty set")
 }
 
 //### s := snk.MakeSet(a)
@@ -133,34 +140,65 @@ func (self Set) Has (m Marking) bool {
 //+++ snk.MakeSet(a, b).Has(b)
 //--- snk.MakeSet(a, b).Has(c)
 
-func (self Set) Iter () <-chan Marking {
-	ch := make(chan Marking)
-    go func() {
-        for _, m := range self {
-			if m == nil {
-				panic("nil Marking in Set")
-			}
-			ch <- m
-        }
-        close(ch)
-    }()
-    return ch
+type SetIterator struct {
+	done bool
+	ask chan bool
+	rep chan *Marking
+}
+
+func (self SetIterator) Next () *Marking {
+	var rep *Marking
+	if self.done {
+		return nil
+	}
+	self.ask <- true
+	rep = <- self.rep
+	if rep == nil {
+		self.done = true
+	}
+	return rep
+}
+
+func (self SetIterator) Stop() {
+	if ! self.done {
+		self.ask <- false
+		self.done = true
+	}
+}
+
+func (self Set) iterate (it SetIterator) {
+	for _, m := range self.data {
+		if it.done {
+			return
+		}
+		if <- it.ask {
+			it.rep <- &m
+		} else {
+			return
+		}
+	}
+	if <- it.ask {
+		it.rep <- nil
+	}
+}
+
+func (self Set) Iter () (SetIterator, *Marking) {
+	it := SetIterator{false, make(chan bool), make(chan *Marking)}
+	go self.iterate(it)
+	return it, it.Next()
 }
 
 //### s := snk.MakeSet(a, b, c)
-//... for m := range s.Iter() {
-//...   s.Add(m)
+//... for i, p := s.Iter(); p != nil; p = i.Next() {
+//...   s.Add(*p)
 //... }
 //... s.Eq(snk.MakeSet(a, b, c))
 //=== true
 
 func (self Set) Copy () Set {
-	copy := Set{}
-	for key, value := range self {
-		if value == nil {
-			panic("nil Marking in Set")
-		}
-		copy[key] = value
+	copy := NewSet()
+	for key, value := range self.data {
+		copy.data[key] = value
 	}
 	return copy
 }
@@ -171,13 +209,10 @@ func (self Set) Copy () Set {
 //=== true
 
 func (self Set) Eq (other Set) bool {
-	if len(self) != len(other) {
+	if len(self.data) != len(other.data) {
 		return false
 	}
-	for _, value := range other {
-		if value == nil {
-			panic("nil Marking in Set")
-		}
+	for _, value := range other.data {
 		if _, found := self.lookup(value); ! found {
 			return false
 		}
@@ -186,12 +221,9 @@ func (self Set) Eq (other Set) bool {
 }
 
 func (self Set) Remove (other Set) Set {
-	for _, value := range other {
-		if value == nil {
-			panic("nil Marking in Set")
-		}
+	for _, value := range other.data {
 		if slot, found := self.lookup(value); found {
-			delete(self, slot)
+			delete(self.data, slot)
 		}
 	}
 	return self
@@ -203,8 +235,8 @@ func (self Set) Remove (other Set) Set {
 //=== true
 
 func (self Set) Update (other Set) Set {
-	for key, value := range other {
-		self[key] = value
+	for key, value := range other.data {
+		self.data[key] = value
 	}
 	return self
 }
@@ -220,7 +252,7 @@ func (self Set) Update (other Set) Set {
 //=== true
 
 func (self Set) Println () {
-	for _, m := range self {
+	for _, m := range self.data {
 		m.Println()
 	}	
 }

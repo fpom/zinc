@@ -143,7 +143,13 @@ class Transition (Node) :
         # generate top-level succ iterator
         itip.body.append(ctx.YieldEvent(ctx.marking, ctx.test, ctx.sub, ctx.add,
                                         BLAME=ctx.TransitionBlame(self.name)))
-        yield ctx.DefSuccIter(ctx.SuccIterName(self.name), ctx.marking, inest)
+        if ctx.notempty :
+            yield ctx.DefSuccIter(ctx.SuccIterName(self.name), ctx.marking, [
+                ctx.Declare(dict(ctx.declare)),
+                ctx.IfInput(ctx.marking, ctx.notempty, inest)])
+        else :
+            yield ctx.DefIterProc(ctx.SuccIterName(self.name), ctx.marking, [
+                ctx.Declare(dict(ctx.declare))] + inest)
     def add_input (self, place, label) :
         self._input[place] = label
     def remove_input (self, place) :

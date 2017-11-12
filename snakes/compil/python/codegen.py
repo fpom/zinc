@@ -1,4 +1,4 @@
-import inspect
+import inspect, collections
 from snakes.compil import ast, CompilationError
 
 ##
@@ -12,7 +12,7 @@ def statespace () :
     todo = set([init()])
     done = set()
     succ = set()
-    g = {}
+    g = collections.OrderedDict()
     while todo:
         state = todo.pop()
         done.add(state)
@@ -31,7 +31,7 @@ def lts () :
     todo = set([init()])
     done = set()
     succ = set()
-    g = {}
+    g = collections.OrderedDict()
     while todo:
         state = todo.pop()
         done.add(state)
@@ -298,7 +298,7 @@ class CodeGenerator (ast.CodeGenerator) :
         else :
             self.fill("%s.add(%s.copy())" % (node.succ, node.old))
     def visit_YieldEvent (self, node) :
-        mvar = node.CTX.names.fresh(base="mode")
+        mvar = node.NAMES.fresh(base="mode")
         self.fill("%s = hdict({" % mvar)
         for i, v in enumerate(node.CTX.trans.vars()) :
             if i > 0 :

@@ -75,11 +75,11 @@ func test_iterator (state Marking, it SuccIterator) {
 }
 
 func TestSuccIterator () {
-    for i, p := Iter(test_iterator, NewMarking()); p != nil; p = i.Next() {
+    for i, p := Iter(test_iterator, MakeMarking()); p != nil; p = i.Next() {
         fmt.Printf("%s ", p.Name)
     }
     time.Sleep(20 * time.Millisecond)
-    for i, p := Iter(test_iterator, NewMarking()); p != nil; p = i.Next() {
+    for i, p := Iter(test_iterator, MakeMarking()); p != nil; p = i.Next() {
         if p.Name == "3" {
             i.Stop()
 			time.Sleep(10 * time.Millisecond)

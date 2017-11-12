@@ -1,34 +1,51 @@
 package snk
 
 import "fmt"
+import "bytes"
+import "hash/fnv"
+import "hashstructure"
 
 type Mset struct {
-	// hide map into a struct with unexported field
-	data map[interface{}]int
+	data *map[interface{}]int
 }
 
-func NewMset () Mset {
-	return Mset{make(map[interface{}]int)}
+func (self Mset) Hash () uint64 {
+	var h uint64 = 13124430844775843711
+	hash := fnv.New64()
+	for value, count := range *self.data {
+		hv, err := hashstructure.Hash(value, nil)
+		if err != nil {
+			panic(err)
+		}
+		hash.Reset()
+		hash.Write([]byte(fmt.Sprintf("[%x]{%x}", hv, count)))
+		h ^= hash.Sum64()
+	}
+	return h
 }
+
+//+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Hash() == snk.MakeMset(3, 3, 3, 2, 2, 1).Hash()
+//+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Hash() == snk.MakeMset(3, 2, 1, 3, 2, 3).Hash()
 
 func MakeMset (values ...interface{}) Mset {
-	mset := NewMset()
+	m := make(map[interface{}]int)
+	mset := Mset{&m}
 	for _, elt := range values {
-		if count, found := mset.data[elt]; found {
-			mset.data[elt] = count + 1
+		if count, found := (*mset.data)[elt]; found {
+			(*mset.data)[elt] = count + 1
 		} else {
-			mset.data[elt] = 1
+			(*mset.data)[elt] = 1
 		}
 	}
 	return mset
 }
 
 func (self Mset) Eq (other Mset) bool {
-	if len(self.data) != len(other.data) {
+	if len(*self.data) != len(*other.data) {
 		return false
 	}
-	for key, left := range self.data {
-		if right, found := other.data[key]; found {
+	for key, left := range *self.data {
+		if right, found := (*other.data)[key]; found {
 			if left != right {
 				return false
 			}
@@ -39,17 +56,17 @@ func (self Mset) Eq (other Mset) bool {
 	return true
 }
 
-//+++ snk.NewMset().Eq(snk.MakeMset())
-//--- snk.NewMset().Eq(snk.MakeMset(1, 2, 3))
-//--- snk.NewMset().Eq(snk.MakeMset(1, 1, 1))
+//+++ snk.MakeMset().Eq(snk.MakeMset())
+//--- snk.MakeMset().Eq(snk.MakeMset(1, 2, 3))
+//--- snk.MakeMset().Eq(snk.MakeMset(1, 1, 1))
 //+++ snk.MakeMset(1, 1, 1).Eq(snk.MakeMset(1, 1, 1))
 //--- snk.MakeMset(1, 1, 3).Eq(snk.MakeMset(1, 1, 1))
 //--- snk.MakeMset(1, 1, 1).Eq(snk.MakeMset(2, 2, 2))
 
 func (self Mset) Copy () Mset {
-	copy := NewMset()
-	for key, value := range self.data {
-		copy.data[key] = value
+	copy := MakeMset()
+	for key, value := range *self.data {
+		(*copy.data)[key] = value
 	}
 	return copy
 }
@@ -58,34 +75,21 @@ func (self Mset) Copy () Mset {
 
 func (self Mset) Len () int {
 	count := 0
-	for _, value := range self.data {
+	for _, value := range *self.data {
 		count += value
 	}
 	return count
 }
 
 //+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Len() == 6
-//+++ snk.NewMset().Len() == 0
-
-func (self Mset) Mul (mul int) Mset {
-	copy := NewMset()
-	if mul <= 0 {
-		return copy
-	}
-	for key, value := range self.data {
-		copy.data[key] = value * mul
-	}
-	return copy	
-}
-
-//+++ snk.MakeMset(1, 2, 2).Mul(2).Eq(snk.MakeMset(1, 1, 2, 2, 2, 2))
+//+++ snk.MakeMset().Len() == 0
 
 func (self Mset) Add (other Mset) Mset {
-	for key, value := range other.data {
-		if count, found := self.data[key] ; found {
-			self.data[key] = value + count
+	for key, value := range *other.data {
+		if count, found := (*self.data)[key] ; found {
+			(*self.data)[key] = value + count
 		} else {
-			self.data[key] = value
+			(*self.data)[key] = value
 		}
 	}
 	return self
@@ -98,12 +102,12 @@ func (self Mset) Add (other Mset) Mset {
 //=== true
 
 func (self Mset) Sub (other Mset) Mset {
-	for key, value := range other.data {
-		if count, found := self.data[key] ; found {
+	for key, value := range *other.data {
+		if count, found := (*self.data)[key] ; found {
 			if count > value {
-				self.data[key] = count - value
+				(*self.data)[key] = count - value
 			} else {
-				delete(self.data, key)
+				delete(*self.data, key)
 			}
 		}
 	}
@@ -123,8 +127,8 @@ func (self Mset) Sub (other Mset) Mset {
 //=== true
 
 func (self Mset) Geq (other Mset) bool {
-	for key, value := range other.data {
-		if count, found := self.data[key] ; found {
+	for key, value := range *other.data {
+		if count, found := (*self.data)[key] ; found {
 			if count < value {
 				return false
 			}
@@ -138,22 +142,22 @@ func (self Mset) Geq (other Mset) bool {
 //+++ snk.MakeMset(1, 2, 3).Geq(snk.MakeMset(1, 2, 3))
 //+++ snk.MakeMset(1, 2, 3).Geq(snk.MakeMset(1, 2))
 //+++ snk.MakeMset(1, 2, 2, 3).Geq(snk.MakeMset(1, 2, 3))
-//+++ snk.MakeMset(1, 2, 2, 3).Geq(snk.NewMset())
-//+++ snk.NewMset().Geq(snk.NewMset())
+//+++ snk.MakeMset(1, 2, 2, 3).Geq(snk.MakeMset())
+//+++ snk.MakeMset().Geq(snk.MakeMset())
 //--- snk.MakeMset(1, 2, 2, 3).Geq(snk.MakeMset(1, 2, 3, 4))
 //--- snk.MakeMset(1, 2, 3).Geq(snk.MakeMset(1, 2, 2, 3))
-//--- snk.NewMset().Geq(snk.MakeMset(1))
+//--- snk.MakeMset().Geq(snk.MakeMset(1))
 
 func (self Mset) Empty () bool {
-	return len(self.data) == 0
+	return len(*self.data) == 0
 }
 
-//+++ snk.NewMset().Empty()
+//+++ snk.MakeMset().Empty()
 //+++ snk.MakeMset().Empty()
 //--- snk.MakeMset(1, 2).Empty()
 
 func (self Mset) Count (value interface{}) int {
-	if count, found := self.data[value] ; found {
+	if count, found := (*self.data)[value] ; found {
 		return count
 	} else {
 		return 0
@@ -196,7 +200,7 @@ func (self MsetIterator) Stop() {
 }
 
 func (self Mset) iterate (it MsetIterator, dup bool) {
-	for key, num := range self.data {
+	for key, num := range *self.data {
 		if !dup {
 			num = 1
 		}
@@ -240,43 +244,37 @@ func (self Mset) IterDup () (MsetIterator, *interface{}) {
 //... t
 //=== 14
 
-func (self Mset) Print () {
+func (self Mset) String () string {
+	buf := bytes.NewBufferString("[")
 	count := 0
-	fmt.Print("[")
-	for key, value := range self.data {
+	for key, value := range *self.data {
 		for i := 0; i < value; i += 1 {
 			if count >  0 {
-				fmt.Print(", ")
+				buf.WriteString(", ")
 			}
-			fmt.Print(key)
+			buf.WriteString(fmt.Sprint(key))
 			count += 1
 		}
 	}	
-	fmt.Print("]")
-}
-
-func (self Mset) Println () {
-	self.Print()
-	fmt.Println()
+	buf.WriteString("]")
+	return buf.String()
 }
 
 //### a := snk.MakeMset(1, 2, 3)
-//... a.Println()
-//... nil
+//... a
 //>>> list(sorted((eval(out)))) == [1, 2, 3]
 
 //### a := snk.MakeMset(1, 2, 2, 3, 3, 3)
-//... a.Println()
-//... nil
+//... a
 //>>> list(sorted(eval(out))) == [1, 2, 2, 3, 3, 3]
 
 type mapfunc func (interface{}, int) (interface{}, int)
 
 func (self Mset) Map (f mapfunc) Mset {
-	copy := NewMset()
-	for k0, n0 := range self.data {
+	copy := MakeMset()
+	for k0, n0 := range *self.data {
 		k1, n1 := f(k0, n0)
-		copy.data[k1] = n1
+		(*copy.data)[k1] = n1
 	}
 	return copy
 }

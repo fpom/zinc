@@ -12,20 +12,8 @@ package %(package)s
 """
 
 closing = """
-func StateSpace () snk.Graph {
-    return snk.StateSpace(Init, AddSucc)
-}
-
-func Reachable () snk.Set {
-    return snk.Reachable(Init, AddSucc)
-}
-
-func DeadLocks () snk.Set {
-    return snk.DeadLocks(Init, AddSucc)
-}
-
 func main () {
-    snk.Main(NET, Init, AddSucc)
+    snk.Main(NET, Init, AddSucc, IterSucc)
 }
 """
 
@@ -87,6 +75,15 @@ class CodeGenerator (ast.CodeGenerator) :
             name = self.succfunc[node.trans]
         self.succfunc[node.trans] = name
         self.write(name)
+    def visit_SuccIterName (self, node) :
+        if not node.trans :
+            name = "IterSucc"
+        elif node.trans not in self.succiter :
+            name = "IterSucc%03u" % (len(self.succiter) + 1)
+        else :
+            name = self.succiter[node.trans]
+        self.succiter[node.trans] = name
+        self.write(name)
     def visit_InitName (self, node) :
         name = self.initfunc = "Init"
         self.write(name)
@@ -100,8 +97,7 @@ class CodeGenerator (ast.CodeGenerator) :
                 self.fill("// successors for transition %r" % node.name.trans)
             else :
                 self.fill("// successors for all transitions")
-        self.children_visit(node.body, True)
-        with self.indent() :
+            self.children_visit(node.body, False)
             if self.unused :
                 self.fill("// work around 'declared and not used' compilation error")
                 self.fill("// variables are kept to be typechecked by the compiler")
@@ -144,14 +140,15 @@ class CodeGenerator (ast.CodeGenerator) :
         self.children_visit(node.body, True)
         self.fill("}")
     def visit_IfNoTokenSuchThat (self, node) :
-        bvar = node.CTX.names.fresh()
-        tvar = node.CTX.names.fresh(base=node.variable)
+        bvar = node.CTX.names.fresh(base="b" + node.variable)
+        pvar = node.CTX.names.fresh(base="p" + node.variable)
+        ivar = node.CTX.names.fresh(base="i" + node.variable)
         self.fill("%s := true" % bvar)
-        self.fill("for %s := range %s.Iter(%s) {"
-                  % (tvar, node.marking, S(node.place.name)))
+        self.fill("for %s, %s := %s.Iter(%s); %s != nil; %s = %s.Next() {"
+                  % (ivar, pvar, node.marking, S(node.place.name), pvar, pvar, ivar))
         with self.indent() :
-            self.fill("%s = (%s).(%s)"
-                      % (node.variable, tvar, self.typedef[node.place.type]))
+            self.fill("%s = (*%s).(%s)"
+                      % (node.variable, pvar, self.typedef[node.place.type]))
             self.fill("if ")
             self.visit(node.guard)
             self.write(" {")
@@ -166,12 +163,13 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_GetPlace (self, node) :
         self.fill("%s = %s.Get(%s)" % (node.variable, node.marking, S(node.place.name)))
     def visit_ForeachToken (self, node) :
-        var = node.NAMES.fresh(base=node.variable, add=True)
-        self.fill("for %s := range %s.Iter(%s) {"
-                  % (var, node.marking, S(node.place.name)))
+        ivar = node.NAMES.fresh(base="i" + node.variable)
+        pvar = node.NAMES.fresh(base="p" + node.variable)
+        self.fill("for %s, %s := %s.Iter(%s); %s != nil; %s = %s.Next() {"
+                  % (ivar, pvar, node.marking, S(node.place.name), pvar, pvar, ivar))
         with self.indent() :
-            self.fill("%s = (%s).(%s)"
-                      % (node.variable, var, self.typedef[node.place.type]))
+            self.fill("%s = (*%s).(%s)"
+                      % (node.variable, pvar, self.typedef[node.place.type]))
         self.children_visit(node.body, True)
         self.fill("}")
     def visit_Break (self, node) :
@@ -185,14 +183,15 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_IfAllType (self, node) :
         if node.place.type :
             self.unused.discard(node.variable)
-            bvar = node.CTX.names.fresh()
-            tvar = node.CTX.names.fresh()
+            bvar = node.CTX.names.fresh(base="b" + node.variable)
+            ivar = node.CTX.names.fresh(base="i" + node.variable)
+            pvar = node.CTX.names.fresh(base="p" + node.variable)
             self.fill("%s := true" % bvar)
-            self.fill("for %s := range %s.Iter() {"
-                      % (tvar, node.variable))
+            self.fill("for %s, %s := %s.Iter(); %s != nil; %s = %s.Next() {"
+                      % (ivar, pvar, node.variable, pvar, pvar, ivar))
             with self.indent() :
-                self.fill("_, %s = (%s).(%s)"
-                          % (bvar, tvar, self.typedef[node.place.type]))
+                self.fill("_, %s = (*%s).(%s)"
+                          % (bvar, pvar, self.typedef[node.place.type]))
                 self.fill("if ! %s { break }" % bvar)
             self.fill("}")
             self.fill("if %s {" % bvar)
@@ -237,7 +236,7 @@ class CodeGenerator (ast.CodeGenerator) :
                            ", ".join(self._pattern(m, t) if isinstance(m, tuple)
                                      else m for m, t in zip(matcher, placetype)))
     def _newmarking (self, name, marking, assign) :
-        self.fill("%s := snk.Marking{}" % name)
+        self.fill("%s := snk.MakeMarking()" % name)
         whole = []
         for place, tokens in marking.items() :
             found = False
@@ -261,38 +260,102 @@ class CodeGenerator (ast.CodeGenerator) :
         for place, tokens in whole :
             self.unused.discard(tokens)
             self.fill("%s.Update(%s, %s)" % (name, S(place), tokens))
-    def visit_AddSuccIfEnoughTokens (self, node) :
+    def visit_IfEnoughTokens (self, node) :
         subtest = False
-        subvar = node.NAMES.fresh(base="sub")
+        if not hasattr(node.CTX, "subvar") :
+            node.CTX.subvar = node.NAMES.fresh(base="sub")
+        if not hasattr(node.CTX, "addvar") :
+            node.CTX.addvar = node.NAMES.fresh(base="add")
         if node.test :
-            testvar = node.NAMES.fresh(base="test")
-            self._newmarking(testvar, node.test, node.BOUND)
-            self.fill("if %s.Geq(%s) {" % (node.old, testvar))
+            if not hasattr(node.CTX, "testvar") :
+                node.CTX.testvar = node.NAMES.fresh(base="test")
+            self._newmarking(node.CTX.testvar, node.test, node.BOUND)
+            self.fill("if %s.Geq(%s) {" % (node.old, node.CTX.testvar))
             indent = 1
         elif node.sub :
-            subtest = True
-            self._newmarking(subvar, node.sub, node.BOUND)
-            self.fill("if %s.Geq(%s) {" % (node.old, subvar))
+            subtest = 1
+            self._newmarking(node.CTX.subvar, node.sub, node.BOUND)
+            self.fill("if %s.Geq(%s) {" % (node.old, node.CTX.subvar))
             indent = 1
         else :
             indent = 0
         with self.indent(indent) :
             if node.sub and not subtest :
-                self._newmarking(subvar, node.sub, node.BOUND)
+                self._newmarking(node.CTX.subvar, node.sub, node.BOUND)
             if node.add :
-                addvar = node.NAMES.fresh(base="add")
-                self._newmarking(addvar, node.add, node.BOUND)
-            if node.sub and node.add :
-                self.fill("%s.Add(%s.Copy().Sub(%s).Add(%s))"
-                          % (node.succ, node.old, subvar, addvar))
-            elif node.sub :
-                self.fill("%s.Add(%s.Copy().Sub(%s))" % (node.succ, node.old, subvar))
-            elif node.add :
-                self.fill("%s.Add(%s.Copy().Add(%s))" % (node.succ, node.old, addvar))
-            else :
-                self.fill("%s.Add(%s.Copy())"  % (node.succ, node.old))
+                self._newmarking(node.CTX.addvar, node.add, node.BOUND)
+            self.children_visit(node.body, False)
         if indent :
             self.fill("}")
+    def visit_AddSucc (self, node) :
+        if node.sub and node.add :
+            self.fill("%s.Add(%s.Copy().Sub(%s).Add(%s))"
+                      % (node.succ, node.old, node.CTX.subvar, node.CTX.addvar))
+        elif node.sub :
+            self.fill("%s.Add(%s.Copy().Sub(%s))"
+                      % (node.succ, node.old, node.CTX.subvar))
+        elif node.add :
+            self.fill("%s.Add(%s.Copy().Add(%s))"
+                      % (node.succ, node.old, node.CTX.addvar))
+        else :
+            self.fill("%s.Add(%s.Copy())"  % (node.succ, node.old))
+    def visit_YieldEvent (self, node) :
+        mvar = node.NAMES.fresh(base="mode")
+        self.fill("%s := snk.Binding{" % mvar)
+        tvars = node.CTX.trans.vars()
+        last = len(tvars) - 1
+        for i, v in enumerate(tvars) :
+            self.write("%s: %s" % (S(v), node.CTX.bound[v]))
+            if i < last :
+                self.write(", ")
+        self.write("}")
+        if node.sub and node.add :
+            self.fill("if ! %s.Put(&snk.Event{%s, %s, %s, %s}) { return }"
+                      % (node.CTX.iterator, S(node.CTX.trans.name), mvar,
+                         node.CTX.subvar, node.CTX.addvar))
+        elif node.sub :
+            self.fill("if ! %s.Put(&snk.Event{%s, %s, %s, snk.MakeMarking()})"
+                      " { return }" % (node.CTX.iterator, S(node.CTX.trans.name),
+                                       mvar, node.CTX.subvar))
+        elif node.add :
+            self.fill("if ! %s.Put(&snk.Event{%s, %s, snk.MakeMarking(), %s})"
+                      " { return }" % (node.CTX.iterator, S(node.CTX.trans.name),
+                                       mvar, node.CTX.addvar))
+        else :
+            self.fill("if ! %s.Put(&snk.Event{%s, %s,"
+                      " snk.MakeMarking(), snk.MakeMarking()}) { return }"
+                      % (node.CTX.iterator, mvar, S(node.CTX.trans.name)))
+    def visit_DefSuccIter (self, node) :
+        self.unused = set()
+        self.fill("func ")
+        self.visit(node.name)
+        if node.name.trans :
+            node.CTX.iterator = node.NAMES.fresh(base="it")
+        else :
+            node.CTX.iterator = "it"
+        self.write(" (%s snk.Marking, %s snk.SuccIterator) {"
+                   % (node.marking, node.CTX.iterator))
+        with self.indent() :
+            if node.name.trans :
+                self.fill("// successors for transition %r" % node.name.trans)
+                self.children_visit(node.body, False)
+            else :
+                self.fill("// successors for all transitions")
+                for name in node.body :
+                    self.fill("for i, p := snk.Iter(")
+                    self.visit(name)
+                    self.write(", %s); p != nil; p = i.Next() {" % node.marking)
+                    with self.indent() :
+                        self.fill("if ! %s.Put(p) { return }" % node.CTX.iterator)
+                    self.fill("}")
+            self.fill("%s.Put(nil)" % node.CTX.iterator)
+            if self.unused :
+                self.fill("// work around 'declared and not used' compilation error")
+                self.fill("// variables are kept to be typechecked by the compiler")
+                self.fill("return")
+                for var in self.unused :
+                    self.fill("_ = %s" % var)
+        self.fill("}\n")
     def visit_DefSuccFunc (self, node) :
         self.fill("func ")
         self.visit(node.name)
@@ -302,10 +365,10 @@ class CodeGenerator (ast.CodeGenerator) :
                 self.fill("// successors of %r" % node.name.trans)
             else :
                 self.fill("// successors for all transitions")
-        self.children_visit(node.body, True)
+            self.children_visit(node.body, False)
         self.fill("}\n")
     def visit_InitSucc (self, node) :
-        self.fill("%s := snk.Set{}" % node.name)
+        self.fill("%s := snk.MakeSet()" % node.name)
     def visit_CallSuccProc (self, node) :
         self.fill()
         self.visit(node.name)
@@ -318,7 +381,7 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write(" () snk.Marking {")
         with self.indent() :
             self.fill("// initial marking")
-            self.fill("init := snk.Marking{}")
+            self.fill("init := snk.MakeMarking(0)")
             for place in sorted(node.marking, key=attrgetter("place")) :
                 self.fill("init.Set(")
                 self.visit(place)
@@ -345,6 +408,15 @@ class CodeGenerator (ast.CodeGenerator) :
         self.fill("var SuccFunc map[string]SuccFuncType = map[string]SuccFuncType{")
         with self.indent() :
             for trans, name in sorted(self.succfunc.items()) :
+                self.fill("%s: %s," % (S(trans or ""), name))
+        self.fill("}\n")
+    def visit_SuccIterTable (self, node) :
+        self.fill("// map transitions names to successor iterators")
+        self.fill('// "" maps to all-transitions iterator')
+        self.fill("var SuccIter map[string]snk.SuccIterFunc"
+                  " = map[string]snk.SuccIterFunc{")
+        with self.indent() :
+            for trans, name in sorted(self.succiter.items()) :
                 self.fill("%s: %s," % (S(trans or ""), name))
         self.fill("}\n")
 

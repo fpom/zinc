@@ -104,12 +104,12 @@ net "test net" :
         < p3 flush+ = n
         > p2 fill  = m.Copy().Add(n)
     # test flush and test fill
-    trans t12 len(m) > 0 :
+    trans t12 m.Len() > 0 :
         < p0 val = DOT
         < p1 ?flush = m
-        > p2 ?fill  = m.Mul(2)
+        > p2 ?fill  = m.Copy().Add(m)
     # multiarc fill
-    trans t13 len(m) > 0 :
+    trans t13 m.Len() > 0 :
         < p0 val = DOT
         < p1 flush = m
         > p1 fill  = m

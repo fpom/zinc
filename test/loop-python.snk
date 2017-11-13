@@ -1,0 +1,20 @@
+lang go
+
+declare """
+MOD = 5
+"""
+
+net "loop" :
+    place p0 int = 0
+    place p1 int
+    place p2 int
+    trans t0 :
+        < p0 var  = x
+        > p1 expr = (x+1) % MOD
+    trans t1 :
+        < p1 var  = x
+        > p2 expr = (x+2) % MOD
+    trans t2 :
+        < p2 var  = x
+        > p0 expr = (x+3) % MOD
+

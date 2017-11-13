@@ -1,38 +1,43 @@
-import ast, collections
+import collections
 
-from snakes.tokens import Marking, mset, dot
+from snakes.nets import Marking, mset, dot, hdict
 
-def load_token (tok) :
-    if tok == {} :
-        return dot
-    return tok
+event = collections.namedtuple("event", ["trans", "mode", "state"])
 
-def load_state (text) :
-    text = text.replace("BlackToken()", "{}")
-    return Marking({place : mset(load_token(t) for t in tokens)
-                    for place, tokens in ast.literal_eval(text).items()})
+def load_code (text) :
+    return eval(text, {"dot": dot, "mset": mset})
+
+def load_state (text, ident=None) :
+    m = Marking({place : mset(dot if t == {} else t for t in tokens)
+                 for place, tokens in load_code(text).items()})
+    if ident is not None :
+        m.ident = ident
+    return m
 
 def load (infile) :
     g = {}
-    last = None
     for line in infile :
         try :
             head, text = line.split(None, 1)
         except :
             raise ValueError("invalid line %r" % line)
-        state = load_state(text)
-        if head == "INIT" :
-            g[0] = state
-        elif head.startswith("[") :
-            if state in g :
-                print("duplicate state", state)
-            else :
-                g[state] = set()
-            last = state
-        elif head == ">>>" :
-            if state in g[last] :
-                print("duplicate succ", state)
-            g[last].add(state)
+        if head.startswith("[") :
+            ident = int(head[1:-1])
+            last = load_state(text, ident)
+            g[last] = set()
+            if ident == 0 :
+                g[0] = last
+        elif head == "@" :
+            trans, _, text = text.split(None, 2)
+            mode = hdict(load_code(text))
+            for k, v in mode.items() :
+                if isinstance(v, list) :
+                    mode[k] = mset(v)
+        elif head in "+-" :
+            pass
+        elif head == ">" :
+            i, m = text.split(None, 1)
+            g[last].add(event(trans, mode, load_state(m, int(i[1:-1]))))
         else :
             raise ValueError("invalid line %r" % line)
     return g
@@ -48,13 +53,14 @@ def compare (left, right) :
     seen = set(todo)
     while todo :
         state = todo.popleft()
-        todo.extend(left[state] - seen)
-        seen.update(left[state])
+        succs = set(e.state for e in left[state]) - seen
+        todo.extend(succs)
+        seen.update(succs)
         if state not in right :
             print("missing", state)
             return
         elif left[state] != right[state] :
-            print("not same successors for", state)
+            print("not same successors for [%s] %s" % (state.ident, state))
             for s in left[state] - right[state] :
                 print(" -", s)
             for s in right[state] - left[state] :

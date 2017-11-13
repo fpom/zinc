@@ -7,64 +7,58 @@ from snakes.compil import ast, CompilationError
 
 event = init = addsucc = itersucc = None
 
-def statespace () :
-    "compute the marking graph"
-    todo = set([init()])
-    done = set()
-    succ = set()
-    g = collections.OrderedDict()
+def dumpmarking (m) :
+    if hasattr(m, "ident") :
+        return "[%s] %s" % (m.ident, {p : list(t) for p, t in m.items()})
+    else :
+        return str({p : list(t) for p, t in m.items()})
+
+def statespace (print_states, print_succs, print_dead) :
+    i = init()
+    i.ident = 0
+    todo = collections.deque([i])
+    seen = {i : 0}
+    dead = 0
     while todo:
-        state = todo.pop()
-        done.add(state)
-        succ.clear()
+        state = todo.popleft()
+        succ = set()
         addsucc(state, succ)
-        if state not in g :
-            g[state] = set()
-        g[state].update(succ)
-        succ.difference_update(done)
-        succ.difference_update(todo)
-        todo.update(succ)
-    return g
+        if not succ :
+            dead += 1
+        if (print_dead and not succ) or print_states :
+            print(dumpmarking(state))
+        for s in succ :
+            if s in seen :
+                s.ident = seen[s]
+            else :
+                s.ident = seen[s] = len(seen)
+                todo.append(s)
+            if print_succs :
+                print(" >", dumpmarking(s))
+    return len(seen), dead
 
 def lts () :
-    "compute the labelled transition system (ie, detailled marking graph)"
-    todo = set([init()])
-    done = set()
-    succ = set()
-    g = collections.OrderedDict()
+    i = init()
+    i.ident = 0
+    todo = collections.deque([i])
+    seen = {i : 0}
     while todo:
-        state = todo.pop()
-        done.add(state)
-        succ.clear()
-        for ev in itersucc(state) :
-            if state not in g :
-                g[state] = {}
-            if ev not in g[state] :
-                g[state][ev] = set()
-            s = state - ev.sub + ev.add
-            g[state][ev].add(s)
-            succ.add(s)
-        succ.difference_update(done)
-        succ.difference_update(todo)
-        todo.update(succ)
-    return g
-
-def reachable (g=None):
-    "compute all the reachable markings"
-    if g is None :
-        g = statespace()
-    return set(g)
-
-def deadlocks (g=None) :
-    "compute the set of deadlocks"
-    if g is None :
-        g = statespace()
-    return set(m for m, s in g.items() if not s)
+        state = todo.popleft()
+        print(dumpmarking(state))
+        for trans, mode, sub, add in itersucc(state) :
+            succ = state - sub + add
+            if succ in seen :
+                succ.ident = seen[succ]
+            else :
+                succ.ident = seen[succ] = len(seen)
+                todo.append(succ)
+            print("@ %s = %s" % (trans, mode))
+            print(" -", dumpmarking(sub))
+            print(" +", dumpmarking(add))
+            print(" >", dumpmarking(succ))
 
 def main () :
     import argparse
-    def dump (m) :
-        return repr({p : list(t) for p, t in m.items()})
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", dest="size",
                         default=False, action="store_true",
@@ -79,47 +73,29 @@ def main () :
     group.add_argument("-d", dest="mode", action="store_const", const="d",
                        help="only print deadlocks")
     args = parser.parse_args()
-    if args.mode == "l" and not args.size :
-        g = lts()
-    else :
-        g = statespace()
     if args.mode in "gml" and args.size :
-        print("%s reachable states" % len(g))
+        n, _ = statespace(False, False, False)
+        print("%s reachable states")
     elif args.mode == "d" and args.size :
-        print("%s deadlocks" % len(deadlocks(g)))
+        _, n = statespace(False, False, False)
+        print("%s deadlocks")
     elif args.mode == "g" :
-        print("INIT ", dump(init()))
-        for num, (state, succ) in enumerate(g.items()) :
-            print("[%s]" % num, dump(state))
-            for s in succ :
-                print(">", dump(s))
-    elif args.mode in "md" :
-        print("INIT ", dump(init()))
-        if args.mode == "m" :
-            get = reachable
-        else :
-            get = deadlocks
-        for num, state in enumerate(get(g)) :
-            print("[%s]" % num, dump(state))
+        statespace(True, True, False)
+    elif args.mode in "m" :
+        statespace(True, False, False)
+    elif args.mode in "d" :
+        statespace(False, False, True)
     elif args.mode == "l" :
-        for num, (state, events) in enumerate(g.items()) :
-            print("[%s]" % num, dump(state))
-            for ev, succ in events.items() :
-                print("@", repr(ev.trans), "=", ev.mode)
-                print("  -", dump(ev.sub))
-                print("  +", dump(ev.add))
-                for s in succ :
-                    print("  >", dump(s))
+        lts()
 
 class CodeGenerator (ast.CodeGenerator) :
     def visit_Module (self, node) :
         self.write("# %s\n\nNET = %r\n" % (self.timestamp(), node.name))
         self.write("import itertools, collections")
         self.children_visit(node.body)
+        self.write("\n%s" % inspect.getsource(dumpmarking))
         self.write("\n%s" % inspect.getsource(statespace))
         self.write("\n%s" % inspect.getsource(lts))
-        self.write("\n%s" % inspect.getsource(reachable))
-        self.write("\n%s" % inspect.getsource(deadlocks))
         self.write("\n%s" % inspect.getsource(main))
         self.write("\nif __name__ == '__main__':"
                    "\n    main()")

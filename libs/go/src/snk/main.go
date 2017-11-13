@@ -13,7 +13,7 @@ func StateSpace (init func()Marking, addsucc func(Marking, Set),
 	for ! todo.Empty() {
 		state := todo.Get()
 		if print_states {
-			fmt.Println(*state)
+			fmt.Println(state)
 		}
 		succ = MakeSet()
 		addsucc(*state, succ)
@@ -27,7 +27,7 @@ func StateSpace (init func()Marking, addsucc func(Marking, Set),
 				todo.Put(s)
 			}
 			if print_succs {
-				fmt.Println(" >", *s)
+				fmt.Println(" >", s)
 			}
 		}
 	}
@@ -35,69 +35,70 @@ func StateSpace (init func()Marking, addsucc func(Marking, Set),
 }
 
 func DeadLocks (init func()Marking, addsucc func(Marking, Set), print bool) int {
-	// var succ Set
-	// count := 0
-	// i := init()
-	// todo := append(make([]*Marking, 0), &i)
-	// seen := MakeSet(i)
-	// for len(todo) > 0 {
-	// 	state := todo[0]
-	// 	todo = todo[1:]
-	// 	succ = MakeSet()
-	// 	addsucc(*state, succ)
-	// 	if succ.Empty() {
-	// 		if print {
-	// 			fmt.Printf("[%d] %s", count, state)
-	// 		}
-	// 		count += 1
-	// 	} else {
-	// 		for _, s := range *succ.data {
-	// 			if ! seen.Has(*s) {
-	// 				seen.Add(*s)
-	// 				todo = append(todo, s)
-	// 			}
-	// 		}
-	// 	}
-	// }
-	// return count
-	return 0
+	var succ Set
+	count := 1
+	i := init()
+	todo := MakeQueue(&i)
+	seen := MakeSet(&i)
+	for ! todo.Empty() {
+		state := todo.Get()
+		succ = MakeSet()
+		addsucc(*state, succ)
+		if succ.Empty() {
+			if print {
+				fmt.Println(state)
+			}
+			count++
+		} else {
+			for _, s := range succ.data {
+				if found, p := seen.Get(s); found {
+					s = p
+				} else {
+					s.SetId(seen.Len())
+					seen.AddPtr(s)
+					todo.Put(s)
+				}
+			}
+		}
+	}
+	return count
 }
 
 func LabelledTransitionsSystem (init func()Marking, itersucc SuccIterFunc) {
-	// count := 0
-	// i := init()
-	// todo := append(make([]*Marking, 0), &i)
-	// seen := MakeSet(i)
-	// for len(todo) > 0 {
-	// 	state := todo[0]
-	// 	todo = todo[1:]
-	// 	fmt.Printf("[%d] %s\n", count, state)
-	// 	count += 1
-	// 	for i, p := Iter(itersucc, *state); p != nil; p = i.Next() {
-	// 		// print trans & mode
-	// 		fmt.Print("@ ", p.Name, " = {")
-	// 		first := true
-	// 		for key, val := range p.Mode {
-	// 			if first {
-	// 				first = false
-	// 			} else {
-	// 				fmt.Print(", ")
-	// 			}
-	// 			fmt.Printf("'%s': ", key)
-	// 			fmt.Print(val)
-	// 		}
-	// 		fmt.Println("}")
-	// 		// print markings
-	// 		fmt.Println(" - ", p.Sub)
-	// 		fmt.Println(" + ", p.Add)
-	// 		s := state.Copy().Sub(p.Sub).Add(p.Add)
-	// 		fmt.Println(" > ", s)
-	// 		if ! seen.Has(s) {
-	// 			seen.Add(s)
-	// 			todo = append(todo, &s)
-	// 		}
-	// 	}
-	// }
+	i := init()
+	todo := MakeQueue(&i)
+	seen := MakeSet(&i)
+	for ! todo.Empty() {
+		state := todo.Get()
+		fmt.Println(state)
+		for i, p := Iter(itersucc, *state); p != nil; p = i.Next() {
+			// print trans & mode
+			fmt.Print("@ ", p.Name, " = {")
+			first := true
+			for key, val := range p.Mode {
+				if first {
+					first = false
+				} else {
+					fmt.Print(", ")
+				}
+				fmt.Printf("'%s': ", key)
+				fmt.Print(val)
+			}
+			fmt.Println("}")
+			// print markings
+			fmt.Println(" - ", p.Sub)
+			fmt.Println(" + ", p.Add)
+			s := state.Copy().Sub(p.Sub).Add(p.Add)
+			if found, old := seen.Get(&s); found {
+				fmt.Println(" > ", old)
+			} else {
+				s.SetId(seen.Len())
+				seen.Add(s)
+				todo.Put(&s)
+				fmt.Println(" > ", s)
+			}
+		}
+	}
 }
 
 func Main (name string, init func()Marking,
@@ -115,6 +116,14 @@ func Main (name string, init func()Marking,
 		case "-g" : mode = GRAPH
 		case "-m" : mode = MARKS
 		case "-l" : mode = LTS
+		case "-ds" : mode = LOCKS; size = true
+		case "-gs" : mode = GRAPH; size = true
+		case "-ms" : mode = MARKS; size = true
+		case "-ls" : mode = LTS; size = true
+		case "-sd" : mode = LOCKS; size = true
+		case "-sg" : mode = GRAPH; size = true
+		case "-sm" : mode = MARKS; size = true
+		case "-sl" : mode = LTS; size = true
 		case "-h" :
 			fmt.Println("usage: ", name, " [-s] (-d|-g|-m|-l|-h)")
 			fmt.Println("  options:")

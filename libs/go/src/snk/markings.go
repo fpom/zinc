@@ -350,7 +350,7 @@ func (self Marking) Geq (other Marking) bool {
 //... a.Geq(b)
 //=== false
 
-func (self Marking) Iter (place string) (MsetIterator, *interface{}) {
+func (self Marking) Iter (place string) (MsetIterator, interface{}) {
 	mset, found := (*self.data)[place]
 	if found {
 		return mset.Iter()
@@ -359,7 +359,7 @@ func (self Marking) Iter (place string) (MsetIterator, *interface{}) {
 	}
 }
 
-func (self Marking) IterDup (place string) (MsetIterator, *interface{}) {
+func (self Marking) IterDup (place string) (MsetIterator, interface{}) {
 	mset, found := (*self.data)[place]
 	if found {
 		return mset.IterDup()

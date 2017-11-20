@@ -176,11 +176,11 @@ func (self Mset) Count (value interface{}) int {
 type MsetIterator struct {
 	done bool
 	ask chan bool
-	rep chan *interface{}
+	rep chan interface{}
 }
 
-func (self MsetIterator) Next() *interface{} {
-	var rep *interface{}
+func (self MsetIterator) Next() interface{} {
+	var rep interface{}
 	if self.done {
 		return nil
 	}
@@ -209,7 +209,7 @@ func (self Mset) iterate (it MsetIterator, dup bool) {
 				return
 			}
 			if <- it.ask {
-				it.rep <- &key
+				it.rep <- key
 			} else {
 				return
 			}
@@ -220,14 +220,14 @@ func (self Mset) iterate (it MsetIterator, dup bool) {
 	}
 }
 
-func (self Mset) Iter () (MsetIterator, *interface{}) {
-	it := MsetIterator{false, make(chan bool), make(chan *interface{})}
+func (self Mset) Iter () (MsetIterator, interface{}) {
+	it := MsetIterator{false, make(chan bool), make(chan interface{})}
 	go self.iterate(it, false)
 	return it, it.Next()
 }
 
-func (self Mset) IterDup () (MsetIterator, *interface{}) {
-	it := MsetIterator{false, make(chan bool), make(chan *interface{})}
+func (self Mset) IterDup () (MsetIterator, interface{}) {
+	it := MsetIterator{false, make(chan bool), make(chan interface{})}
 	go self.iterate(it, true)
 	return it, it.Next()
 }

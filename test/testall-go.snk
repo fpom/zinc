@@ -35,7 +35,6 @@ net "test net" :
     place p1 int = 0, 1, 2
     place p2 int = 1, 2, 3
     place p3 int = MAX, {MAX+1}
-    place p4
     # values
     trans t01 :
         < p0 val = DOT
@@ -66,7 +65,7 @@ net "test net" :
         < p1 expr = abs(x - y)
         > p2 var  = x
         > p2 expr = y+1
-        > p4 expr = abs(x - y)
+        > p3 expr = abs(x - y)
     # test on input
     trans t06 x != y :
         < p0 val = DOT
@@ -157,10 +156,6 @@ net "test net" :
         < p5 var = y
         > p6 (expr, var, val) = ({fmt.Sprintf("%d", x)}, y, true)
         > p6 (val, (var, expr), val) = ({fmt.Sprintf("%d", x)}, (x, {x-1}), true)
-    # inhibitor
-    trans t21 :
-        < p0 val = DOT
-        < p5 !(var, val) = (x, 0)
     # inhibitor
     trans t22 :
         < p0 val = DOT

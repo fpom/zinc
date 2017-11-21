@@ -11,7 +11,6 @@ net "test net" :
     place p1 int = 0, 1, 2
     place p2 int = 1, 2, 3
     place p3 int = MAX, {MAX+1}
-    place p4
     # values
     trans t01 :
         < p0 val = dot
@@ -42,7 +41,7 @@ net "test net" :
         < p1 expr = abs(x - y)
         > p2 var  = x
         > p2 expr = y+1
-        > p4 expr = abs(x - y)
+        > p3 expr = abs(x - y)
     # test on input
     trans t06 x != y :
         < p0 val = dot
@@ -133,11 +132,6 @@ net "test net" :
         < p5 var = y
         > p6 (expr, var, val) = ({str(x)}, y, True)
         > p6 (expr, (var, expr), val) = ({str(x)}, (x, {x-1}), True)
-    # untyped :
-    trans t21 x < y :
-        < p0 val = dot
-        < p4 (var, var) = (x, y)
-        > p4 (var, var) = (y, x)
     # inhibitor
     trans t22 :
         < p0 val = dot

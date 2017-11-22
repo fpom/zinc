@@ -1,4 +1,4 @@
-import importlib, string, collections
+import importlib, string, collections, io, tempfile, os, os.path
 
 from snakes import LanguageError
 
@@ -10,6 +10,44 @@ def getlang (name) :
         raise LanguageError("unsupported language %r" % name)
     module.name = name
     return module
+
+def build (lang, tree, saveto) :
+    if saveto is None :
+        out = io.StringIO()
+    elif isinstance(saveto, str) :
+        out = open(str, "w+")
+    else :
+        try :
+            saveto.write("hello world!")
+            saveto.seek(0)
+            if saveto.read(12) != "hello world!" :
+                raise IOError()
+            saveto.seek(0)
+            saveto.truncate()
+            saveto.flush()
+            if not os.path.exists(saveto.name) :
+                raise IOError()
+        except :
+            raise ValueError("%r object does not have expected file-like feature"
+                             % saveto.__class__.__name__)
+        out = saveto
+    gen = lang.codegen.CodeGenerator(out)
+    gen.visit(tree)
+    out.flush()
+    out.seek(0)
+    if lang.INMEM :
+        mod = lang.build(tree, out, tree.name + lang.EXT)
+    elif saveto is None :
+        try :
+            tmp = tempfile.NamedTemporaryFile(mode="w+", suffix=lang.EXT, delete=False)
+            tmp.write(out.read())
+            tmp.close()
+            mod = lang.build(tree, tmp.name, tree.name + lang.EXT)
+        finally :
+            os.unlink(tmp.name)
+    else :
+        mod = lang.build(tree, out.name, os.path.basename(out.name))
+    mod.ast = tree
 
 class BaseDeclare (object) :
     _levels = [None]
@@ -34,9 +72,27 @@ class BaseDeclare (object) :
         return new
 
 class CompilationError (Exception) :
-    def __init__ (self, msg, blame) :
-        Exception.__init__(self, msg)
-        self.blame = blame
+    def __init__ (self, ast, path, msg, loc=None, details=None) :
+        if loc is None :
+            short = "%s: %s" % (path, msg.strip())
+            self.blame = None
+        elif not isinstance(loc, tuple) :
+            short = "%s[%s]: %s" % (path, loc, msg.strip())
+            self.blame = ast.blame(int(loc) - 1, 0)
+        else :
+            short = "%s[%s:%s]: %s" % (path, loc[0] - 1, loc[1], msg.strip())
+            self.blame = ast.blame(*loc)
+        Exception.__init__(self, short)
+        self.ast = ast
+        self.path = path
+        self.loc = loc
+        self.details = details
+    def message (self) :
+        msg = ["[ERROR] %s" % self]
+        if self.blame is not None :
+            msg.append("[BLAME] %s" % self.blame)
+        msg.append(self.details)
+        return "\n".join(msg)
 
 class Context (object) :
     def __init__ (self, **attrs) :

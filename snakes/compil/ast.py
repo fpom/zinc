@@ -163,17 +163,14 @@ class AST (_Record) :
                         found.extend(sub.locate(line, column))
         return found
     def locate (self, line, column) :
-        if not hasattr(self, "loc") :
-            raise ValueError("AST has no locations")
-        elif self.loc is None :
-            return []
-        (l0, c0), (l1, c1) = self.loc
-        if ((l0 == line == l1 and c0 <= column < c1)
-            or (l0 == line < l1 and c0 <= column)
-            or (l0 < line == l1 and column <= c1)
-            or (l0 < line < l1)) :
-            return [self] + self._locate_children(line, column)
-        return []
+        if hasattr(self, "loc") and self.loc is not None :
+            (l0, c0), (l1, c1) = self.loc
+            if ((l0 == line == l1 and c0 <= column < c1)
+                or (l0 == line < l1 and c0 <= column)
+                or (l0 < line == l1 and column <= c1)
+                or (l0 < line < l1)) :
+                return [self] + self._locate_children(line, column)
+        return self._locate_children(line, column)
     def blame (self, line, column) :
         for node in reversed(self.locate(line, column)) :
             if hasattr(node, "BLAME") :
@@ -414,8 +411,10 @@ class CodeGenerator (object) :
         node.body = []
         for lvl, line in node.decl :
             node.body.append(ContextLine(line, BLAME=ContextBlame(line)))
-            self.fill(line)
+        self.children_visit(node.body)
         self.fill()
+    def visit_ContextLine (self, node) :
+        self.fill(node.code)
     def visit_SuccProcName (self, node) :
         if not node.trans :
             name = "addsucc"

@@ -5,7 +5,7 @@ MAX = 5
 """
 
 net "my net" :
-    place p1 int = 0, 1, 2, FOO
+    place p1 int = 0, 1, 2
     place p2 int = 1, 2, 3
     place p3 int = MAX
     place p4

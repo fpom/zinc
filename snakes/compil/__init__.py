@@ -47,7 +47,9 @@ def build (lang, tree, saveto) :
             os.unlink(tmp.name)
     else :
         mod = lang.build(tree, out.name, os.path.basename(out.name))
-    mod.ast = tree
+    if mod is not None :
+        mod.__ast__ = tree
+    return mod
 
 class BaseDeclare (object) :
     _levels = [None]

@@ -13,10 +13,6 @@ class Declare (BaseDeclare) :
     _levels = ["import", "decl"]
     _default = "decl"
 
-class GoModule (object) :
-    def __init__ (self, srcpath) :
-        self.path = os.path.splitext(srcpath)[0]
-
 def update_gopath () :
     # TODO: fix this wrt installation path
     path = os.path.join(os.path.dirname(os.path.dirname(inspect.getfile(snakes))),
@@ -40,4 +36,3 @@ def build (ast, src, name) :
             except ValueError :
                 continue
         raise CompilationError(ast, name, out)
-    return GoModule(src)

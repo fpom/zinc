@@ -1,4 +1,4 @@
-import types, traceback, sys, importlib
+import types, traceback, sys
 from snakes.compil import CompilationError, BaseDeclare
 
 from . import codegen as codegen
@@ -15,11 +15,9 @@ class Declare (BaseDeclare) :
 def build (ast, src, name) :
     if isinstance(src, str) :
         src = open(src)
-    ctx = {}
     try :
-        spec = importlib.util.spec_from_file_location(module_name, file_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
+        mod = types.ModuleType(ast.name)
+        exec(src.read(), mod.__dict__)
     except Exception as err :
         c, v, t = sys.exc_info()
         msg = traceback.format_exception_only(c, v)

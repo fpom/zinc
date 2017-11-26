@@ -4,7 +4,6 @@
 package dicts
 
 import (
-	"strconv"
 	"bytes"
 	"fmt"
 )
@@ -15,16 +14,25 @@ type Hashable interface {
 }
 
 type Item struct {
-	hash  int64
-	Key   Hashable
-	Value interface{}
+	Key   *Hashable
+	Value *interface{}
+	hash  uint64
 }
 
 type Dict struct {
-	indices   map[int64]uint64
+	indices   map[uint64]int64
 	itemlist  []Item
 	used      uint64
 	filled    uint64
+}
+
+func hash (key Hashable) uint64 {
+	h := int64(key.Hash())
+	if h < 0 {
+		return uint64(-h)
+	} else {
+		return uint64(h)
+	}
 }
 
 // # Placeholder constants
@@ -43,7 +51,7 @@ func NewDict (items ...Item) Dict {
 	d := Dict{}
 	d.Clear()
 	for _, i := range items {
-		d.Set(i.Key, i.Value)
+		d.Set(*(i.Key), *(i.Value))
 	}
 	return d
 }
@@ -63,8 +71,8 @@ func NewDict (items ...Item) Dict {
 //     self.used = 0
 //     self.filled = 0                                         # used + dummies
 
-func (self Dict) Clear () {
-	self.indices  = make(make[int64]int64)
+func (self *Dict) Clear () {
+	self.indices  = make(map[uint64]int64)
 	self.itemlist = make([]Item, 0)
 	self.used     = 0
 	self.filled   = 0
@@ -93,20 +101,16 @@ func (self Dict) Len () uint64 {
 const _PERTURB_SHIFT uint64 = 5
 
 type probe struct {
-	i         int64
-	perturb   int64
+	i         uint64
+	perturb   uint64
 }
 
-func first_probe (hashvalue uint64) (int64, probe) {
-	h := int64(hashvalue)
-	if h < 0 {
-		h = -h
-	}
-	p := probe{h, h}
+func first_probe (hashvalue uint64) (uint64, probe) {
+	p := probe{hashvalue, hashvalue}
 	return p.i, p
 }
 
-func (self *probe) next () int64 {
+func (self *probe) next () uint64 {
 	self.i = 5 * self.i + self.perturb + 1
 	self.perturb >>= _PERTURB_SHIFT
 	return self.i
@@ -128,7 +132,7 @@ func (self *probe) next () int64 {
 //               and self.keylist[index] == key):
 //                 return (index, i)
 
-func (self Dict) lookup (key Hashable, hashvalue uint64) (int64, int64) {
+func (self Dict) lookup (key Hashable, hashvalue uint64) (int64, uint64) {
 	var freeslot *uint64 = nil
 	for i, p := first_probe(hashvalue); true; i = p.next() {
 		index, found := self.indices[i]
@@ -143,43 +147,12 @@ func (self Dict) lookup (key Hashable, hashvalue uint64) (int64, int64) {
 				freeslot = new(uint64)
 				*freeslot = i
 			}
-		} else if self.itemlist[index].hash == hashvalue && self.keylist[index].Eq(key) {
+		} else if self.itemlist[index].Key == &key || (self.itemlist[index].hash == hashvalue && (*(self.itemlist[index].Key)).Eq(key)) {
 			return index, i
 		}
 	}
 	// never reached
 	return 0, 0
-}
-
-// def _resize(self, n):
-//     '''Reindex the existing hash/key/value entries.
-//        Entries do not get moved, they only get new indices.
-//        No calls are made to hash() or __eq__().
-//     '''
-//     n = 2 ** n.bit_length()                     # round-up to power-of-two
-//     self.indices = self._make_index(n)
-//     for index, hashvalue in enumerate(self.hashlist):
-//         for i in Dict._gen_probes(hashvalue, n-1):
-//             if self.indices[i] == FREE:
-//                 break
-//         self.indices[i] = index
-//     self.filled = self.used
-
-func (self *Dict) resize (size uint64) {
-	var n uint64 = 1 << uint64(len(strconv.FormatUint(size, 2)))
-	self.indices = make([]uint64, n)
-	for i := uint64(0); i < n; i++ {
-		self.indices[i] = _FREE
-	}
-	for index, hashvalue := range self.hashlist {
-		for i, p := first_probe(hashvalue, n-1); true; i = p.next() {
-			if self.indices[i] == _FREE {
-				break
-			}
-			self.indices[i] = uint64(index)
-		}
-	}
-	self.filled = self.used
 }
 
 // def __getitem__(self, key):
@@ -190,11 +163,11 @@ func (self *Dict) resize (size uint64) {
 //     return self.valuelist[index]
 
 func (self Dict) Get (key Hashable) interface{} {
-	index, _ := self.lookup(key, key.Hash())
-	if index < _FIRST_HASH {
+	index, _ := self.lookup(key, hash(key))
+	if index < 0 {
 		panic("Dict has no such key")
 	}
-	return self.valuelist[index]
+	return *(self.itemlist[index].Value)
 }
 
 // def get(self, key, default=None):
@@ -202,11 +175,11 @@ func (self Dict) Get (key Hashable) interface{} {
 //     return self.valuelist[index] if index >= 0 else default
 
 func (self Dict) Fetch (key Hashable, fallback interface{}) interface{} {
-	index, _ := self.lookup(key, key.Hash())
-	if index < _FIRST_HASH {
+	index, _ := self.lookup(key, hash(key))
+	if index < 0 {
 		return fallback
 	} else {
-		return self.valuelist[index]
+		return *(self.itemlist[index].Value)
 	}
 }
 
@@ -227,22 +200,17 @@ func (self Dict) Fetch (key Hashable, fallback interface{}) interface{} {
 //         self.valuelist[index] = value
 
 func (self *Dict) Set (key Hashable, value interface{}) {
-	hashvalue := key.Hash()
+	hashvalue := hash(key)
 	index, i := self.lookup(key, hashvalue)
-	if index < _FIRST_HASH {
-		self.indices[i] = self.used
-		self.hashlist   = append(self.hashlist, hashvalue)
-		self.keylist    = append(self.keylist, key)
-		self.valuelist  = append(self.valuelist, value)
+	if index < 0 {
+		self.indices[i] = int64(self.used)
+		self.itemlist = append(self.itemlist, Item{&key, &value, hashvalue})
 		self.used++
 		if index == _FREE {
 			self.filled++
-			if self.filled * 3 > uint64(len(self.indices)) * 2 {
-				self.resize(4 * self.used)
-			}
 		}		
 	} else {
-		self.valuelist[index] = value
+		self.itemlist[index] = Item{&key, &value, hashvalue}
 	}
 }
 
@@ -270,58 +238,53 @@ func (self *Dict) Set (key Hashable, value interface{}) {
 //     self.valuelist.pop()
 
 func (self *Dict) Del (key Hashable) {
-	hashvalue := key.Hash()
+	hashvalue := hash(key)
 	index, i := self.lookup(key, hashvalue)
-	if index < _FIRST_HASH {
+	if index < 0 {
 		return
 	}
 	self.indices[i] = _DUMMY
 	self.used--
-	if index != self.used {
-		lasthash     := self.hashlist[len(self.hashlist)-1]
-		lastkey      := self.keylist[len(self.keylist)-1]
-		lastvalue    := self.valuelist[len(self.valuelist)-1]
-		lastindex, j := self.lookup(lastkey, lasthash)
-		if lastindex < _FIRST_HASH || i == j {
+	if uint64(index) != self.used {
+		lastitem     := self.itemlist[self.used]
+		lastindex, j := self.lookup(*(lastitem.Key), lastitem.hash)
+		if lastindex < 0 || i == j {
 			panic("inconsistent Dict internal state")
 		}
 		self.indices[j]       = index
-		self.hashlist[index]  = lasthash
-		self.keylist[index]   = lastkey
-		self.valuelist[index] = lastvalue
+		self.itemlist[index]  = lastitem
 	}
-	self.hashlist  = self.hashlist[:len(self.hashlist)-1]
-	self.keylist   = self.keylist[:len(self.keylist)-1]
-	self.valuelist = self.valuelist[:len(self.valuelist)-1]
+	self.itemlist  = self.itemlist[:self.used]
 }
 
 // def keys(self):
 //     return list(self.keylist)
-
-func (self Dict) Keys () []Hashable {
-	var keys []Hashable
-	copy(keys, self.keylist)
-	return keys
-}
-
 // def values(self):
 //     return list(self.valuelist)
-
-func (self Dict) Values () []interface{} {
-	var values []interface{}
-	copy(values, self.valuelist)
-	return values
-}
-
 // def items(self):
 //     return zip(self.keylist, self.valuelist)
 
-func (self Dict) Items () []Item {
-	items := make([]Item, self.used)
-	for i := uint64(0); i < self.used; i++ {
-		items[i] = Item{self.keylist[i], self.valuelist[i]}
+type dictiter struct {
+	i uint64
+	d *Dict
+}
+
+func (self *dictiter) Next () *Item {
+	self.i++
+	if self.i >= self.d.used {
+		return nil
+	} else {
+		return &(self.d.itemlist[self.i])
+	}	
+}
+
+func (self Dict) Iter () (dictiter, *Item) {
+	it := dictiter{0, &self}
+	if self.used == 0 {
+		return it, nil
+	} else {
+		return it, &(self.itemlist[0])
 	}
-	return items
 }
 
 // def __contains__(self, key):
@@ -329,8 +292,8 @@ func (self Dict) Items () []Item {
 //     return index >= 0
 
 func (self Dict) Has (key Hashable) bool {
-	index, _ := self.lookup(key, key.Hash())
-	return index >= _FIRST_HASH
+	index, _ := self.lookup(key, hash(key))
+	return index >= 0
 }
 
 // def popitem(self):
@@ -341,19 +304,13 @@ func (self Dict) Has (key Hashable) bool {
 //     del self[key]
 //     return key, value
 
-func (self *Dict) Pop () (Hashable, interface{}) {
+func (self *Dict) Pop () Item {
 	if self.used == 0 {
 		panic("cannot Pop from empty Dict")
 	}
-	key := self.keylist[len(self.keylist)-1]
-	value := self.valuelist[len(self.valuelist)-1]
-	self.Del(key)
-	return key, value
-}
-
-func (self *Dict) PopItem () Item {
-	key, value := self.Pop()
-	return Item{key, value}
+	item := self.itemlist[self.used-1]
+	self.Del(*(item.Key))
+	return item
 }
 
 // def __repr__(self):
@@ -362,12 +319,12 @@ func (self *Dict) PopItem () Item {
 func (self Dict) String () string {
 	buf := bytes.NewBufferString("{")
 	for i := uint64(0); i < self.used; i++ {
-		if i > 0 && i < self.used-1 {
+		if i > 0 {
 			buf.WriteString(", ")
 		}
-		buf.WriteString(fmt.Sprint(self.keylist[i]))
+		buf.WriteString(fmt.Sprint(*(self.itemlist[i].Key)))
 		buf.WriteString(": ")
-		buf.WriteString(fmt.Sprint(self.valuelist[i]))
+		buf.WriteString(fmt.Sprint(*(self.itemlist[i].Value)))
 	}
 	buf.WriteString("}")
 	return buf.String()
@@ -382,6 +339,14 @@ func (self Dict) String () string {
 //         print i, row
 //     print '-' * 50
 
+func (self Item) String () string {
+	return fmt.Sprintf("Item{%s}",
+		fmt.Sprintf("%s, %s, %d",
+			fmt.Sprint(*(self.Key)),
+			fmt.Sprint(*(self.Value)),
+			self.hash))
+}
+
 func (self Dict) ShowStructure () {
 	for i:=0; i < 50; i++ {
 		fmt.Print("=")
@@ -390,7 +355,7 @@ func (self Dict) ShowStructure () {
 	fmt.Println(self)
 	fmt.Println("Indices: ", self.indices)
 	for i := uint64(0); i < self.used; i++ {
-		fmt.Println(self.keylist[i], self.valuelist[i])
+		fmt.Println(self.itemlist[i])
 	}
 	for i:=0; i < 50; i++ {
 		fmt.Print("-")

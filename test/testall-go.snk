@@ -23,7 +23,7 @@ func max (init int, values ...int) int {
   return m
 }
 
-func inc (v interface{}, n int) (interface{}, int) {
+func inc (v interface{}, n uint64) (interface{}, uint64) {
   return v.(int)+1, n
 }
 

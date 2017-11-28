@@ -144,10 +144,10 @@ class CodeGenerator (ast.CodeGenerator) :
         pvar = node.CTX.names.fresh(base="p" + node.variable)
         ivar = node.CTX.names.fresh(base="i" + node.variable)
         self.fill("%s := true" % bvar)
-        self.fill("for %s, %s := %s.Iter(%s); %s != nil; %s = %s.Next() {"
+        self.fill("for %s, %s := %s.Get(%s).Iter(); %s != nil; %s = %s.Next() {"
                   % (ivar, pvar, node.marking, S(node.place.name), pvar, pvar, ivar))
         with self.indent() :
-            self.fill("%s = %s.(%s)"
+            self.fill("%s = (*%s).(%s)"
                       % (node.variable, pvar, self.typedef[node.place.type]))
             self.fill("if ")
             self.visit(node.guard)
@@ -165,10 +165,10 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_ForeachToken (self, node) :
         ivar = node.NAMES.fresh(base="i" + node.variable)
         pvar = node.NAMES.fresh(base="p" + node.variable)
-        self.fill("for %s, %s := %s.Iter(%s); %s != nil; %s = %s.Next() {"
+        self.fill("for %s, %s := %s.Get(%s).Iter(); %s != nil; %s = %s.Next() {"
                   % (ivar, pvar, node.marking, S(node.place.name), pvar, pvar, ivar))
         with self.indent() :
-            self.fill("%s = %s.(%s)"
+            self.fill("%s = (*%s).(%s)"
                       % (node.variable, pvar, self.typedef[node.place.type]))
         self.children_visit(node.body, True)
         self.fill("}")
@@ -190,7 +190,7 @@ class CodeGenerator (ast.CodeGenerator) :
             self.fill("for %s, %s := %s.Iter(); %s != nil; %s = %s.Next() {"
                       % (ivar, pvar, node.variable, pvar, pvar, ivar))
             with self.indent() :
-                self.fill("_, %s = %s.(%s)"
+                self.fill("_, %s = (*%s).(%s)"
                           % (bvar, pvar, self.typedef[node.place.type]))
                 self.fill("if ! %s { break }" % bvar)
             self.fill("}")

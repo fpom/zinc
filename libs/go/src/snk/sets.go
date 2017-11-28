@@ -28,17 +28,17 @@ func (self Set) NotEmpty () bool {
 }
 
 //+++ snk.MakeSet().Empty()
-//--- snk.MakeSet(snk.MakeMarking()).Empty()
+//--- snk.MakeSet(&a).Empty()
 //--- snk.MakeSet().NotEmpty()
-//+++ snk.MakeSet(snk.MakeMarking()).NotEmpty()
+//+++ snk.MakeSet(&a).NotEmpty()
 
 func (self Set) Len () int {
 	return len(self.data)
 }
 
 //+++ snk.MakeSet().Len() == 0
-//+++ snk.MakeSet(snk.MakeMarking()).Len() == 1
-//+++ snk.MakeSet(snk.MakeMarking(), snk.MakeMarking()).Len() == 1
+//+++ snk.MakeSet(&a).Len() == 1
+//+++ snk.MakeSet(&a, &a).Len() == 1
 
 func (self Set) lookup (m *Marking) (uint64, bool) {
 	slot := m.Hash()
@@ -66,12 +66,13 @@ func (self *Set) AddPtr (m *Marking) {
 	}
 }
 
-//### s := snk.MakeSet(a, b)
+//### s := snk.MakeSet(&a, &b)
 //... s.Len()
 //=== 2
 
-//### s := snk.MakeSet(a, b)
-//... s.Add(c).Add(c)
+//### s := snk.MakeSet(&a, &b)
+//... s.Add(c)
+//... s.Add(c)
 //... s.Len()
 //=== 3
 
@@ -88,6 +89,6 @@ func (self Set) Has (m *Marking) bool {
 	return found
 }
 
-//+++ snk.MakeSet(a, b).Has(a)
-//+++ snk.MakeSet(a, b).Has(b)
-//--- snk.MakeSet(a, b).Has(c)
+//+++ snk.MakeSet(&a, &b).Has(&a)
+//+++ snk.MakeSet(&a, &b).Has(&b)
+//--- snk.MakeSet(&a, &b).Has(&c)

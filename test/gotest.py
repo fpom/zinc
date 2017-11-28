@@ -1,4 +1,4 @@
-import os, os.path
+import os, os.path, subprocess
 
 def walk(root='libs/go/src/snk') :
     for dirpath, dirnames, filenames in os.walk(root) :
@@ -16,7 +16,6 @@ class Test (object) :
         self.expected = list(expected)
         self.pychecks = []
     def codegen (self, outfile, indent="  ") :
-        outfile.write('  // %s:%s\n' % (self.path, self.lineno))
         if self.path in self.idx :
             outfile.write('  ' + '\n  '.join(self.idx[self.path]) + '\n')
         outfile.write('  fmt.Println("### %s:%s")\n' % (self.path, self.lineno))
@@ -27,7 +26,7 @@ class Test (object) :
         if self.source[-1] == "nil" and output[-1] == "<nil>" :
             output.pop(-1)
         if self.expected and self.expected != output :
-            print("#### %s:%s" % (self.path, self.lineno))
+            print("\n#### %s:%s" % (self.path, self.lineno))
             print("\n".join(self.source))
             print("## expected:")
             print("\n".join(self.expected))
@@ -48,7 +47,7 @@ class Test (object) :
                     res = "raised %s: %s" % (err.__class__.__name__, err)
                 if res is not True :
                     ret = 1
-                    print("#### %s:%s" % (self.path, self.lineno))
+                    print("\n#### %s:%s" % (self.path, self.lineno))
                     print("\n".join(self.source))
                     if res is False :
                         print("## failed")
@@ -62,6 +61,7 @@ def extract (root, path) :
     package = None
     imports = set()
     tests = []
+    declare = []
     for num, line in enumerate(open(os.path.join(root, path))) :
         if line.startswith('package ') :
             package = line.split()[-1]
@@ -83,16 +83,21 @@ def extract (root, path) :
             Test.idx[path].append(line[6:].rstrip())
         elif line.startswith("//$$$ ") :
             imports.update(line[6:].strip().split())
+        elif line.startswith("//%%% ") :
+            declare.append(line[6:].rstrip())
     print("+ %s (%s) = %s tests" % (path, package, len(tests)))
-    return package, imports, tests
+    return package, declare, imports, tests
 
-def codegen (packages, imports, tests, out) :
+def codegen (packages, declare, imports, tests, out) :
     funcs = []
     out.write('package main\n\nimport "fmt"\n')
     for p in packages :
         out.write('import "%s"\n' % p)
     for p in imports - packages :
         out.write('import "%s"\n' % p)
+    out.write("\n")
+    for d in declare :
+        out.write("%s\n" % d)
     out.write("\n")
     for i, t in enumerate(tests) :
         name = "test%03u" % i
@@ -105,12 +110,37 @@ def codegen (packages, imports, tests, out) :
         out.write("  %s()\n" % name)
     out.write('}')
 
+def getlmap(path) :
+    m = {}
+    loc = None
+    for n, l in enumerate(open(path)) :
+        if l.strip().startswith('fmt.Println("### ') :
+            loc = l.split("### ")[-1].split('"')[0]
+        elif loc is None :
+            m[n] = "%s:%s" % (path, n+1)
+        else :
+            m[n] = loc
+    return m
+
 def run (gopath, binpath=None, outpath=None) :
     if binpath is None :
         binpath = os.path.splitext(gopath)[0]
     if outpath is None :
         outpath = binpath + ".out"
-    if os.system("go build %s" % gopath) != 0 :
+    try :
+        subprocess.check_output(["go", "build", gopath], stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as err :
+        tr = getlmap(gopath)
+        out = err.output.decode()
+        for line in out.splitlines() :
+            try :
+                path, lineno, message = line.split(":", 2)
+                if path.endswith(gopath) :
+                    print("%s:%s" % (tr[int(lineno)], message))
+                else :
+                    print(line)
+            except ValueError :
+                print(line)
         sys.exit()
     if os.system("%s > %s" % (os.path.join("./", binpath), outpath)) != 0 :
         sys.exit()
@@ -142,14 +172,17 @@ if __name__ == "__main__" :
         sys.exit(1)
     if not gofile.endswith(".go") :
         gofile += ".go"
-    packages, imports, tests = set(), set(), []
+    packages, declare, imports, tests = set(), [], set(), []
     for path in walk(root) :
-        p, i, t = extract(root, path)
+        p, d, i, t = extract(root, path)
         packages.add(p)
+        declare.extend(d)
         imports.update(i)
         tests.extend(t)
-    codegen(packages, imports, tests, open(gofile, "w"))
+    codegen(packages, declare, imports, tests, open(gofile, "w"))
     print("= %s tests" % len(tests))
     output = run(gofile)
     failed = check(tests, output)
+    if failed :
+        print()
     print("= %s tests failed (out of %s)" % (failed, len(tests)))

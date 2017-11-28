@@ -4,52 +4,73 @@ import "fmt"
 import "bytes"
 import "hash/fnv"
 import "hashstructure"
+import "dicts"
 
 type Mset struct {
-	data *map[interface{}]int
+	d *dicts.Dict
 }
 
 func (self Mset) Hash () uint64 {
 	var h uint64 = 13124430844775843711
 	hash := fnv.New64()
-	for value, count := range *self.data {
-		hv, err := hashstructure.Hash(value, nil)
+	for iter, item := self.d.Iter(); item != nil; item = iter.Next() {
+		hv, err := hashstructure.Hash(*(item.Key), nil)
 		if err != nil {
 			panic(err)
 		}
 		hash.Reset()
-		hash.Write([]byte(fmt.Sprintf("[%x]{%x}", hv, count)))
+		hash.Write([]byte(fmt.Sprintf("[%x]{%x}", hv, *(item.Value))))
 		h ^= hash.Sum64()
 	}
 	return h
+}
+
+type AsString struct {
+	val *interface{}
+}
+
+func (self AsString) Hash () uint64 {
+	return dicts.StringHash(fmt.Sprint(*(self.val)))
+}
+
+func (self AsString) Eq (other interface{}) bool {
+	if v, ok := other.(AsString); ok {
+		return fmt.Sprint(*(self.val)) == fmt.Sprint(*(v.val))
+	} else {
+		return fmt.Sprint(*(self.val)) == fmt.Sprint(other)
+	}
+}
+
+func i2h (v interface{}) dicts.Hashable {
+	return AsString{&v}
+}
+
+func h2i (v *dicts.Hashable) *interface{} {
+	return (*v).(AsString).val
 }
 
 //+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Hash() == snk.MakeMset(3, 3, 3, 2, 2, 1).Hash()
 //+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Hash() == snk.MakeMset(3, 2, 1, 3, 2, 3).Hash()
 
 func MakeMset (values ...interface{}) Mset {
-	m := make(map[interface{}]int)
-	mset := Mset{&m}
+	dict := dicts.MakeDict()
+	mset := Mset{&dict}
 	for _, elt := range values {
-		if count, found := (*mset.data)[elt]; found {
-			(*mset.data)[elt] = count + 1
-		} else {
-			(*mset.data)[elt] = 1
-		}
+		h := i2h(elt)
+		count := (*mset.d.Fetch(h, uint64(0))).(uint64)
+		mset.d.Set(h, count + 1)
 	}
 	return mset
 }
 
 func (self Mset) Eq (other Mset) bool {
-	if len(*self.data) != len(*other.data) {
+	if self.d.Len() != other.d.Len() {
 		return false
 	}
-	for key, left := range *self.data {
-		if right, found := (*other.data)[key]; found {
-			if left != right {
-				return false
-			}
-		} else {
+	for iter, item := self.d.Iter(); item != nil; item = iter.Next() {
+		if ! other.d.Has(*(item.Key)) {
+			return false
+		} else if (*item.Value).(uint64) != (*other.d.Get(*(item.Key))).(uint64) {
 			return false
 		}
 	}
@@ -65,18 +86,18 @@ func (self Mset) Eq (other Mset) bool {
 
 func (self Mset) Copy () Mset {
 	copy := MakeMset()
-	for key, value := range *self.data {
-		(*copy.data)[key] = value
+	for iter, item := self.d.Iter(); item != nil; item = iter.Next() {
+		copy.d.Set(*(item.Key), *(item.Value))
 	}
 	return copy
 }
 
 //+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Copy().Eq(snk.MakeMset(1, 2, 2, 3, 3, 3))
 
-func (self Mset) Len () int {
-	count := 0
-	for _, value := range *self.data {
-		count += value
+func (self Mset) Len () uint64 {
+	count := uint64(0)
+	for iter, item := self.d.Iter(); item != nil; item = iter.Next() {
+		count += (*(item.Value)).(uint64)
 	}
 	return count
 }
@@ -85,12 +106,9 @@ func (self Mset) Len () int {
 //+++ snk.MakeMset().Len() == 0
 
 func (self Mset) Add (other Mset) Mset {
-	for key, value := range *other.data {
-		if count, found := (*self.data)[key] ; found {
-			(*self.data)[key] = value + count
-		} else {
-			(*self.data)[key] = value
-		}
+	for iter, item := other.d.Iter(); item != nil; item = iter.Next() {
+		count := (*(self.d.Fetch(*(item.Key), uint64(0)))).(uint64)
+		self.d.Set(*(item.Key), count + (*(item.Value)).(uint64))
 	}
 	return self
 }
@@ -102,13 +120,13 @@ func (self Mset) Add (other Mset) Mset {
 //=== true
 
 func (self Mset) Sub (other Mset) Mset {
-	for key, value := range *other.data {
-		if count, found := (*self.data)[key] ; found {
-			if count > value {
-				(*self.data)[key] = count - value
-			} else {
-				delete(*self.data, key)
-			}
+	for iter, item := other.d.Iter(); item != nil; item = iter.Next() {
+		left := (*(self.d.Fetch(*(item.Key), uint64(0)))).(uint64)
+		right := (*(item.Value)).(uint64)
+		if left <= right {
+			self.d.Del(*(item.Key))
+		} else {
+			self.d.Set(*(item.Key), left - right)
 		}
 	}
 	return self
@@ -127,12 +145,9 @@ func (self Mset) Sub (other Mset) Mset {
 //=== true
 
 func (self Mset) Geq (other Mset) bool {
-	for key, value := range *other.data {
-		if count, found := (*self.data)[key] ; found {
-			if count < value {
-				return false
-			}
-		} else {
+	for iter, item := other.d.Iter(); item != nil; item = iter.Next() {
+		count := (*(self.d.Fetch(*(item.Key), uint64(0)))).(uint64)
+		if count < (*item.Value).(uint64) {
 			return false
 		}
 	}
@@ -149,19 +164,15 @@ func (self Mset) Geq (other Mset) bool {
 //--- snk.MakeMset().Geq(snk.MakeMset(1))
 
 func (self Mset) Empty () bool {
-	return len(*self.data) == 0
+	return self.d.Len() == 0
 }
 
 //+++ snk.MakeMset().Empty()
 //+++ snk.MakeMset().Empty()
 //--- snk.MakeMset(1, 2).Empty()
 
-func (self Mset) Count (value interface{}) int {
-	if count, found := (*self.data)[value] ; found {
-		return count
-	} else {
-		return 0
-	}
+func (self Mset) Count (value interface{}) uint64 {
+	return (*(self.d.Fetch(i2h(value), uint64(0)))).(uint64)
 }
 
 //### snk.MakeMset(1, 2, 2, 3, 3, 3).Count(1)
@@ -174,62 +185,42 @@ func (self Mset) Count (value interface{}) int {
 //=== 3
 
 type MsetIterator struct {
-	done bool
-	ask chan bool
-	rep chan interface{}
+	iter    dicts.DictIterator
+	dup     bool
+	count   uint64
+	current *dicts.Item
 }
 
-func (self MsetIterator) Next() interface{} {
-	var rep interface{}
-	if self.done {
+func (self *MsetIterator) Next () *interface{} {
+	if self.current == nil {
 		return nil
-	}
-	self.ask <- true
-	rep = <- self.rep
-	if rep == nil {
-		self.done = true
-	}
-	return rep
-}
-
-func (self MsetIterator) Stop() {
-	if ! self.done {
-		self.ask <- false
-		self.done = true
-	}
-}
-
-func (self Mset) iterate (it MsetIterator, dup bool) {
-	for key, num := range *self.data {
-		if !dup {
-			num = 1
+	} else if self.count == 0 {
+		self.current = self.iter.Next()
+		if self.current == nil {
+			return nil
+		} else if self.dup {
+			self.count = (*(self.current.Value)).(uint64) - 1
 		}
-		for i := 0; i < num; i++ {
-			if it.done {
-				return
-			}
-			if <- it.ask {
-				it.rep <- key
-			} else {
-				return
-			}
-		}
+	} else if self.dup {
+		self.count--
 	}
-	if <- it.ask {
-		it.rep <- nil
+	return h2i(self.current.Key)
+}
+
+func (self Mset) Iter () (MsetIterator, *interface{}) {
+	iter, item := self.d.Iter()
+	myiter := MsetIterator{iter, false, 0, item}
+	if item == nil {
+		return myiter, nil
+	} else {
+		return myiter, h2i(item.Key)
 	}
 }
 
-func (self Mset) Iter () (MsetIterator, interface{}) {
-	it := MsetIterator{false, make(chan bool), make(chan interface{})}
-	go self.iterate(it, false)
-	return it, it.Next()
-}
-
-func (self Mset) IterDup () (MsetIterator, interface{}) {
-	it := MsetIterator{false, make(chan bool), make(chan interface{})}
-	go self.iterate(it, true)
-	return it, it.Next()
+func (self Mset) IterDup () (MsetIterator, *interface{}) {
+	iter, item := self.d.Iter()
+	myiter := MsetIterator{iter, true, (*(item.Value)).(uint64) - 1, item}
+	return myiter, h2i(item.Key)
 }
 
 //### a := snk.MakeMset(1, 2, 2, 3, 3, 3)
@@ -246,15 +237,14 @@ func (self Mset) IterDup () (MsetIterator, interface{}) {
 
 func (self Mset) String () string {
 	buf := bytes.NewBufferString("[")
-	count := 0
-	for key, value := range *self.data {
-		for i := 0; i < value; i += 1 {
-			if count >  0 {
-				buf.WriteString(", ")
-			}
-			buf.WriteString(fmt.Sprint(key))
-			count += 1
+	comma := false
+	for iter, val := self.IterDup(); val != nil; val = iter.Next() {
+		if comma {
+			buf.WriteString(", ")
+		} else {
+			comma = true
 		}
+		buf.WriteString(fmt.Sprint(*val))
 	}	
 	buf.WriteString("]")
 	return buf.String()
@@ -268,18 +258,24 @@ func (self Mset) String () string {
 //... a
 //>>> list(sorted(eval(out))) == [1, 2, 2, 3, 3, 3]
 
-type mapfunc func (interface{}, int) (interface{}, int)
+type mapfunc func (interface{}, uint64) (interface{}, uint64)
 
 func (self Mset) Map (f mapfunc) Mset {
 	copy := MakeMset()
-	for k0, n0 := range *self.data {
-		k1, n1 := f(k0, n0)
-		(*copy.data)[k1] = n1
+	for iter, item := self.d.Iter(); item != nil; item = iter.Next() {
+		k := *h2i(item.Key)
+		v := (*(item.Value)).(uint64)
+		k, v = f(k, v)
+		copy.d.Set(i2h(k), v)
 	}
 	return copy
 }
 
 //### a := snk.MakeMset(1, 2, 2)
-//... b := a.Map(func (v interface{}, n int) (interface{}, int) {return v.(int)+1, n})
+//... b := a.Map(func (v interface{}, n uint64) (interface{}, uint64) {return v.(int)+1, n})
 //... b.Eq(snk.MakeMset(2, 3, 3))
 //=== true
+
+func (self Mset) ShowStructure () {
+	self.d.ShowStructure()
+}

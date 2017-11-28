@@ -6,7 +6,7 @@ import "fmt"
 func StateSpace (init func()Marking, addsucc func(Marking, Set),
 	print_states bool, print_succs bool) int {
 	var succ Set
-	count := 0
+	count := 1
 	i := init()
 	todo := MakeQueue(&i)
 	seen := MakeSet(&i)

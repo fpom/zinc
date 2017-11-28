@@ -75,7 +75,7 @@ def main () :
     args = parser.parse_args()
     if args.mode in "gml" and args.size :
         n, _ = statespace(False, False, False)
-        print("%s reachable states")
+        print("%s reachable states" % n)
     elif args.mode == "d" and args.size :
         _, n = statespace(False, False, False)
         print("%s deadlocks")

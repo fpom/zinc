@@ -3,22 +3,23 @@ package snk
 import "fmt"
 import "bytes"
 import "hash/fnv"
+import "dicts"
 
 type Marking struct {
-	id int
-	data *map[string]*Mset
+	d *dicts.Dict
+	i int
 }
 
 func (self *Marking) SetId (id int) {
-	self.id = id
+	self.i = id
 }
 
 func MakeMarking (id ...int) Marking {
-	m := make(map[string]*Mset)
+	d := dicts.MakeDict()
 	if len(id) == 0 {
-		return Marking{-1, &m}
+		return Marking{&d, -1}
 	} else if len(id) == 1 {
-		return Marking{id[0], &m}
+		return Marking{&d, id[0]}
 	} else {
 		panic("at most one id expected")
 	}
@@ -27,12 +28,34 @@ func MakeMarking (id ...int) Marking {
 func (self Marking) Hash () uint64 {
 	var h uint64 = 2471033218594493899
 	hash := fnv.New64()
-	for place, tokens := range *self.data {
+	for iter, item := self.d.Iter(); item != nil; item = iter.Next() {
 		hash.Reset()
-		hash.Write([]byte(fmt.Sprintf("[%s]{%x}", place, tokens.Hash())))
+		hash.Write([]byte(fmt.Sprintf("[%s]{%x}",
+			fmt.Sprint(*(item.Key)),
+			(*item.Value).(Mset).Hash())))
 		h ^= hash.Sum64()
 	}
 	return h
+}
+
+type place struct {
+	s string
+}
+
+func (self place) Hash () uint64 {
+	return dicts.StringHash(self.s)
+}
+
+func (self place) Eq (other interface{}) bool {
+	if val, isplace := other.(place); isplace {
+		return val.s == self.s
+	} else {
+		return false
+	}
+}
+
+func (self Marking) Has (p string) bool {
+	return self.d.Has(place{p})
 }
 
 //### a := snk.MakeMarking()
@@ -69,15 +92,13 @@ func (self Marking) Hash () uint64 {
 //=== true
 
 func (self Marking) Eq (other Marking) bool {
-	if len(*self.data) != len(*other.data) {
+	if self.d.Len() != other.d.Len() {
 		return false
 	}
-	for place, left := range *self.data {
-		if right, found := (*other.data)[place] ; found {
-			if ! left.Eq(*right) {
-				return false
-			}
-		} else {
+	for iter, p, m := self.Iter(); p != nil; p, m = iter.Next() {
+		if ! other.d.Has(place{*p}) {
+			return false
+		} else if ! m.Eq(other.Get(*p)) {
 			return false
 		}
 	}
@@ -86,12 +107,12 @@ func (self Marking) Eq (other Marking) bool {
 
 //+++ snk.MakeMarking().Eq(snk.MakeMarking())
 
-func (self Marking) Set (place string, tokens ...interface{}) {
+func (self Marking) Set (p string, tokens ...interface{}) {
 	if len(tokens) == 0 {
-		delete(*self.data, place)
+		self.d.Del(place{p})
 	} else {
 		m := MakeMset(tokens...)
-		(*self.data)[place] = &m
+		self.d.Set(place{p}, m)
 	}
 }
 
@@ -110,12 +131,12 @@ func (self Marking) Set (place string, tokens ...interface{}) {
 //... a.Get("p1").Empty()
 //=== true
 
-func (self Marking) Update (place string, tokens Mset) {
-	if _, found := (*self.data)[place] ; found {
-		(*self.data)[place].Add(tokens)
+func (self Marking) Update (p string, tokens Mset) {
+	if self.Has(p) {
+		m := self.Get(p)
+		m.Add(tokens)
 	} else {
-		m := tokens.Copy()
-		(*self.data)[place] = &m
+		self.d.Set(place{p}, tokens.Copy())
 	}
 }
 
@@ -131,9 +152,8 @@ func (self Marking) Update (place string, tokens Mset) {
 
 func (self Marking) Copy () Marking {
 	copy := MakeMarking()
-	for key, value := range *self.data {
-		m := value.Copy()
-		(*copy.data)[key] = &m
+	for iter, p, m := self.Iter(); p != nil; p, m = iter.Next() {
+		copy.Update(*p, *m)
 	}
 	return copy
 }
@@ -183,12 +203,8 @@ func (self Marking) Copy () Marking {
 //... a.Eq(b)
 //=== false
 
-func (self Marking) Get (place string) Mset {
-	if value, found := (*self.data)[place] ; found {
-		return *value
-	} else {
-		return MakeMset()
-	}
+func (self Marking) Get (p string) Mset {
+	return (*(self.d.Fetch(place{p}, MakeMset()))).(Mset)
 }
 
 //### a := snk.MakeMarking()
@@ -211,11 +227,7 @@ func (self Marking) Get (place string) Mset {
 
 func (self Marking) NotEmpty (places ...string) bool {
 	for _, key := range places {
-		if value, found := (*self.data)[key] ; found {
-			if value.Empty() {
-				return false
-			}
-		} else {
+		if self.Get(key).Empty() {
 			return false
 		}
 	}
@@ -247,8 +259,8 @@ func (self Marking) NotEmpty (places ...string) bool {
 //=== false
 
 func (self Marking) Add (other Marking) Marking {
-	for place, right := range *other.data {
-		self.Update(place, *right)
+	for iter, p, m := other.Iter(); p != nil; p, m = iter.Next() {
+		self.Update(*p, *m)
 	}
 	return self
 }
@@ -259,21 +271,21 @@ func (self Marking) Add (other Marking) Marking {
 //... b := snk.MakeMarking()
 //... b.Set("p2", 2, 4)
 //... b.Set("p3", 1)
+//... a.Add(b)
 //... c := snk.MakeMarking()
 //... c.Set("p1", 1, 2, 2, 3)
 //... c.Set("p2", 1, 1, 2, 4, 4)
 //... c.Set("p3", 1)
-//... a.Add(b)
 //... a.Eq(c)
 //=== true
 
 func (self Marking) Sub (other Marking) Marking {
-	for place, right := range *other.data {
-		if left, found := (*self.data)[place] ; found {
-			left.Sub(*right)
-			if left.Empty() {
-				delete(*self.data, place)
-			}
+	for iter, p, m := other.Iter(); p != nil; p, m = iter.Next() {
+		mine := self.Get(*p)
+		if m.Geq(mine) {
+			self.d.Del(place{*p})
+		} else {
+			mine.Sub(*m)
 		}
 	}
 	return self
@@ -293,12 +305,8 @@ func (self Marking) Sub (other Marking) Marking {
 //=== true
 
 func (self Marking) Geq (other Marking) bool {
-	for key, value := range *other.data {
-		if mine, found := (*self.data)[key] ; found {
-			if ! mine.Geq(*value) {
-				return false
-			}
-		} else {
+	for iter, p, m := other.Iter(); p != nil; p, m = iter.Next() {
+		if ! self.Get(*p).Geq(*m) {
 			return false
 		}
 	}
@@ -350,21 +358,30 @@ func (self Marking) Geq (other Marking) bool {
 //... a.Geq(b)
 //=== false
 
-func (self Marking) Iter (place string) (MsetIterator, interface{}) {
-	mset, found := (*self.data)[place]
-	if found {
-		return mset.Iter()
+type MarkingIterator struct {
+	iter *dicts.DictIterator
+}
+
+func (self MarkingIterator) Next () (*string, *Mset) {
+	next := self.iter.Next()
+	if next == nil {
+		return nil, nil
 	} else {
-		return MakeMset().Iter()
+		p := (*next.Key).(place)
+		m := (*next.Value).(Mset)
+		return &(p.s),  &m
 	}
 }
 
-func (self Marking) IterDup (place string) (MsetIterator, interface{}) {
-	mset, found := (*self.data)[place]
-	if found {
-		return mset.IterDup()
+func (self Marking) Iter () (MarkingIterator, *string, *Mset) {
+	iter, item := self.d.Iter()
+	myiter := MarkingIterator{&iter}
+	if item == nil {
+		return myiter, nil, nil
 	} else {
-		return MakeMset().Iter()
+		p := (*item.Key).(place)
+		m := (*item.Value).(Mset)
+		return myiter, &(p.s), &m
 	}
 }
 
@@ -372,7 +389,7 @@ func (self Marking) IterDup (place string) (MsetIterator, interface{}) {
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
 //... fmt.Print("{")
-//... for i, p := a.Iter("p1"); p != nil; p = i.Next() { fmt.Print(*p, ", ") }
+//... for i, p := a.Get("p1").Iter(); p != nil; p = i.Next() { fmt.Print(*p, ", ") }
 //... fmt.Println("}")
 //... nil
 //>>> eval(out) == {1, 2, 3}
@@ -381,24 +398,25 @@ func (self Marking) IterDup (place string) (MsetIterator, interface{}) {
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
 //... fmt.Print("{")
-//... for i, p := a.Iter("p3"); p != nil; p = i.Next() { fmt.Print(*p, ", ") }
+//... for i, p := a.Get("p3").Iter(); p != nil; p = i.Next() { fmt.Print(*p, ", ") }
 //... fmt.Println("}")
 //... nil
 //=== {}
 
 func (self Marking) String () string {
 	buf := bytes.NewBufferString("")
-	if self.id >= 0 {
-		buf.WriteString(fmt.Sprintf("[%d] ", self.id))
+	if self.i >= 0 {
+		buf.WriteString(fmt.Sprintf("[%d] ", self.i))
 	}
 	buf.WriteString("{")
-	i := 0
-	for key, value := range *self.data {
-		if i > 0 {
+	comma := false
+	for iter, p, m := self.Iter(); p != nil; p, m = iter.Next() {
+		if comma {
 			buf.WriteString(", ")
+		} else {
+			comma = true
 		}
-		i += 1
-		buf.WriteString(fmt.Sprintf(`"%s": %s`, key, value))
+		buf.WriteString(fmt.Sprintf(`"%s": %s`, *p, *m))
 	}	
 	buf.WriteString("}")
 	return buf.String()

@@ -1,0 +1,13 @@
+{
+  "version": 3,
+  "file": "multisets.js",
+  "sourceRoot": "../..",
+  "sources": [
+    "libs/js/multisets.coffee"
+  ],
+  "names": [],
+  "mappings": ";AAAA;AAAA,MAAA,IAAA,EAAA,KAAA,EAAA;;EAAA,KAAA,GAAQ,OAAA,CAAQ,SAAR;;EAEF,OAAN,MAAA,KAAA;IACI,WAAa,CAAA,GAAC,KAAD,CAAA;AACT,UAAA,CAAA,EAAA,CAAA,EAAA;MAAA,IAAC,CAAA,CAAD,GAAK,IAAI,KAAK,CAAC,IAAV,CAAA;MACL,KAAA,uCAAA;;QACI,IAAC,CAAA,CAAC,CAAC,GAAH,CAAO,CAAP,EAAU,IAAC,CAAA,CAAC,CAAC,GAAH,CAAO,CAAP,EAAU,CAAV,CAAA,GAAe,CAAzB;MADJ;IAFS;;IAIb,QAAU,CAAA,CAAA,EAAA;;EALd;;EAQA,CAAA,GAAI,IAAI,IAAJ,CAAS,CAAT,EAAY,CAAZ,EAAe,CAAf,EAAkB,CAAlB;;EACJ,OAAO,CAAC,GAAR,CAAY,CAAZ;AAXA",
+  "sourcesContent": [
+    "dicts = require \"./dicts\"\n\nclass Mset\n    constructor: (items...) ->\n        @d = new dicts.Dict()\n        for i in items\n            @d.set(i, @d.get(i, 0) + 1)\n    toString: ->\n        \n\nm = new Mset(1, 2, 2, 3)\nconsole.log m\n"
+  ]
+}

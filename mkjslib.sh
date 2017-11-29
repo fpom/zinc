@@ -1,1 +1,1 @@
-coffee -c -m libs/js/
+coffee -c -m "$@" libs/js/*.coffee

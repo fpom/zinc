@@ -417,7 +417,7 @@ func (self Marking) String () string {
 			comma = true
 		}
 		buf.WriteString(fmt.Sprintf(`"%s": %s`, *p, *m))
-	}	
+	}
 	buf.WriteString("}")
 	return buf.String()
 }

@@ -9,15 +9,17 @@
   DUMMY = -2;
 
   hash = function(obj) {
-    var c, err, h, k, l, len, len1, m, v, x;
+    "coffee> dicts.hash(\"hello world\")\n-8572760634\ncoffee> dicts.hash(42)\n-4720677242\ncoffee> dicts.hash(42) == dicts.hash(\"42\")\nfalse\ncoffee> dicts.hash([1, 2, 3])\n4097603114\ncoffee> dicts.hash([1, 2, 3]) == dicts.hash([3, 2, 1])\nfalse\ncoffee> dicts.hash(a:1, b:2, c:3)\n2146137064\ncoffee> dicts.hash(a:1, b:2, c:3) == dicts.hash(c:3, b:2, a:1)\ntrue";
+    var c, err, h, k, l, len, len1, m, ref, v, x;
     try {
       return obj.hash();
     } catch (error) {
       err = error;
       h = 0;
       if (typeof obj === "string") {
-        for (l = 0, len = obj.length; l < len; l++) {
-          c = obj[l];
+        ref = `${typeof obj}/${obj}`;
+        for (l = 0, len = ref.length; l < len; l++) {
+          c = ref[l];
           h = (h << 5) - h + c.charCodeAt(0);
         }
       } else if (obj instanceof Array) {
@@ -28,16 +30,17 @@
       } else if (obj instanceof Object) {
         for (k in obj) {
           v = obj[k];
-          h = h ^ ((hash(k) << 5) - h + hash(v));
+          h ^= (hash(k) << 5) + hash(v);
         }
       } else {
-        h = hash(`${obj}`);
+        h = hash(`${typeof obj}/${obj}`);
       }
       return h;
     }
   };
 
   eq = function(left, right) {
+    "coffee> dicts.eq(\"hello\", \"hello\")\ntrue\ncoffee> dicts.eq(\"hello\", \"world\")\nfalse\ncoffee> dicts.eq(42, 42)\ntrue\ncoffee> dicts.eq(42, -42)\nfalse\ncoffee> dicts.eq([1, 2, 3], [1, 2, 3])\ntrue\ncoffee> dicts.eq([1, 2, 3], [1, 2, 3, 4])\nfalse\ncoffee> dicts.eq([1, 2, 3], [1, 2, 4])\nfalse\ncoffee> dicts.eq({a:1, b:2, c:3}, {c:3, b:2, a:1})\ntrue\ncoffee> dicts.eq({a:1, b:2, c:3}, {a:1, b:2, c:3, d:4})\nfalse\ncoffee> dicts.eq({a:1, b:2, c:3}, {a:1, b:2})\nfalse\ncoffee> dicts.eq({a:1, b:2, c:3}, {a:1, b:2, c:1234})\nfalse\ncoffee> dicts.eq({a:1, b:2, c:3}, {a:1, b:2, d:3})\nfalse";
     var err, i, k, l, ref, v;
     try {
       return left.eq(right);
@@ -89,6 +92,7 @@
 
   Dict = class Dict {
     constructor(init = {}) {
+      "coffee> new dicts.Dict()\nDict { indices: {}, itemlist: [], used: 0 }\ncoffee> new dicts.Dict(a:1, b:2)\nDict{indices: { '...': 1, '...': 0 },\n     itemlist: [{ key: 'a', value: 1, hash: ...},\n                { key: 'b', value: 2, hash: ...}],\n     used: 2}";
       var key, val;
       this.clear();
       for (key in init) {
@@ -104,6 +108,7 @@
     }
 
     len() {
+      "coffee> (new dicts.Dict()).len()\n0\ncoffee> (new dicts.Dict(a:1, b:2)).len()\n2";
       return this.used;
     }
 
@@ -119,7 +124,8 @@
       results = [];
       while (true) {
         i = 5 * i + perturb + 1;
-        results.push(perturb >>= PERTURB_SHIFT);
+        perturb >>= PERTURB_SHIFT;
+        results.push((yield i));
       }
       return results;
     }
@@ -151,6 +157,7 @@
     }
 
     set(key, value) {
+      "coffee> a = new dicts.Dict(a:1, b:2)\ncoffee> a.set(\"c\", 3)\ncoffee> a.set(\"a\", 0)\ncoffee> console.log a.toString()\n{a: 0, b: 2, c: 3}";
       var hashvalue, i, index;
       hashvalue = hash(key);
       [index, i] = this._lookup(key, hashvalue);
@@ -171,16 +178,31 @@
       }
     }
 
-    get(key) {
+    fetch(key, otherwise = null) {
       var i, index;
       [index, i] = this._lookup(key, hash(key));
       if (index < 0) {
-        throw new KeyError(`key ${key} not found`);
+        return otherwise;
+      }
+      return this.itemlist[index].value;
+    }
+
+    get(key, def = void 0) {
+      "coffee> a = new dicts.Dict(a:1, b:2)\ncoffee> a.get(\"a\")\n1\ncoffee> a.get(\"x\")\nThrown: ...\ncoffee> a.get(\"x\", null)\nnull";
+      var i, index;
+      [index, i] = this._lookup(key, hash(key));
+      if (index < 0) {
+        if (def === void 0) {
+          throw new KeyError(`key ${key} not found`);
+        } else {
+          return def;
+        }
       }
       return this.itemlist[index].value;
     }
 
     del(key) {
+      "coffee> a = new dicts.Dict(a:1, b:2)\ncoffee> a.del(\"a\")\ncoffee> a.del(\"x\")\nThrown: ...\ncoffee> a.eq(new dicts.Dict(b:2))\ntrue";
       var i, index, j, lastindex, lastitem;
       [index, i] = this._lookup(key, hash(key));
       if (index < 0) {
@@ -208,19 +230,21 @@
       return results;
     }
 
+    copy() {
+      var copy, item, l, len, ref;
+      copy = new Dict();
+      ref = this.itemlist;
+      for (l = 0, len = ref.length; l < len; l++) {
+        item = ref[l];
+        copy.set(item.key, item.value);
+      }
+      return copy;
+    }
+
     has(key) {
       var i, index;
       [index, i] = this._lookup(key, hash(key));
       return index >= 0;
-    }
-
-    get(key, otherwise = null) {
-      var i, index;
-      [index, i] = this._lookup(key, hash(key));
-      if (index < 0) {
-        return otherwise;
-      }
-      return this.itemlist[index].value;
     }
 
     pop() {
@@ -231,6 +255,25 @@
       item = this.itemlist[this.itemlist.length - 1];
       this.del(key);
       return [item.key, item.value];
+    }
+
+    eq(other) {
+      var k, ref, v, x, y;
+      if (!(other instanceof Dict)) {
+        return false;
+      }
+      if (this.used !== other.used) {
+        return false;
+      }
+      ref = this.iter();
+      for (y of ref) {
+        [k, v] = y;
+        x = other.get(k, null);
+        if (x === null || !eq(v, x)) {
+          return false;
+        }
+      }
+      return true;
     }
 
     toString() {

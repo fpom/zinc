@@ -1,6 +1,11 @@
 dicts = require "./dicts"
 msets = require "./multisets"
 
+class BlackToken
+    toString: -> "dot"
+
+dot = new BlackToken()
+
 class Marking
     constructor: (@id=null) ->
         """
@@ -182,7 +187,12 @@ class Marking
         {'p1': [1, 2, 3], 'p2': [3, 4]}
         """
         items = ("'#{ p }': #{ m.toString() }" for [p, m] from @iter())
-        return "{#{ items.join(', ') }}"
+        if @id != null
+            return "[#{ @id }] {#{ items.join(', ') }}"
+        else
+            return "{#{ items.join(', ') }}"
 
 module.exports =
     Marking: Marking
+    dot: dot
+    BlackToken: BlackToken

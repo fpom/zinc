@@ -3,7 +3,7 @@ import os, os.path, subprocess, re
 def walk (root='libs/js') :
     for dirpath, dirnames, filenames in os.walk(root) :
         for name in filenames :
-            if name.endswith('.coffee') :
+            if name.endswith('.coffee') and not name.startswith(".") :
                 yield os.path.relpath(os.path.join(dirpath, name), root)
 
 class Test (object) :

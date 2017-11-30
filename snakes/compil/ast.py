@@ -366,8 +366,9 @@ class Indent (object) :
         self.gen._indent -= self.inc
 
 class CodeGenerator (object) :
-    def __init__ (self, output) :
+    def __init__ (self, output, **options) :
         self.output = output
+        self.options = options
         self.succfunc = {}
         self.succproc = {}
         self.succiter = {}

@@ -102,6 +102,7 @@
     }
 
     clear() {
+      "coffee> a = new dicts.Dict(a:1, b:2, c:3)\ncoffee> a.empty()\nfalse\ncoffee> a.clear()\ncoffee> a.empty()\ntrue";
       this.indices = {};
       this.itemlist = [];
       return this.used = 0;
@@ -110,6 +111,11 @@
     len() {
       "coffee> (new dicts.Dict()).len()\n0\ncoffee> (new dicts.Dict(a:1, b:2)).len()\n2";
       return this.used;
+    }
+
+    empty() {
+      "coffee> (new dicts.Dict()).empty()\ntrue\ncoffee> (new dicts.Dict(a:1, b:2)).empty()\nfalse";
+      return this.used === 0;
     }
 
     * _gen_probes(hashvalue) {
@@ -178,27 +184,24 @@
       }
     }
 
-    fetch(key, otherwise = null) {
-      var i, index;
-      [index, i] = this._lookup(key, hash(key));
-      if (index < 0) {
-        return otherwise;
-      }
-      return this.itemlist[index].value;
-    }
-
-    get(key, def = void 0) {
-      "coffee> a = new dicts.Dict(a:1, b:2)\ncoffee> a.get(\"a\")\n1\ncoffee> a.get(\"x\")\nThrown: ...\ncoffee> a.get(\"x\", null)\nnull";
-      var i, index;
+    getitem(key, def = void 0) {
+      "coffee> a = new dicts.Dict(a:1, b:2)\ncoffee> a.getitem(\"a\")\n[ 'a', 1 ]\ncoffee> a.getitem(\"x\")\nThrown: ...\ncoffee> a.getitem(\"x\", null)\n[ 'x', null ]";
+      var i, index, item;
       [index, i] = this._lookup(key, hash(key));
       if (index < 0) {
         if (def === void 0) {
           throw new KeyError(`key ${key} not found`);
         } else {
-          return def;
+          return [key, def];
         }
       }
-      return this.itemlist[index].value;
+      item = this.itemlist[index];
+      return [item.key, item.value];
+    }
+
+    get(key, def = void 0) {
+      "coffee> a = new dicts.Dict(a:1, b:2)\ncoffee> a.get(\"a\")\n1\ncoffee> a.get(\"x\")\nThrown: ...\ncoffee> a.get(\"x\", null)\nnull";
+      return this.getitem(key, def)[1];
     }
 
     del(key) {
@@ -220,6 +223,7 @@
     }
 
     * iter() {
+      "coffee> a = new dicts.Dict(a:1, b:2)\ncoffee> ([k, v] for [k, v] from a.iter())\n[ [ 'a', 1 ], [ 'b', 2 ] ]\ncoffee> b = new dicts.Dict()\ncoffee> ([k, v] for [k, v] from b.iter())\n[]";
       var item, l, len, ref, results;
       ref = this.itemlist;
       results = [];
@@ -231,6 +235,7 @@
     }
 
     copy() {
+      "coffee> a = new dicts.Dict(a:1, b:2)\ncoffee> a.copy().eq(a)\ntrue\ncoffee> a.eq(a.copy())\ntrue\ncoffee> a is a.copy()\nfalse";
       var copy, item, l, len, ref;
       copy = new Dict();
       ref = this.itemlist;
@@ -242,22 +247,25 @@
     }
 
     has(key) {
+      "coffee> a = new dicts.Dict(a:1, b:2)\ncoffee> (a.has(x) for x in \"abcd\")\n[ true, true, false, false ]";
       var i, index;
       [index, i] = this._lookup(key, hash(key));
       return index >= 0;
     }
 
     pop() {
+      "coffee> a = new dicts.Dict(a:1, b:2, c:3)\ncoffee> a.pop()\n[ 'c', 3 ]\ncoffee> a.pop()\n[ 'b', 2 ]\ncoffee> a.pop()\n[ 'a', 1 ]\ncoffee> a.pop()\nThrown: ...";
       var item;
-      if (this.user === 0) {
+      if (this.used === 0) {
         throw new KeyError("cannot pop from empty dict");
       }
       item = this.itemlist[this.itemlist.length - 1];
-      this.del(key);
+      this.del(item.key);
       return [item.key, item.value];
     }
 
     eq(other) {
+      "coffee> a = new dicts.Dict(a:1, b:2, c:3)\ncoffee> b = new dicts.Dict(a:1, b:2)\ncoffee> c = new dicts.Dict(c:3, b:2, a:1)\ncoffee> e = new dicts.Dict()\ncoffee> a.eq(c)\ntrue\ncoffee> a.eq(b)\nfalse\ncoffee> c.eq(a)\ntrue\ncoffee> e.eq(a)\nfalse\ncoffee> e.eq(new dicts.Dict())\ntrue";
       var k, ref, v, x, y;
       if (!(other instanceof Dict)) {
         return false;

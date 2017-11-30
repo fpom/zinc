@@ -16,17 +16,22 @@ elements = {
                          "continue  for          import  return     var"
                          .split()),
     "name" : r"[^\W\d]\w*",
-    "dot" : r"\.",
-    "text" : "[^.]"}
+    "dot" : r"\."}
 
 lexer = re.compile("|".join("(?P<%s>%s)" % pair for pair in elements.items()),
                    re.DOTALL|re.MULTILINE)
 
 def _tokenize (text) :
+    pos = 0
     for match in lexer.finditer(text) :
+        s, e = match.span()
+        if s > pos :
+            yield "text", text[pos:s]
         for name, value in match.groupdict().items() :
             if value :
                 yield name, value
+                break
+        pos = e
 
 def rename (text, tr) :
     def ren() :

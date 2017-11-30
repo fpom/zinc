@@ -109,6 +109,14 @@ class Dict
         for key, val of init
             @set(key, val)
     clear: ->
+        """
+        coffee> a = new dicts.Dict(a:1, b:2, c:3)
+        coffee> a.empty()
+        false
+        coffee> a.clear()
+        coffee> a.empty()
+        true
+        """        
         @indices  = {}
         @itemlist = []
         @used     = 0
@@ -120,6 +128,14 @@ class Dict
         2
         """
         return @used
+    empty: ->
+        """
+        coffee> (new dicts.Dict()).empty()
+        true
+        coffee> (new dicts.Dict(a:1, b:2)).empty()
+        false
+        """
+        return @used == 0
     _gen_probes: (hashvalue) ->
         PERTURB_SHIFT = 5
         if hashvalue < 0
@@ -164,11 +180,24 @@ class Dict
             @used++
         else
             @itemlist[index] = {key: key, value: value, hash: hashvalue}
-    fetch: (key, otherwise=null) ->
+    getitem: (key, def=undefined) ->
+        """
+        coffee> a = new dicts.Dict(a:1, b:2)
+        coffee> a.getitem("a")
+        [ 'a', 1 ]
+        coffee> a.getitem("x")
+        Thrown: ...
+        coffee> a.getitem("x", null)
+        [ 'x', null ]
+        """
         [index, i] = @_lookup(key, hash(key))
         if index < 0
-            return otherwise
-        return @itemlist[index].value
+            if def is undefined
+                throw new KeyError("key #{key} not found")
+            else
+                return [key, def]
+        item = @itemlist[index]
+        return [item.key, item.value]
     get: (key, def=undefined) ->
         """
         coffee> a = new dicts.Dict(a:1, b:2)
@@ -179,13 +208,7 @@ class Dict
         coffee> a.get("x", null)
         null
         """
-        [index, i] = @_lookup(key, hash(key))
-        if index < 0
-            if def is undefined
-                throw new KeyError("key #{key} not found")
-            else
-                return def
-        return @itemlist[index].value
+        return @getitem(key, def)[1]
     del: (key) ->
         """
         coffee> a = new dicts.Dict(a:1, b:2)
@@ -207,23 +230,72 @@ class Dict
             @itemlist[index] = lastitem
         @itemlist.pop()
     iter: ->
+        """
+        coffee> a = new dicts.Dict(a:1, b:2)
+        coffee> ([k, v] for [k, v] from a.iter())
+        [ [ 'a', 1 ], [ 'b', 2 ] ]
+        coffee> b = new dicts.Dict()
+        coffee> ([k, v] for [k, v] from b.iter())
+        []
+        """
         for item in @itemlist
             yield [item.key, item.value]
     copy: ->
+        """
+        coffee> a = new dicts.Dict(a:1, b:2)
+        coffee> a.copy().eq(a)
+        true
+        coffee> a.eq(a.copy())
+        true
+        coffee> a is a.copy()
+        false
+        """
         copy = new Dict()
         for item in @itemlist
             copy.set(item.key, item.value)
         return copy
     has: (key) ->
+        """
+        coffee> a = new dicts.Dict(a:1, b:2)
+        coffee> (a.has(x) for x in "abcd")
+        [ true, true, false, false ]
+        """
         [index, i] = @_lookup(key, hash(key))
         return index >= 0
     pop: ->
-        if @user == 0
+        """
+        coffee> a = new dicts.Dict(a:1, b:2, c:3)
+        coffee> a.pop()
+        [ 'c', 3 ]
+        coffee> a.pop()
+        [ 'b', 2 ]
+        coffee> a.pop()
+        [ 'a', 1 ]
+        coffee> a.pop()
+        Thrown: ...
+        """
+        if @used == 0
             throw new KeyError("cannot pop from empty dict")
         item = @itemlist[@itemlist.length - 1]
-        @del(key)
+        @del(item.key)
         return [item.key, item.value]
     eq: (other) ->
+        """
+        coffee> a = new dicts.Dict(a:1, b:2, c:3)
+        coffee> b = new dicts.Dict(a:1, b:2)
+        coffee> c = new dicts.Dict(c:3, b:2, a:1)
+        coffee> e = new dicts.Dict()
+        coffee> a.eq(c)
+        true
+        coffee> a.eq(b)
+        false
+        coffee> c.eq(a)
+        true
+        coffee> e.eq(a)
+        false
+        coffee> e.eq(new dicts.Dict())
+        true
+        """
         if other not instanceof Dict
             return false
         if @used != other.used

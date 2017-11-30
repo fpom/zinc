@@ -11,6 +11,14 @@
       return "dot";
     }
 
+    hash() {
+      return 2881495479;
+    }
+
+    eq(other) {
+      return other === this;
+    }
+
   };
 
   dot = new BlackToken();
@@ -53,7 +61,7 @@
       ref = this.iter();
       for (x of ref) {
         [p, m] = x;
-        copy.set(p, m.copy());
+        copy.d.set(p, m);
       }
       return copy;
     }

@@ -72,7 +72,7 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_IfAllType (self, node) :
         if node.place.type :
             var = node.CTX.names.fresh()
-            self.fill("if (%s instanceof %s for %s from %s.iter())"
+            self.fill("if (typeof(%s) == %r for %s from %s.iter())"
                       % (var, node.place.type, var, node.variable))
             self.write(".reduce((a, b) -> a and b)")
             self.children_visit(node.body, True)
@@ -119,7 +119,7 @@ class CodeGenerator (ast.CodeGenerator) :
         elif typ.endswith("()") :
             yield False, "%s(%s)" % (typ[:-2], var)
         else :
-            yield False, "%s instanceof %s" % (var, typ)
+            yield False, "typeof(%s) == %r" % (var, typ)
     def visit_IfType (self, node) :
         match = list(c[1] for c in self._matchtype(node.token, node.place.type))
         if not match :
@@ -142,7 +142,6 @@ class CodeGenerator (ast.CodeGenerator) :
         self.fill("%s = new Marking()" % var)
         whole = []
         for i, (place, tokens) in enumerate(marking.items()) :
-            self.fill("%s.set(%r, " % (var, place))
             first = True
             for tok in tokens :
                 if isinstance(tok, tuple) :
@@ -152,16 +151,19 @@ class CodeGenerator (ast.CodeGenerator) :
                         raise CompilationError("unsupported type '%s(%s)'" % tok,
                                                blame)
                 else :
-                    if not first :
+                    if first :
+                        self.fill("%s.set(%r, " % (var, place))
+                        first = False
+                    else :
                         self.write(", ")
-                    first = False
                     if isinstance(tok, ast.Pattern) :
                         self.write(self._pattern(tok.matcher))
                     else :
                         self.write(tok)
-            self.write(")")
+            if not first :
+                self.write(")")
         for place, tokens in whole :
-            self.fill("%s.get(%r).update(%s)" % (var, place, tokens))
+            self.fill("%s.get(%r).add(%s)" % (var, place, tokens))
     def visit_IfEnoughTokens (self, node) :
         if not hasattr(node.CTX, "subvar") :
             node.CTX.subvar = node.NAMES.fresh(base="sub")

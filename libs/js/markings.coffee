@@ -3,6 +3,8 @@ msets = require "./multisets"
 
 class BlackToken
     toString: -> "dot"
+    hash: -> 2881495479
+    eq: (other) -> other is this
 
 dot = new BlackToken()
 
@@ -57,7 +59,7 @@ class Marking
         """
         copy = new Marking(id)
         for [p, m] from @iter()
-            copy.set(p, m.copy())
+            copy.d.set(p, m)
         return copy
     has: (place) ->
         """

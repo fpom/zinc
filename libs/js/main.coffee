@@ -25,7 +25,10 @@ statespace = (init, addsucc, print_states, print_succs, print_dead) ->
             if print_succs
                 console.log ">", s.toString()
     return [seen.len(), dead]
-    
+
+dumpobj = (obj) ->
+    return "{" + ("#{ k }: #{ v }" for k, v of obj).join(", ") + "}"
+  
 lts = (init, itersucc) ->
     i = init()
     i.id = 0
@@ -37,12 +40,12 @@ lts = (init, itersucc) ->
         for [trans, mode, sub, add] from itersucc(state)
             succ = state.copy().sub(sub).add(add)
             if seen.has(succ)
-                succ = seen.get(s)
+                succ = seen.get(succ)
             else
                 succ.id = seen.len()
                 seen.add(succ)
                 todo.put(succ)
-            console.log "@ #{ trans } = #{ mode }"
+            console.log "@ #{ trans } = #{ dumpobj(mode) }"
             console.log " - #{ sub.toString() }"
             console.log " + #{ add.toString() }"
             console.log " > #{ succ.toString() }"

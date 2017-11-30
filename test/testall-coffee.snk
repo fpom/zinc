@@ -10,9 +10,9 @@ max = Math.max
 
 net "test net" :
     place p0 = dot # ensure finite execution
-    place p1 Number = 0, 1, 2
-    place p2 Number = 1, 2, 3
-    place p3 Number = MAX, {MAX+1}
+    place p1 number = 0, 1, 2
+    place p2 number = 1, 2, 3
+    place p3 number = MAX, {MAX+1}
     # values
     trans t01 :
         < p0 val = dot
@@ -90,7 +90,7 @@ net "test net" :
         < p0 val = dot
         < p1 flush = m
         > p1 fill  = m
-        > p1 fill  = (x+1 for x in m)
+        > p1 fill  = new Mset(x+1 for x in m)
     # inhibitor value
     trans t14 :
         < p0 val = dot
@@ -109,8 +109,8 @@ net "test net" :
         < p2 !expr = x+1
         > p3 val   = 2
     # tuples
-    place p5 (Number, Number)
-    place p6 (String, (Number, Number), Boolean)
+    place p5 (number, number)
+    place p6 (string, (number, number), boolean)
     # input/output and nested
     trans t17 :
         < p0 val = dot

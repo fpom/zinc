@@ -90,7 +90,7 @@ net "test net" :
         < p0 val = dot
         < p1 flush = m
         > p1 fill  = m
-        > p1 fill  = new Mset(x+1 for x in m)
+        > p1 fill  = m.map((v, c) -> [v+1, c])
     # inhibitor value
     trans t14 :
         < p0 val = dot

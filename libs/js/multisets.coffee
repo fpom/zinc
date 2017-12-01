@@ -120,7 +120,7 @@ class Mset
         false
         """
         for [k, n] from other.d.iter()
-            if not @d.get(k, 0) >= n
+            if @d.get(k, 0) < n
                 return false
         return true
     empty: ->

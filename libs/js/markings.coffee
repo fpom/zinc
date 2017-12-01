@@ -59,7 +59,7 @@ class Marking
         """
         copy = new Marking(id)
         for [p, m] from @iter()
-            copy.d.set(p, m)
+            copy.d.set(p, m.copy())
         return copy
     has: (place) ->
         """

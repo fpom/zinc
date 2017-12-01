@@ -81,7 +81,7 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_GetPlace (self, node) :
         self.fill("%s = %s.get(%r)" % (node.variable, node.marking, node.place.name))
     def visit_ForeachToken (self, node) :
-        self.fill("for %s in %s.get(%r).iter()"
+        self.fill("for %s from %s.get(%r).iter()"
                   % (node.variable, node.marking, node.place.name))
         self.children_visit(node.body, True)
     def visit_Break (self, node) :
@@ -163,7 +163,7 @@ class CodeGenerator (ast.CodeGenerator) :
             if not first :
                 self.write(")")
         for place, tokens in whole :
-            self.fill("%s.get(%r).add(%s)" % (var, place, tokens))
+            self.fill("%s.update(%r, %s)" % (var, place, tokens))
     def visit_IfEnoughTokens (self, node) :
         if not hasattr(node.CTX, "subvar") :
             node.CTX.subvar = node.NAMES.fresh(base="sub")

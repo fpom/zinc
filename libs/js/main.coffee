@@ -1,5 +1,5 @@
 sets = require "./sets"
-dicts = 
+dicts = require "./dicts"
 
 statespace = (init, addsucc, print_states, print_succs, print_dead) ->
     i = init()
@@ -27,13 +27,13 @@ statespace = (init, addsucc, print_states, print_succs, print_dead) ->
     return [seen.len(), dead]
 
 dumpobj = (obj) ->
-    return "{" + ("#{ k }: #{ v }" for k, v of obj).join(", ") + "}"
+    return "{" + ("'#{ k }': #{ v }" for k, v of obj).join(", ") + "}"
   
 lts = (init, itersucc) ->
     i = init()
     i.id = 0
     todo = new sets.Queue(i)
-    seen = new sets.Set()
+    seen = new sets.Set(i)
     while not todo.empty()
         state = todo.get()
         console.log state.toString()

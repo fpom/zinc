@@ -6,8 +6,13 @@ event = collections.namedtuple("event", ["trans", "mode", "state"])
 
 def dumps (obj) :
     if isinstance(obj, Marking) :
-        return "{%s}" % ", ".join("%s: %s" % (p, list(sorted(t)))
-                                  for p, t in sorted(obj.items()))
+        if getattr(obj, "ident", None) is None :
+            return "{%s}" % ", ".join("%s: %s" % (p, list(sorted(t)))
+                                      for p, t in sorted(obj.items()))
+        else :
+            return "[%s] {%s}" % (obj.ident,
+                                  ", ".join("%s: %s" % (p, list(sorted(t)))
+                                            for p, t in sorted(obj.items())))
     elif isinstance(obj, event) :
         return "%s %s => %s" % (obj.trans, dumps(obj.mode), dumps(obj.state))
     elif isinstance(obj, dict) :

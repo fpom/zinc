@@ -4,7 +4,9 @@
 
   sets = require("./sets");
 
-  dicts = statespace = function(init, addsucc, print_states, print_succs, print_dead) {
+  dicts = require("./dicts");
+
+  statespace = function(init, addsucc, print_states, print_succs, print_dead) {
     var dead, i, ref, s, seen, state, succ, todo;
     i = init();
     i.id = 0;
@@ -45,7 +47,7 @@
       results = [];
       for (k in obj) {
         v = obj[k];
-        results.push(`${k}: ${v}`);
+        results.push(`'${k}': ${v}`);
       }
       return results;
     })()).join(", ") + "}";
@@ -56,7 +58,7 @@
     i = init();
     i.id = 0;
     todo = new sets.Queue(i);
-    seen = new sets.Set();
+    seen = new sets.Set(i);
     results = [];
     while (!todo.empty()) {
       state = todo.get();

@@ -61,7 +61,7 @@
       ref = this.iter();
       for (x of ref) {
         [p, m] = x;
-        copy.d.set(p, m);
+        copy.d.set(p, m.copy());
       }
       return copy;
     }

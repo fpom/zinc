@@ -116,7 +116,7 @@
       ref = other.d.iter();
       for (x of ref) {
         [k, n] = x;
-        if (!this.d.get(k, 0) >= n) {
+        if (this.d.get(k, 0) < n) {
           return false;
         }
       }

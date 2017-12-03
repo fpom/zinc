@@ -1,12 +1,12 @@
 import ast, collections, functools
 
-from snakes import nets, ParseError, SNAKESError
-from snakes.io import snkparse
-from snakes.data import flatten
+from zinc import nets, ParseError, ZINCError
+from zinc.io import znparse
+from zinc.data import flatten
 
 class TupleParser (object) :
     def __init__ (self) :
-        self.p = snkparse.snkParser()
+        self.p = znparse.znParser()
     def parse (self, source) :
         return self.p.parse(source, "tailtuple", semantics=self)
     def tuple (self, st) :
@@ -33,7 +33,7 @@ class TupleParser (object) :
 class Parser (TupleParser) :
     def __init__ (self, module=nets) :
         self.n = module
-        self.p = snkparse.snkParser()
+        self.p = znparse.znParser()
         self.t = TupleParser()
     def parse (self, source, path) :
         self._s = source.rstrip() + "\n"
@@ -43,7 +43,7 @@ class Parser (TupleParser) :
     def spec (self, st) :
         try :
             net = self.n.PetriNet(st.net, st.lang)
-        except SNAKESError as err :
+        except ZINCError as err :
             raise ParseError(str(err), None, None, self._p)
         for lvl, decl in st.declare :
             net.declare(decl, lvl)
@@ -51,13 +51,13 @@ class Parser (TupleParser) :
             if isinstance(node, self.n.Place) :
                 try :
                     net.add_place(node)
-                except SNAKESError as err :
+                except ZINCError as err :
                     raise ParseError(err, rest[0], None, self._p)
             else :
                 lineno, inputs, outputs = rest
                 try :
                     net.add_transition(node)
-                except SNAKESError as err :
+                except ZINCError as err :
                     raise ParseError(err, lineno, None, self._p)
                 for place, label in inputs.items() :
                     try :
@@ -65,7 +65,7 @@ class Parser (TupleParser) :
                             net.add_input(place, node.name, label[0])
                         else :
                             net.add_input(place, node.name, self.n.MultiArc(*label))
-                    except SNAKESError as err :
+                    except ZINCError as err :
                         raise ParseError(err, self._l[place, node.name], None, self._p)
                 for place, label in outputs.items() :
                     try :
@@ -73,7 +73,7 @@ class Parser (TupleParser) :
                             net.add_output(place, node.name, label[0])
                         else :
                             net.add_output(place, node.name, self.n.MultiArc(*label))
-                    except SNAKESError as err :
+                    except ZINCError as err :
                         raise ParseError(err, self._l[node.name, place], None, self._p)
         return net
     def decl (self, st) :
@@ -146,7 +146,7 @@ class Parser (TupleParser) :
     def arc (self, st) :
         try :
             return self._mkarc(st)
-        except SNAKESError as err :
+        except ZINCError as err :
             raise ParseError(str(err), st.parseinfo.line+1, None, self._p)
 
 def loads (source, module=nets) :

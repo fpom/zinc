@@ -1,8 +1,8 @@
 import re
 from operator import attrgetter
 
-from snakes.compil import ast
-from snakes import TypingError
+from zinc.compil import ast
+from zinc import TypingError
 
 def S (text) :
     return '"%s"' % text.replace('"', '\\"')
@@ -13,7 +13,7 @@ package %(package)s
 
 closing = """
 func main () {
-    snk.Main(NET, Init, AddSucc, IterSucc)
+    zn.Main(NET, Init, AddSucc, IterSucc)
 }
 """
 
@@ -21,7 +21,7 @@ _letter = re.compile("\W+")
 
 class CodeGenerator (ast.CodeGenerator) :
     def visit_Context (self, node) :
-        node.decl('import "snk"', "import")
+        node.decl('import "zn"', "import")
         node.decl("type Token struct {}")
         node.decl("var DOT Token = Token{}")
         node.decl("var NET string = %s\n" % S(node.NET.name))
@@ -91,7 +91,7 @@ class CodeGenerator (ast.CodeGenerator) :
         self.unused = set()
         self.fill("func ")
         self.visit(node.name)
-        self.write(" (%s snk.Marking, %s snk.Set) {" % (node.marking, node.succ))
+        self.write(" (%s zn.Marking, %s zn.Set) {" % (node.marking, node.succ))
         with self.indent() :
             if node.name.trans :
                 self.fill("// successors for transition %r" % node.name.trans)
@@ -109,7 +109,7 @@ class CodeGenerator (ast.CodeGenerator) :
         self.unused.update(node.variables)
         for var, typ in node.variables.items() :
             if isinstance(typ, tuple) and typ[0] == "mset" :
-                self.typedef[typ] = "snk.Mset"
+                self.typedef[typ] = "zn.Mset"
             self.fill("var %s %s" % (var, self.typedef[typ]))
     def visit_Assign (self, node) :
         self.fill("%s = " % node.variable)
@@ -236,7 +236,7 @@ class CodeGenerator (ast.CodeGenerator) :
                            ", ".join(self._pattern(m, t) if isinstance(m, tuple)
                                      else m for m, t in zip(matcher, placetype)))
     def _newmarking (self, name, marking, assign) :
-        self.fill("%s := snk.MakeMarking()" % name)
+        self.fill("%s := zn.MakeMarking()" % name)
         whole = []
         for place, tokens in marking.items() :
             found = False
@@ -301,7 +301,7 @@ class CodeGenerator (ast.CodeGenerator) :
             self.fill("%s.Add(%s.Copy())"  % (node.succ, node.old))
     def visit_YieldEvent (self, node) :
         mvar = node.NAMES.fresh(base="mode")
-        self.fill("%s := snk.Binding{" % mvar)
+        self.fill("%s := zn.Binding{" % mvar)
         tvars = node.CTX.trans.vars()
         last = len(tvars) - 1
         for i, v in enumerate(tvars) :
@@ -310,20 +310,20 @@ class CodeGenerator (ast.CodeGenerator) :
                 self.write(", ")
         self.write("}")
         if node.sub and node.add :
-            self.fill("if ! %s.Put(&snk.Event{%s, %s, %s, %s}) { return }"
+            self.fill("if ! %s.Put(&zn.Event{%s, %s, %s, %s}) { return }"
                       % (node.CTX.iterator, S(node.CTX.trans.name), mvar,
                          node.CTX.subvar, node.CTX.addvar))
         elif node.sub :
-            self.fill("if ! %s.Put(&snk.Event{%s, %s, %s, snk.MakeMarking()})"
+            self.fill("if ! %s.Put(&zn.Event{%s, %s, %s, zn.MakeMarking()})"
                       " { return }" % (node.CTX.iterator, S(node.CTX.trans.name),
                                        mvar, node.CTX.subvar))
         elif node.add :
-            self.fill("if ! %s.Put(&snk.Event{%s, %s, snk.MakeMarking(), %s})"
+            self.fill("if ! %s.Put(&zn.Event{%s, %s, zn.MakeMarking(), %s})"
                       " { return }" % (node.CTX.iterator, S(node.CTX.trans.name),
                                        mvar, node.CTX.addvar))
         else :
-            self.fill("if ! %s.Put(&snk.Event{%s, %s,"
-                      " snk.MakeMarking(), snk.MakeMarking()}) { return }"
+            self.fill("if ! %s.Put(&zn.Event{%s, %s,"
+                      " zn.MakeMarking(), zn.MakeMarking()}) { return }"
                       % (node.CTX.iterator, mvar, S(node.CTX.trans.name)))
     def visit_DefSuccIter (self, node) :
         self.unused = set()
@@ -333,7 +333,7 @@ class CodeGenerator (ast.CodeGenerator) :
             node.CTX.iterator = node.NAMES.fresh(base="it")
         else :
             node.CTX.iterator = "it"
-        self.write(" (%s snk.Marking, %s snk.SuccIterator) {"
+        self.write(" (%s zn.Marking, %s zn.SuccIterator) {"
                    % (node.marking, node.CTX.iterator))
         with self.indent() :
             if node.name.trans :
@@ -342,7 +342,7 @@ class CodeGenerator (ast.CodeGenerator) :
             else :
                 self.fill("// successors for all transitions")
                 for name in node.body :
-                    self.fill("for i, p := snk.Iter(")
+                    self.fill("for i, p := zn.Iter(")
                     self.visit(name)
                     self.write(", %s); p != nil; p = i.Next() {" % node.marking)
                     with self.indent() :
@@ -359,7 +359,7 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_DefSuccFunc (self, node) :
         self.fill("func ")
         self.visit(node.name)
-        self.write(" (%s snk.Marking) snk.Set {" % node.marking)
+        self.write(" (%s zn.Marking) zn.Set {" % node.marking)
         with self.indent() :
             if node.name.trans :
                 self.fill("// successors of %r" % node.name.trans)
@@ -368,7 +368,7 @@ class CodeGenerator (ast.CodeGenerator) :
             self.children_visit(node.body, False)
         self.fill("}\n")
     def visit_InitSucc (self, node) :
-        self.fill("%s := snk.MakeSet()" % node.name)
+        self.fill("%s := zn.MakeSet()" % node.name)
     def visit_CallSuccProc (self, node) :
         self.fill()
         self.visit(node.name)
@@ -378,10 +378,10 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_DefInitFunc (self, node) :
         self.fill("func ")
         self.visit(node.name)
-        self.write(" () snk.Marking {")
+        self.write(" () zn.Marking {")
         with self.indent() :
             self.fill("// initial marking")
-            self.fill("init := snk.MakeMarking(0)")
+            self.fill("init := zn.MakeMarking(0)")
             for place in sorted(node.marking, key=attrgetter("place")) :
                 self.fill("init.Set(")
                 self.visit(place)
@@ -395,7 +395,7 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_SuccProcTable (self, node) :
         self.fill("// map transitions names to successor procs")
         self.fill('// "" maps to all-transitions proc')
-        self.fill("type SuccProcType func(snk.Marking, snk.Set)")
+        self.fill("type SuccProcType func(zn.Marking, zn.Set)")
         self.fill("var SuccProc map[string]SuccProcType = map[string]SuccProcType{")
         with self.indent() :
             for trans, name in sorted(self.succproc.items()) :
@@ -404,7 +404,7 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_SuccFuncTable (self, node) :
         self.fill("// map transitions names to successor funcs")
         self.fill('// "" maps to all-transitions func')
-        self.fill("type SuccFuncType func(snk.Marking)snk.Set")
+        self.fill("type SuccFuncType func(zn.Marking)zn.Set")
         self.fill("var SuccFunc map[string]SuccFuncType = map[string]SuccFuncType{")
         with self.indent() :
             for trans, name in sorted(self.succfunc.items()) :
@@ -413,8 +413,8 @@ class CodeGenerator (ast.CodeGenerator) :
     def visit_SuccIterTable (self, node) :
         self.fill("// map transitions names to successor iterators")
         self.fill('// "" maps to all-transitions iterator')
-        self.fill("var SuccIter map[string]snk.SuccIterFunc"
-                  " = map[string]snk.SuccIterFunc{")
+        self.fill("var SuccIter map[string]zn.SuccIterFunc"
+                  " = map[string]zn.SuccIterFunc{")
         with self.indent() :
             for trans, name in sorted(self.succiter.items()) :
                 self.fill("%s: %s," % (S(trans or ""), name))
@@ -422,7 +422,7 @@ class CodeGenerator (ast.CodeGenerator) :
 
 if __name__ == "__main__" :
     import io, sys
-    from snakes.io.snk import load
+    from zinc.io.zn import load
     net = load(open(sys.argv[-1]))
     gen = CodeGenerator(io.StringIO())
     gen.visit(net.__ast__("main"))

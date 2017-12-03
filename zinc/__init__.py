@@ -1,18 +1,18 @@
-class SNAKESError (Exception) :
+class ZINCError (Exception) :
     pass
 
-class ConstraintError (SNAKESError) :
+class ConstraintError (ZINCError) :
     pass
 
-class LanguageError (SNAKESError) :
+class LanguageError (ZINCError) :
     pass
 
-class TypingError (SNAKESError) :
+class TypingError (ZINCError) :
     pass
 
-class ParseError (SNAKESError) :
+class ParseError (ZINCError) :
     def __init__ (self, msg, lno=None, cno=None, path=None) :
         loc = ":".join(str(p) for p in (path, lno, cno) if p is not None)
         if loc :
             msg = "%s: %s" % (loc, msg)
-        SNAKESError.__init__(self, msg)
+        ZINCError.__init__(self, msg)

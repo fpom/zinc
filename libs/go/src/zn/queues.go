@@ -1,4 +1,4 @@
-package snk
+package zn
 
 type Queue struct {
 	head uint64

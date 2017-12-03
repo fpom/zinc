@@ -1,5 +1,5 @@
 import types, traceback, sys
-from snakes.compil import CompilationError, BaseDeclare
+from zinc.compil import CompilationError, BaseDeclare
 
 from . import codegen as codegen
 from .rename import rename

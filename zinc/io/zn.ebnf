@@ -1,4 +1,4 @@
-@@grammar :: snk
+@@grammar :: zn
 
 @@eol_comments :: /#.*?$/
 @@whitespace :: /[\t ]+/

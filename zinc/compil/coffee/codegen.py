@@ -1,4 +1,4 @@
-from snakes.compil import ast, CompilationError
+from zinc.compil import ast, CompilationError
 
 class CodeGenerator (ast.CodeGenerator) :
     def visit_Module (self, node) :
@@ -304,7 +304,7 @@ class CodeGenerator (ast.CodeGenerator) :
 
 if __name__ == "__main__" :
     import io, sys
-    from snakes.io.snk import load
+    from zinc.io.zn import load
     net = load(open(sys.argv[-1]))
     gen = CodeGenerator(io.StringIO(), libpath="./libs/js", main=True)
     gen.visit(net.__ast__())

@@ -1,15 +1,15 @@
-from snakes import *
-from snakes.arcs import *
-from snakes.nodes import *
-from snakes.data import *
-from snakes.tokens import *
+from zinc import *
+from zinc.arcs import *
+from zinc.nodes import *
+from zinc.data import *
+from zinc.tokens import *
 
-import snakes.compil
+import zinc.compil
 
 class PetriNet (object) :
     def __init__ (self, name, lang="python") :
         self.name = name
-        self.lang = snakes.compil.getlang(lang)
+        self.lang = zinc.compil.getlang(lang)
         self.declare = self.lang.Declare()
         self._trans = {}
         self._place = {}
@@ -17,14 +17,14 @@ class PetriNet (object) :
     def __repr__ (self) :
         return "%s(%r, %r)" % (self.__class__.__name__, self.name, self.lang.name)
     def build (self, name="net", saveto=None) :
-        return snakes.compil.build(self.lang, self.__ast__(name), saveto)
+        return zinc.compil.build(self.lang, self.__ast__(name), saveto)
     def __ast__ (self, name="net") :
-        ctx = snakes.compil.Context(net=self)
+        ctx = zinc.compil.Context(net=self)
         mod = ctx.Module(name,
                          [ctx.Context(self.declare.copy()),
                           ctx.DefineMarking(list(self._place.values()))])
         for name, trans in sorted(self._trans.items()) :
-            mod.body.extend(trans.__ast__(snakes.compil.Context(net=self)))
+            mod.body.extend(trans.__ast__(zinc.compil.Context(net=self)))
         mod.body.append(ctx.DefSuccProc(ctx.SuccProcName(), "marking", "succ", [
             ctx.CallSuccProc(ctx.SuccProcName(t.name), "marking", "succ")
             for n, t in sorted(self._trans.items())]))
@@ -34,7 +34,7 @@ class PetriNet (object) :
             ctx.ReturnSucc("succ")]))
         mod.body.append(ctx.DefSuccIter(ctx.SuccIterName(), "marking", [
             ctx.SuccIterName(t.name) for n, t in sorted(self._trans.items())]))
-        marking = self.get_marking().__ast__(snakes.compil.Context(net=self))
+        marking = self.get_marking().__ast__(zinc.compil.Context(net=self))
         mod.body.extend([ctx.DefInitFunc(ctx.InitName(), marking),
                          ctx.SuccProcTable(),
                          ctx.SuccFuncTable(),

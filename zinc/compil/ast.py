@@ -1,8 +1,8 @@
 import time, io, inspect
 
-from snakes.data import mset, iterate, record
-from snakes.arcs import Tuple
-from snakes.nodes import Place
+from zinc.data import mset, iterate, record
+from zinc.arcs import Tuple
+from zinc.nodes import Place
 
 try:
     import autopep8
@@ -448,6 +448,6 @@ class CodeGenerator (object) :
         self.write(name)
 
 if __name__ == "__main__" :
-    from snakes.io.snk import load
-    net = load(open("test/simple-python.snk"))
+    from zinc.io.zn import load
+    net = load(open("test/simple-python.zn"))
     print(net.__ast__().dump())

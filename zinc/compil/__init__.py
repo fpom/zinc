@@ -1,11 +1,11 @@
 import importlib, string, collections, io, tempfile, os, os.path
 
-from snakes import LanguageError
+from zinc import LanguageError
 
 def getlang (name) :
     name = name.lower()
     try :
-        module = importlib.import_module("snakes.compil." + name)
+        module = importlib.import_module("zinc.compil." + name)
     except ImportError :
         raise LanguageError("unsupported language %r" % name)
     module.name = name
@@ -98,7 +98,7 @@ class CompilationError (Exception) :
 
 class Context (object) :
     def __init__ (self, **attrs) :
-        self._ast = importlib.import_module("snakes.compil.ast")
+        self._ast = importlib.import_module("zinc.compil.ast")
         self._fields = list(attrs)
         for name, value in attrs.items() :
             setattr(self, name, value)

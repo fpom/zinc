@@ -1,4 +1,4 @@
-package snk
+package zn
 
 import "os"
 import "fmt"

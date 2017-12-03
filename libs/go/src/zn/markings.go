@@ -1,4 +1,4 @@
-package snk
+package zn
 
 import "fmt"
 import "bytes"
@@ -58,21 +58,21 @@ func (self Marking) Has (p string) bool {
 	return self.d.Has(place{p})
 }
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 3, 4)
 //... b := a.Copy()
 //... b.Set("p2", 2, 3, 4, 5)
 //... a.Hash() != b.Hash()
 //=== true
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 3, 4)
 //... b := a.Copy()
 //... b.Set("p2")
 //... a.Hash() == b.Hash()
 //=== true
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 3, 4)
 //... b := a.Copy()
 //... b.Set("p2", 2, 3, 4, 5)
@@ -80,11 +80,11 @@ func (self Marking) Has (p string) bool {
 //... a.Hash() == b.Hash()
 //=== true
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 0)
 //... a.Set("p2", 2, 1, 3)
 //... a.Set("p3", 5, 6, 2)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p2", 1, 3, 2)
 //... b.Set("p3", 2, 5, 6)
 //... b.Set("p1", 2, 0, 1)
@@ -105,7 +105,7 @@ func (self Marking) Eq (other Marking) bool {
 	return true
 }
 
-//+++ snk.MakeMarking().Eq(snk.MakeMarking())
+//+++ zn.MakeMarking().Eq(zn.MakeMarking())
 
 func (self Marking) Set (p string, tokens ...interface{}) {
 	if len(tokens) == 0 {
@@ -116,7 +116,7 @@ func (self Marking) Set (p string, tokens ...interface{}) {
 	}
 }
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
 //... a
@@ -125,7 +125,7 @@ func (self Marking) Set (p string, tokens ...interface{}) {
 //>>> list(sorted(m["p1"])) == [1, 2, 2, 3]
 //>>> list(sorted(m["p2"])) == [1, 1, 4]
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2)
 //... a.Set("p1")
 //... a.Get("p1").Empty()
@@ -140,11 +140,11 @@ func (self Marking) Update (p string, tokens Mset) {
 	}
 }
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
-//... a.Update("p1", snk.MakeMset(1, 2, 2, 3))
-//... a.Update("p2", snk.MakeMset(1, 1, 4))
-//... b := snk.MakeMarking()
+//... a.Update("p1", zn.MakeMset(1, 2, 2, 3))
+//... a.Update("p2", zn.MakeMset(1, 1, 4))
+//... b := zn.MakeMarking()
 //... b.Set("p1", 1, 2, 2, 3, 1, 2, 2, 3)
 //... b.Set("p2", 1, 1, 4)
 //... a.Eq(b)
@@ -158,46 +158,46 @@ func (self Marking) Copy () Marking {
 	return copy
 }
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p1", 1, 2, 2, 3)
 //... b.Set("p2", 1, 1, 4)
 //... a.Eq(b)
 //=== true
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p1", 1, 2, 2, 3)
 //... b.Set("p3", 1, 1, 4)
 //... a.Eq(b)
 //=== false
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p1", 1, 2, 2, 3)
 //... a.Eq(b)
 //=== false
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p1", 1, 2, 2, 3)
 //... b.Set("p2", 1, 1, 4)
 //... b.Set("p3", 1)
 //... a.Eq(b)
 //=== false
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p1", 1, 2, 2, 3)
 //... b.Set("p2", 1, 4)
 //... a.Eq(b)
@@ -207,22 +207,22 @@ func (self Marking) Get (p string) Mset {
 	return (*(self.d.Fetch(place{p}, MakeMset()))).(Mset)
 }
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... a.Get("p1").Eq(snk.MakeMset(1, 2, 2, 3))
+//... a.Get("p1").Eq(zn.MakeMset(1, 2, 2, 3))
 //=== true
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... a.Get("p2").Eq(snk.MakeMset(1, 1, 4))
+//... a.Get("p2").Eq(zn.MakeMset(1, 1, 4))
 //=== true
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... a.Get("p3").Eq(snk.MakeMset())
+//... a.Get("p3").Eq(zn.MakeMset())
 //=== true
 
 func (self Marking) NotEmpty (places ...string) bool {
@@ -234,25 +234,25 @@ func (self Marking) NotEmpty (places ...string) bool {
 	return true
 }
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
 //... a.NotEmpty("p1")
 //=== true
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
 //... a.NotEmpty("p1", "p2")
 //=== true
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
 //... a.NotEmpty("p1", "p2", "p3")
 //=== false
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
 //... a.NotEmpty("p3")
@@ -265,14 +265,14 @@ func (self Marking) Add (other Marking) Marking {
 	return self
 }
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p2", 2, 4)
 //... b.Set("p3", 1)
 //... a.Add(b)
-//... c := snk.MakeMarking()
+//... c := zn.MakeMarking()
 //... c.Set("p1", 1, 2, 2, 3)
 //... c.Set("p2", 1, 1, 2, 4, 4)
 //... c.Set("p3", 1)
@@ -291,14 +291,14 @@ func (self Marking) Sub (other Marking) Marking {
 	return self
 }
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p1", 1, 2, 2, 3)
 //... b.Set("p2", 2, 4)
 //... b.Set("p3", 1)
-//... c := snk.MakeMarking()
+//... c := zn.MakeMarking()
 //... c.Set("p2", 1, 1)
 //... a.Sub(b)
 //... a.Eq(c)
@@ -313,45 +313,45 @@ func (self Marking) Geq (other Marking) bool {
 	return true
 }
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p1", 1, 2, 2, 3)
 //... b.Set("p2", 1, 1, 4)
 //... a.Geq(b)
 //=== true
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p1", 1, 2, 2, 3)
 //... b.Set("p2", 1)
 //... a.Geq(b)
 //=== true
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p1", 1, 2, 2, 3)
 //... a.Geq(b)
 //=== true
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p1", 1, 2, 2, 3)
 //... b.Set("p2", 1, 1, 1, 1)
 //... a.Geq(b)
 //=== false
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
-//... b := snk.MakeMarking()
+//... b := zn.MakeMarking()
 //... b.Set("p1", 1, 2, 2, 3)
 //... b.Set("p2", 1, 1, 4)
 //... b.Set("p3", 1)
@@ -385,7 +385,7 @@ func (self Marking) Iter () (MarkingIterator, *string, *Mset) {
 	}
 }
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
 //... fmt.Print("{")
@@ -394,7 +394,7 @@ func (self Marking) Iter () (MarkingIterator, *string, *Mset) {
 //... nil
 //>>> eval(out) == {1, 2, 3}
 
-//### a := snk.MakeMarking()
+//### a := zn.MakeMarking()
 //... a.Set("p1", 1, 2, 2, 3)
 //... a.Set("p2", 1, 1, 4)
 //... fmt.Print("{")

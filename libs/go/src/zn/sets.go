@@ -1,10 +1,10 @@
-package snk
+package zn
 
 type Set struct {
 	data map[uint64]*Marking
 }
 
-//*** a := snk.MakeMarking()
+//*** a := zn.MakeMarking()
 //*** a.Set("p1", 1)
 //*** b := a.Copy()
 //*** b.Set("p2", 2)
@@ -27,18 +27,18 @@ func (self Set) NotEmpty () bool {
 	return len(self.data) > 0
 }
 
-//+++ snk.MakeSet().Empty()
-//--- snk.MakeSet(&a).Empty()
-//--- snk.MakeSet().NotEmpty()
-//+++ snk.MakeSet(&a).NotEmpty()
+//+++ zn.MakeSet().Empty()
+//--- zn.MakeSet(&a).Empty()
+//--- zn.MakeSet().NotEmpty()
+//+++ zn.MakeSet(&a).NotEmpty()
 
 func (self Set) Len () int {
 	return len(self.data)
 }
 
-//+++ snk.MakeSet().Len() == 0
-//+++ snk.MakeSet(&a).Len() == 1
-//+++ snk.MakeSet(&a, &a).Len() == 1
+//+++ zn.MakeSet().Len() == 0
+//+++ zn.MakeSet(&a).Len() == 1
+//+++ zn.MakeSet(&a, &a).Len() == 1
 
 func (self Set) lookup (m *Marking) (uint64, bool) {
 	slot := m.Hash()
@@ -66,11 +66,11 @@ func (self *Set) AddPtr (m *Marking) {
 	}
 }
 
-//### s := snk.MakeSet(&a, &b)
+//### s := zn.MakeSet(&a, &b)
 //... s.Len()
 //=== 2
 
-//### s := snk.MakeSet(&a, &b)
+//### s := zn.MakeSet(&a, &b)
 //... s.Add(c)
 //... s.Add(c)
 //... s.Len()
@@ -89,6 +89,6 @@ func (self Set) Has (m *Marking) bool {
 	return found
 }
 
-//+++ snk.MakeSet(&a, &b).Has(&a)
-//+++ snk.MakeSet(&a, &b).Has(&b)
-//--- snk.MakeSet(&a, &b).Has(&c)
+//+++ zn.MakeSet(&a, &b).Has(&a)
+//+++ zn.MakeSet(&a, &b).Has(&b)
+//--- zn.MakeSet(&a, &b).Has(&c)

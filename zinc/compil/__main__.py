@@ -1,7 +1,7 @@
-import snakes.io.snk, sys
+import zinc.io.zn, sys
 from . import build, CompilationError
 
-net = snakes.io.snk.load(open(sys.argv[-1]))
+net = zinc.io.zn.load(open(sys.argv[-1]))
 ast = net.__ast__()
 try :
     build(net.lang, ast, None)

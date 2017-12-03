@@ -1,4 +1,4 @@
-package snk
+package zn
 
 import "fmt"
 import "bytes"
@@ -49,8 +49,8 @@ func h2i (v *dicts.Hashable) *interface{} {
 	return (*v).(AsString).val
 }
 
-//+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Hash() == snk.MakeMset(3, 3, 3, 2, 2, 1).Hash()
-//+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Hash() == snk.MakeMset(3, 2, 1, 3, 2, 3).Hash()
+//+++ zn.MakeMset(1, 2, 2, 3, 3, 3).Hash() == zn.MakeMset(3, 3, 3, 2, 2, 1).Hash()
+//+++ zn.MakeMset(1, 2, 2, 3, 3, 3).Hash() == zn.MakeMset(3, 2, 1, 3, 2, 3).Hash()
 
 func MakeMset (values ...interface{}) Mset {
 	dict := dicts.MakeDict()
@@ -77,12 +77,12 @@ func (self Mset) Eq (other Mset) bool {
 	return true
 }
 
-//+++ snk.MakeMset().Eq(snk.MakeMset())
-//--- snk.MakeMset().Eq(snk.MakeMset(1, 2, 3))
-//--- snk.MakeMset().Eq(snk.MakeMset(1, 1, 1))
-//+++ snk.MakeMset(1, 1, 1).Eq(snk.MakeMset(1, 1, 1))
-//--- snk.MakeMset(1, 1, 3).Eq(snk.MakeMset(1, 1, 1))
-//--- snk.MakeMset(1, 1, 1).Eq(snk.MakeMset(2, 2, 2))
+//+++ zn.MakeMset().Eq(zn.MakeMset())
+//--- zn.MakeMset().Eq(zn.MakeMset(1, 2, 3))
+//--- zn.MakeMset().Eq(zn.MakeMset(1, 1, 1))
+//+++ zn.MakeMset(1, 1, 1).Eq(zn.MakeMset(1, 1, 1))
+//--- zn.MakeMset(1, 1, 3).Eq(zn.MakeMset(1, 1, 1))
+//--- zn.MakeMset(1, 1, 1).Eq(zn.MakeMset(2, 2, 2))
 
 func (self Mset) Copy () Mset {
 	copy := MakeMset()
@@ -92,7 +92,7 @@ func (self Mset) Copy () Mset {
 	return copy
 }
 
-//+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Copy().Eq(snk.MakeMset(1, 2, 2, 3, 3, 3))
+//+++ zn.MakeMset(1, 2, 2, 3, 3, 3).Copy().Eq(zn.MakeMset(1, 2, 2, 3, 3, 3))
 
 func (self Mset) Len () uint64 {
 	count := uint64(0)
@@ -102,8 +102,8 @@ func (self Mset) Len () uint64 {
 	return count
 }
 
-//+++ snk.MakeMset(1, 2, 2, 3, 3, 3).Len() == 6
-//+++ snk.MakeMset().Len() == 0
+//+++ zn.MakeMset(1, 2, 2, 3, 3, 3).Len() == 6
+//+++ zn.MakeMset().Len() == 0
 
 func (self Mset) Add (other Mset) Mset {
 	for iter, item := other.d.Iter(); item != nil; item = iter.Next() {
@@ -113,10 +113,10 @@ func (self Mset) Add (other Mset) Mset {
 	return self
 }
 
-//### a := snk.MakeMset(1, 2, 3)
-//... b := snk.MakeMset(2, 3, 4)
+//### a := zn.MakeMset(1, 2, 3)
+//... b := zn.MakeMset(2, 3, 4)
 //... a.Add(b)
-//... a.Eq(snk.MakeMset(1, 2, 2, 3, 3, 4))
+//... a.Eq(zn.MakeMset(1, 2, 2, 3, 3, 4))
 //=== true
 
 func (self Mset) Sub (other Mset) Mset {
@@ -132,16 +132,16 @@ func (self Mset) Sub (other Mset) Mset {
 	return self
 }
 
-//### a := snk.MakeMset(1, 2, 3)
-//... b := snk.MakeMset(2, 3, 4)
+//### a := zn.MakeMset(1, 2, 3)
+//... b := zn.MakeMset(2, 3, 4)
 //... a.Sub(b)
-//... a.Eq(snk.MakeMset(1))
+//... a.Eq(zn.MakeMset(1))
 //=== true
 
-//### a := snk.MakeMset(1, 2, 2, 3, 3, 3)
-//... b := snk.MakeMset(1, 2, 3)
+//### a := zn.MakeMset(1, 2, 2, 3, 3, 3)
+//... b := zn.MakeMset(1, 2, 3)
 //... a.Sub(b)
-//... a.Eq(snk.MakeMset(2, 3, 3))
+//... a.Eq(zn.MakeMset(2, 3, 3))
 //=== true
 
 func (self Mset) Geq (other Mset) bool {
@@ -154,34 +154,34 @@ func (self Mset) Geq (other Mset) bool {
 	return true
 }
 
-//+++ snk.MakeMset(1, 2, 3).Geq(snk.MakeMset(1, 2, 3))
-//+++ snk.MakeMset(1, 2, 3).Geq(snk.MakeMset(1, 2))
-//+++ snk.MakeMset(1, 2, 2, 3).Geq(snk.MakeMset(1, 2, 3))
-//+++ snk.MakeMset(1, 2, 2, 3).Geq(snk.MakeMset())
-//+++ snk.MakeMset().Geq(snk.MakeMset())
-//--- snk.MakeMset(1, 2, 2, 3).Geq(snk.MakeMset(1, 2, 3, 4))
-//--- snk.MakeMset(1, 2, 3).Geq(snk.MakeMset(1, 2, 2, 3))
-//--- snk.MakeMset().Geq(snk.MakeMset(1))
+//+++ zn.MakeMset(1, 2, 3).Geq(zn.MakeMset(1, 2, 3))
+//+++ zn.MakeMset(1, 2, 3).Geq(zn.MakeMset(1, 2))
+//+++ zn.MakeMset(1, 2, 2, 3).Geq(zn.MakeMset(1, 2, 3))
+//+++ zn.MakeMset(1, 2, 2, 3).Geq(zn.MakeMset())
+//+++ zn.MakeMset().Geq(zn.MakeMset())
+//--- zn.MakeMset(1, 2, 2, 3).Geq(zn.MakeMset(1, 2, 3, 4))
+//--- zn.MakeMset(1, 2, 3).Geq(zn.MakeMset(1, 2, 2, 3))
+//--- zn.MakeMset().Geq(zn.MakeMset(1))
 
 func (self Mset) Empty () bool {
 	return self.d.Len() == 0
 }
 
-//+++ snk.MakeMset().Empty()
-//+++ snk.MakeMset().Empty()
-//--- snk.MakeMset(1, 2).Empty()
+//+++ zn.MakeMset().Empty()
+//+++ zn.MakeMset().Empty()
+//--- zn.MakeMset(1, 2).Empty()
 
 func (self Mset) Count (value interface{}) uint64 {
 	return (*(self.d.Fetch(i2h(value), uint64(0)))).(uint64)
 }
 
-//### snk.MakeMset(1, 2, 2, 3, 3, 3).Count(1)
+//### zn.MakeMset(1, 2, 2, 3, 3, 3).Count(1)
 //=== 1
 
-//### snk.MakeMset(1, 2, 2, 3, 3, 3).Count(2)
+//### zn.MakeMset(1, 2, 2, 3, 3, 3).Count(2)
 //=== 2
 
-//### snk.MakeMset(1, 2, 2, 3, 3, 3).Count(3)
+//### zn.MakeMset(1, 2, 2, 3, 3, 3).Count(3)
 //=== 3
 
 type MsetIterator struct {
@@ -223,13 +223,13 @@ func (self Mset) IterDup () (MsetIterator, *interface{}) {
 	return myiter, h2i(item.Key)
 }
 
-//### a := snk.MakeMset(1, 2, 2, 3, 3, 3)
+//### a := zn.MakeMset(1, 2, 2, 3, 3, 3)
 //... t := 0
 //... for i, n := a.Iter(); n != nil; n = i.Next() { t += (*n).(int) }
 //... t
 //=== 6
 
-//### a := snk.MakeMset(1, 2, 2, 3, 3, 3)
+//### a := zn.MakeMset(1, 2, 2, 3, 3, 3)
 //... t := 0
 //... for i, n := a.IterDup(); n != nil; n = i.Next() { t += (*n).(int) }
 //... t
@@ -250,11 +250,11 @@ func (self Mset) String () string {
 	return buf.String()
 }
 
-//### a := snk.MakeMset(1, 2, 3)
+//### a := zn.MakeMset(1, 2, 3)
 //... a
 //>>> list(sorted((eval(out)))) == [1, 2, 3]
 
-//### a := snk.MakeMset(1, 2, 2, 3, 3, 3)
+//### a := zn.MakeMset(1, 2, 2, 3, 3, 3)
 //... a
 //>>> list(sorted(eval(out))) == [1, 2, 2, 3, 3, 3]
 
@@ -271,9 +271,9 @@ func (self Mset) Map (f mapfunc) Mset {
 	return copy
 }
 
-//### a := snk.MakeMset(1, 2, 2)
+//### a := zn.MakeMset(1, 2, 2)
 //... b := a.Map(func (v interface{}, n uint64) (interface{}, uint64) {return v.(int)+1, n})
-//... b.Eq(snk.MakeMset(2, 3, 3))
+//... b.Eq(zn.MakeMset(2, 3, 3))
 //=== true
 
 func (self Mset) ShowStructure () {

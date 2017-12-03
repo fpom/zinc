@@ -1,9 +1,9 @@
 import operator, logging, collections
 from functools import reduce
-from snakes import TypingError
-from snakes.data import mset, WordSet
-from snakes.tokens import Token
-from snakes.arcs import MultiArc
+from zinc import TypingError
+from zinc.data import mset, WordSet
+from zinc.tokens import Token
+from zinc.arcs import MultiArc
 
 class Node (object) :
     pass

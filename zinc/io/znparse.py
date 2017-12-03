@@ -22,7 +22,7 @@ from tatsu.util import re, generic_main  # noqa
 KEYWORDS = {}  # type: ignore
 
 
-class snkBuffer(Buffer):
+class znBuffer(Buffer):
     def __init__(
         self,
         text,
@@ -34,7 +34,7 @@ class snkBuffer(Buffer):
         namechars='',
         **kwargs
     ):
-        super(snkBuffer, self).__init__(
+        super(znBuffer, self).__init__(
             text,
             whitespace=whitespace,
             nameguard=nameguard,
@@ -46,7 +46,7 @@ class snkBuffer(Buffer):
         )
 
 
-class snkParser(Parser):
+class znParser(Parser):
     def __init__(
         self,
         whitespace=re.compile('[\\t ]+'),
@@ -58,12 +58,12 @@ class snkParser(Parser):
         parseinfo=True,
         keywords=None,
         namechars='',
-        buffer_class=snkBuffer,
+        buffer_class=znBuffer,
         **kwargs
     ):
         if keywords is None:
             keywords = KEYWORDS
-        super(snkParser, self).__init__(
+        super(znParser, self).__init__(
             whitespace=whitespace,
             nameguard=nameguard,
             comments_re=comments_re,
@@ -470,7 +470,7 @@ class snkParser(Parser):
             self._error('no available options')
 
 
-class snkSemantics(object):
+class znSemantics(object):
     def spec(self, ast):  # noqa
         return ast
 
@@ -538,7 +538,7 @@ class snkSemantics(object):
 def main(filename, startrule, **kwargs):
     with open(filename) as f:
         text = f.read()
-    parser = snkParser()
+    parser = znParser()
     return parser.parse(text, startrule, filename=filename, **kwargs)
 
 
@@ -546,7 +546,7 @@ if __name__ == '__main__':
     import json
     from tatsu.util import asjson
 
-    ast = generic_main(main, snkParser, name='snk')
+    ast = generic_main(main, znParser, name='zn')
     print('AST:')
     print(ast)
     print()

@@ -1,6 +1,6 @@
 import os, os.path, subprocess
 
-def walk(root='libs/go/src/snk') :
+def walk(root='libs/go/src/zn') :
     for dirpath, dirnames, filenames in os.walk(root) :
         for name in filenames :
             if name.endswith('.go') :

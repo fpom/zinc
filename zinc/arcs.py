@@ -1,8 +1,8 @@
 from functools import reduce
 from operator import and_, or_
 from itertools import chain
-from snakes import ConstraintError
-from snakes.data import record
+from zinc import ConstraintError
+from zinc.data import record
 
 class Arc (object) :
     def _nest (self, *arcs, **more) :

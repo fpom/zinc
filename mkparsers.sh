@@ -1,4 +1,4 @@
-find snakes -name "*.ebnf" | while read EBNF
+find zinc -name "*.ebnf" | while read EBNF
 do
   TARGET=$(dirname $EBNF)/$(basename $EBNF .ebnf)parse.py
   if test "$EBNF" -nt "$TARGET"

@@ -1,4 +1,4 @@
-from snakes.data import hashable, mset
+from zinc.data import hashable, mset
 
 class Token (object) :
     def __init__ (self, code) :

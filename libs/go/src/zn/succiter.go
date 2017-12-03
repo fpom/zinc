@@ -1,4 +1,4 @@
-package snk
+package zn
 
 import "time"
 import "fmt"
@@ -90,7 +90,7 @@ func TestSuccIterator () {
 	time.Sleep(20 * time.Millisecond)
 }
 
-//### snk.TestSuccIterator()
+//### zn.TestSuccIterator()
 //... nil
 //=== 0 1 2 3 4 finished
 //=== 0 1 2 stopped

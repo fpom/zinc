@@ -1,6 +1,6 @@
 import collections
 
-from snakes.nets import Marking, mset, dot, hdict
+from zinc.nets import Marking, mset, dot, hdict
 
 event = collections.namedtuple("event", ["trans", "mode", "state"])
 

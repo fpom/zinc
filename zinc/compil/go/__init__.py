@@ -1,7 +1,7 @@
 import subprocess, os.path, os, inspect
-import snakes
-from snakes.compil import BaseDeclare, CompilationError
-from snakes.compil.go.rename import rename
+import zinc
+from zinc.compil import BaseDeclare, CompilationError
+from zinc.compil.go.rename import rename
 from . import codegen
 
 NONETYPE = False
@@ -15,7 +15,7 @@ class Declare (BaseDeclare) :
 
 def update_gopath () :
     # TODO: fix this wrt installation path
-    path = os.path.join(os.path.dirname(os.path.dirname(inspect.getfile(snakes))),
+    path = os.path.join(os.path.dirname(os.path.dirname(inspect.getfile(zinc))),
                         "libs", "go")
     if "GOPATH" not in os.environ :
         os.environ["GOPATH"] = path

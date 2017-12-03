@@ -1,5 +1,5 @@
 import inspect, collections
-from snakes.compil import ast, CompilationError
+from zinc.compil import ast, CompilationError
 
 ##
 ## to be included in the generated source code
@@ -100,7 +100,7 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write("\nif __name__ == '__main__':"
                    "\n    main()")
     def visit_DefineMarking (self, node) :
-        self.fill("from snakes.nets import Marking, mset, dot, hdict")
+        self.fill("from zinc.nets import Marking, mset, dot, hdict")
         self.fill("event = collections.namedtuple('event', "
                   "['trans', 'mode', 'sub', 'add'])\n")
     def visit_DefSuccProc (self, node) :
@@ -399,7 +399,7 @@ class CodeGenerator (ast.CodeGenerator) :
 
 if __name__ == "__main__" :
     import io, sys
-    from snakes.io.snk import load
+    from zinc.io.zn import load
     net = load(open(sys.argv[-1]))
     gen = CodeGenerator(io.StringIO())
     gen.visit(net.__ast__())

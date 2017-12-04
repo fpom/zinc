@@ -5,7 +5,7 @@ statespace = (init, addsucc, print_states, print_succs, print_dead) ->
     i = init()
     i.id = 0
     todo = new sets.Queue(i)
-    seen = new sets.Set()
+    seen = new sets.Set(i)
     dead = 0
     while not todo.empty()
         state = todo.get()

@@ -174,7 +174,7 @@ class CodeGenerator (ast.CodeGenerator) :
             if not hasattr(node.CTX, "testvar") :
                 node.CTX.testvar = node.NAMES.fresh(base="test", add=True)
             self._marking(node.CTX.testvar, node.test, node.BLAME)
-            self.fill("if %s.get(%s)" % (node.old, node.CTX.testvar))
+            self.fill("if %s.geq(%s)" % (node.old, node.CTX.testvar))
             indent = 1
         elif node.sub :
             subtest = True

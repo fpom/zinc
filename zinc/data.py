@@ -133,6 +133,10 @@ class mset (Counter) :
         True
         >>> mset('abcd') - mset('abcd') == mset('')
         True
+        >>> mset('abc') - mset('abcd')
+        Traceback (most recent call last):
+          ...
+        ValueError: not enough occurrences
         """
         new = self.__class__()
         for key in set(self) | set(other) :
@@ -141,6 +145,23 @@ class mset (Counter) :
                 new[key] = count
             elif count < 0 :
                 raise ValueError("not enough occurrences")
+        return new
+    def __truediv__ (self, other) :
+        """
+        >>> mset('abcd') / mset('ab') == mset('cd')
+        True
+        >>> mset('aabbcd') / mset('ab') == mset('abcd')
+        True
+        >>> mset('abcd') / mset('abcd') == mset('')
+        True
+        >>> mset('abc') / mset('abcdef') == mset('')
+        True
+        """
+        new = self.__class__()
+        for key in set(self) | set(other) :
+            count = self(key) - other(key)
+            if count > 0:
+                new[key] = count
         return new
     def __add__ (self, other) :
         """

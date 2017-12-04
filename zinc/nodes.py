@@ -97,28 +97,31 @@ class Transition (Node) :
         # eliminate tokens that are both consumed & produced in the same place
         for place in set(ctx.sub) & set(ctx.add) :
             sub = mset(ctx.sub[place])
-            sub.discard(ctx.add[place])
             add = mset(ctx.add[place])
-            add.discard(ctx.sub[place])
-            if sub :
-                ctx.sub[place] = list(sub)
+            newsub = sub / add
+            newadd = add / sub
+            if newsub != sub :
+                ctx.test[place].extend(sub & add)
+            if newsub :
+                ctx.sub[place] = list(newsub)
             else :
                 del ctx.sub[place]
-            if add :
+            if newadd :
                 ctx.add[place] = list(add)
             else :
                 del ctx.add[place]
         # eliminate empty places
-        for mk in (ctx.sub, ctx.add) :
+        for mk in (ctx.sub, ctx.add, ctx.test) :
             for place, tokens in list(mk.items()) :
                 if not tokens :
                     del mk[place]
-        # code to produce successor marking
+        # also test for tokens that will be consumed
         if ctx.test :
             for place, tokens in ctx.sub.items() :
                 ctx.test[place].extend(tokens)
         else :
             ctx.test = {}
+        # code to produce successor marking
         tip = ctx.IfEnoughTokens(ctx.marking, ctx.test, ctx.sub, ctx.add,
                                  BLAME=ctx.TransitionBlame(self.name))
         last.append(tip)

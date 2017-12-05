@@ -98,7 +98,7 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write("\n%s" % inspect.getsource(lts))
         self.write("\n%s" % inspect.getsource(main))
         self.write("\nif __name__ == '__main__':"
-                   "\n    main()")
+                   "\n    main()\n")
     def visit_DefineMarking (self, node) :
         self.fill("from zinc.nets import Marking, mset, dot, hdict")
         self.fill("event = collections.namedtuple('event', "

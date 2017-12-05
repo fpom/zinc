@@ -4,6 +4,9 @@ from zinc.compil import BaseDeclare, CompilationError
 from zinc.compil.go.rename import rename
 from . import codegen
 
+DESCRIPTION = "Golang backend (http://golang.org)"
+OPTIONS = {}
+
 NONETYPE = False
 BOOL = "bool"
 EXT = ".go"
@@ -22,7 +25,7 @@ def update_gopath () :
     elif path not in os.environ["GOPATH"].split(":") :
         os.environ["GOPATH"] = ":".join([path, os.environ["GOPATH"]])
 
-def build (ast, src, name) :
+def build (ast, src, name, **options) :
     update_gopath()
     try :
         subprocess.check_output(["go", "build", src], stderr=subprocess.STDOUT)

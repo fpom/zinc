@@ -4,6 +4,9 @@ from zinc.compil import CompilationError, BaseDeclare
 from . import codegen as codegen
 from .rename import rename
 
+DESCRIPTION = "Python backend (http://www.python.org)"
+OPTIONS = {}
+
 NONETYPE = True
 BOOL = "bool"
 EXT = ".py"
@@ -12,7 +15,7 @@ INMEM = True
 class Declare (BaseDeclare) :
     pass
 
-def build (ast, src, name) :
+def build (ast, src, name, **options) :
     if isinstance(src, str) :
         src = open(src)
     try :

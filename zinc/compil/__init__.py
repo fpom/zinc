@@ -11,11 +11,11 @@ def getlang (name) :
     module.name = name
     return module
 
-def build (lang, tree, saveto) :
+def build (lang, tree, saveto, **options) :
     if saveto is None :
         out = io.StringIO()
     elif isinstance(saveto, str) :
-        out = open(str, "w+")
+        out = open(saveto, "w+")
     else :
         try :
             saveto.write("hello world!")
@@ -31,12 +31,12 @@ def build (lang, tree, saveto) :
             raise ValueError("%r object does not have expected file-like feature"
                              % saveto.__class__.__name__)
         out = saveto
-    gen = lang.codegen.CodeGenerator(out)
+    gen = lang.codegen.CodeGenerator(out, **options)
     gen.visit(tree)
     out.flush()
     out.seek(0)
     if lang.INMEM :
-        mod = lang.build(tree, out, tree.name + lang.EXT)
+        mod = lang.build(tree, out, tree.name + lang.EXT, **options)
     elif saveto is None :
         try :
             tmp = tempfile.NamedTemporaryFile(mode="w+", suffix=lang.EXT, delete=False)

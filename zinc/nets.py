@@ -16,8 +16,8 @@ class PetriNet (object) :
         self._node = {}
     def __repr__ (self) :
         return "%s(%r, %r)" % (self.__class__.__name__, self.name, self.lang.name)
-    def build (self, name="net", saveto=None) :
-        return zinc.compil.build(self.lang, self.__ast__(name), saveto)
+    def build (self, name="net", saveto=None, **options) :
+        return zinc.compil.build(self.lang, self.__ast__(name), saveto, **options)
     def __ast__ (self, name="net") :
         ctx = zinc.compil.Context(net=self)
         mod = ctx.Module(name,

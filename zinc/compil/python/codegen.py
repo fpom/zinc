@@ -78,7 +78,7 @@ def main () :
         print("%s reachable states" % n)
     elif args.mode == "d" and args.size :
         _, n = statespace(False, False, False)
-        print("%s deadlocks")
+        print("%s deadlocks" % n)
     elif args.mode == "g" :
         statespace(True, True, False)
     elif args.mode in "m" :

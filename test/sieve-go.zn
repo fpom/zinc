@@ -1,0 +1,10 @@
+# Erathostenes' sieve (https://mcc.lip6.fr/pdf/Eratosthenes-form.pdf)
+        
+lang go
+
+net "Erathostene sieve" :
+    place p int = 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
+    trans t n % d == 0 :
+        < p var = n
+        < p var = d
+        > p var = d

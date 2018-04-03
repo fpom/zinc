@@ -30,7 +30,8 @@ class CodeGenerator (ast.CodeGenerator) :
         self.write(preamble % {"timestamp" : self.timestamp(),
                                "package" : node.name})
         self.children_visit(node.body)
-        self.fill(closing)
+        if node.name == "main" :
+            self.fill(closing)
     def _tupledef (self, typ) :
         return "_".join([""] + [_letter.sub("", self.typedef[t]) for t in typ] + [""])
     def _typedef (self, typ, place) :

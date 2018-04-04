@@ -2,8 +2,6 @@ package zn
 
 import "fmt"
 import "bytes"
-import "hash/fnv"
-import "hashstructure"
 import "dicts"
 
 type Mset struct {
@@ -11,42 +9,16 @@ type Mset struct {
 }
 
 func (self Mset) Hash () uint64 {
-	var h uint64 = 13124430844775843711
-	hash := fnv.New64()
-	for iter, item := self.d.Iter(); item != nil; item = iter.Next() {
-		hv, err := hashstructure.Hash(*(item.Key), nil)
-		if err != nil {
-			panic(err)
-		}
-		hash.Reset()
-		hash.Write([]byte(fmt.Sprintf("[%x]{%x}", hv, *(item.Value))))
-		h ^= hash.Sum64()
-	}
-	return h
+	return self.d.Hash()
 }
 
-type AsString struct {
-	val *interface{}
-}
-
-func (self AsString) Hash () uint64 {
-	return dicts.StringHash(fmt.Sprint(*(self.val)))
-}
-
-func (self AsString) Eq (other interface{}) bool {
-	if v, ok := other.(AsString); ok {
-		return fmt.Sprint(*(self.val)) == fmt.Sprint(*(v.val))
+func (self Mset) Eq (other interface{}) bool {
+	m, ok := other.(Mset)
+	if ok {
+		return self.d.Eq(*(m.d))
 	} else {
-		return fmt.Sprint(*(self.val)) == fmt.Sprint(other)
+		return false
 	}
-}
-
-func i2h (v interface{}) dicts.Hashable {
-	return AsString{&v}
-}
-
-func h2i (v *dicts.Hashable) *interface{} {
-	return (*v).(AsString).val
 }
 
 //+++ zn.MakeMset(1, 2, 2, 3, 3, 3).Hash() == zn.MakeMset(3, 3, 3, 2, 2, 1).Hash()
@@ -56,25 +28,10 @@ func MakeMset (values ...interface{}) Mset {
 	dict := dicts.MakeDict()
 	mset := Mset{&dict}
 	for _, elt := range values {
-		h := i2h(elt)
-		count := (*mset.d.Fetch(h, uint64(0))).(uint64)
-		mset.d.Set(h, count + 1)
+		count := (*mset.d.Fetch(elt, uint64(0))).(uint64)
+		mset.d.Set(elt, count + 1)
 	}
 	return mset
-}
-
-func (self Mset) Eq (other Mset) bool {
-	if self.d.Len() != other.d.Len() {
-		return false
-	}
-	for iter, item := self.d.Iter(); item != nil; item = iter.Next() {
-		if ! other.d.Has(*(item.Key)) {
-			return false
-		} else if (*item.Value).(uint64) != (*other.d.Get(*(item.Key))).(uint64) {
-			return false
-		}
-	}
-	return true
 }
 
 //+++ zn.MakeMset().Eq(zn.MakeMset())
@@ -85,11 +42,8 @@ func (self Mset) Eq (other Mset) bool {
 //--- zn.MakeMset(1, 1, 1).Eq(zn.MakeMset(2, 2, 2))
 
 func (self Mset) Copy () Mset {
-	copy := MakeMset()
-	for iter, item := self.d.Iter(); item != nil; item = iter.Next() {
-		copy.d.Set(*(item.Key), *(item.Value))
-	}
-	return copy
+	dict := self.d.Copy()
+	return Mset{&dict}
 }
 
 //+++ zn.MakeMset(1, 2, 2, 3, 3, 3).Copy().Eq(zn.MakeMset(1, 2, 2, 3, 3, 3))
@@ -172,7 +126,7 @@ func (self Mset) Empty () bool {
 //--- zn.MakeMset(1, 2).Empty()
 
 func (self Mset) Count (value interface{}) uint64 {
-	return (*(self.d.Fetch(i2h(value), uint64(0)))).(uint64)
+	return (*(self.d.Fetch(value, uint64(0)))).(uint64)
 }
 
 //### zn.MakeMset(1, 2, 2, 3, 3, 3).Count(1)
@@ -204,7 +158,7 @@ func (self *MsetIterator) Next () *interface{} {
 	} else if self.dup {
 		self.count--
 	}
-	return h2i(self.current.Key)
+	return self.current.Key
 }
 
 func (self Mset) Iter () (MsetIterator, *interface{}) {
@@ -213,14 +167,14 @@ func (self Mset) Iter () (MsetIterator, *interface{}) {
 	if item == nil {
 		return myiter, nil
 	} else {
-		return myiter, h2i(item.Key)
+		return myiter, item.Key
 	}
 }
 
 func (self Mset) IterDup () (MsetIterator, *interface{}) {
 	iter, item := self.d.Iter()
 	myiter := MsetIterator{iter, true, (*(item.Value)).(uint64) - 1, item}
-	return myiter, h2i(item.Key)
+	return myiter, item.Key
 }
 
 //### a := zn.MakeMset(1, 2, 2, 3, 3, 3)
@@ -263,10 +217,10 @@ type mapfunc func (interface{}, uint64) (interface{}, uint64)
 func (self Mset) Map (f mapfunc) Mset {
 	copy := MakeMset()
 	for iter, item := self.d.Iter(); item != nil; item = iter.Next() {
-		k := *h2i(item.Key)
+		k := *(item.Key)
 		v := (*(item.Value)).(uint64)
 		k, v = f(k, v)
-		copy.d.Set(i2h(k), v)
+		copy.d.Set(k, v)
 	}
 	return copy
 }

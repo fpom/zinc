@@ -8,23 +8,23 @@ func StateSpace (init func()Marking, addsucc func(Marking, Set),
 	var succ Set
 	count := 1
 	i := init()
-	todo := MakeQueue(&i)
-	seen := MakeSet(&i)
+	todo := MakeQueue(i)
+	seen := MakeSet(i)
 	for ! todo.Empty() {
 		state := todo.Get()
 		if print_states {
 			fmt.Println(state)
 		}
 		succ = MakeSet()
-		addsucc(*state, succ)
-		for _, s := range succ.data {
-			if found, p := seen.Get(s); found {
-				s = p
+		addsucc(state, succ)
+		for it, s := succ.Iter(); s != nil; s = it.Next(){
+			if found, p := seen.Get(*s); found {
+				s = &p
 			} else {
 				count += 1
 				s.SetId(count)
-				seen.AddPtr(s)
-				todo.Put(s)
+				seen.Add(*s)
+				todo.Put(*s)
 			}
 			if print_succs {
 				fmt.Println(" >", s)
@@ -38,25 +38,26 @@ func DeadLocks (init func()Marking, addsucc func(Marking, Set), print bool) int 
 	var succ Set
 	count := 1
 	i := init()
-	todo := MakeQueue(&i)
-	seen := MakeSet(&i)
+	todo := MakeQueue(i)
+	seen := MakeSet(i)
 	for ! todo.Empty() {
 		state := todo.Get()
 		succ = MakeSet()
-		addsucc(*state, succ)
+		addsucc(state, succ)
 		if succ.Empty() {
 			if print {
 				fmt.Println(state)
 			}
 			count++
 		} else {
-			for _, s := range succ.data {
-				if found, p := seen.Get(s); found {
-					s = p
+			for it, s := succ.Iter(); s != nil; s = it.Next(){
+				if found, p := seen.Get(*s); found {
+					s = &p
 				} else {
-					s.SetId(seen.Len())
-					seen.AddPtr(s)
-					todo.Put(s)
+					count += 1
+					s.SetId(count)
+					seen.Add(*s)
+					todo.Put(*s)
 				}
 			}
 		}
@@ -66,12 +67,12 @@ func DeadLocks (init func()Marking, addsucc func(Marking, Set), print bool) int 
 
 func LabelledTransitionsSystem (init func()Marking, itersucc SuccIterFunc) {
 	i := init()
-	todo := MakeQueue(&i)
-	seen := MakeSet(&i)
+	todo := MakeQueue(i)
+	seen := MakeSet(i)
 	for ! todo.Empty() {
 		state := todo.Get()
 		fmt.Println(state)
-		for i, p := Iter(itersucc, *state); p != nil; p = i.Next() {
+		for i, p := Iter(itersucc, state); p != nil; p = i.Next() {
 			// print trans & mode
 			fmt.Print("@ ", p.Name, " = {")
 			first := true
@@ -89,12 +90,12 @@ func LabelledTransitionsSystem (init func()Marking, itersucc SuccIterFunc) {
 			fmt.Println(" - ", p.Sub)
 			fmt.Println(" + ", p.Add)
 			s := state.Copy().Sub(p.Sub).Add(p.Add)
-			if found, old := seen.Get(&s); found {
+			if found, old := seen.Get(s); found {
 				fmt.Println(" > ", old)
 			} else {
-				s.SetId(seen.Len())
+				s.SetId(int(seen.Len()))
 				seen.Add(s)
-				todo.Put(&s)
+				todo.Put(s)
 				fmt.Println(" > ", s)
 			}
 		}

@@ -2,7 +2,6 @@ package zn
 
 import "fmt"
 import "bytes"
-import "hash/fnv"
 import "dicts"
 
 type Marking struct {
@@ -12,6 +11,10 @@ type Marking struct {
 
 func (self *Marking) SetId (id int) {
 	self.i = id
+}
+
+func (self Marking) GetId () int {
+	return self.i
 }
 
 func MakeMarking (id ...int) Marking {
@@ -26,36 +29,20 @@ func MakeMarking (id ...int) Marking {
 }
 
 func (self Marking) Hash () uint64 {
-	var h uint64 = 2471033218594493899
-	hash := fnv.New64()
-	for iter, item := self.d.Iter(); item != nil; item = iter.Next() {
-		hash.Reset()
-		hash.Write([]byte(fmt.Sprintf("[%s]{%x}",
-			fmt.Sprint(*(item.Key)),
-			(*item.Value).(Mset).Hash())))
-		h ^= hash.Sum64()
-	}
-	return h
+	return self.d.Hash()
 }
 
-type place struct {
-	s string
-}
-
-func (self place) Hash () uint64 {
-	return dicts.StringHash(self.s)
-}
-
-func (self place) Eq (other interface{}) bool {
-	if val, isplace := other.(place); isplace {
-		return val.s == self.s
+func (self Marking) Eq (other interface{}) bool {
+	m, ok := other.(Marking)
+	if ok {
+		return self.d.Eq(*(m.d))
 	} else {
 		return false
 	}
 }
 
 func (self Marking) Has (p string) bool {
-	return self.d.Has(place{p})
+	return self.d.Has(p)
 }
 
 //### a := zn.MakeMarking()
@@ -91,28 +78,14 @@ func (self Marking) Has (p string) bool {
 //... a.Hash() == b.Hash()
 //=== true
 
-func (self Marking) Eq (other Marking) bool {
-	if self.d.Len() != other.d.Len() {
-		return false
-	}
-	for iter, p, m := self.Iter(); p != nil; p, m = iter.Next() {
-		if ! other.d.Has(place{*p}) {
-			return false
-		} else if ! m.Eq(other.Get(*p)) {
-			return false
-		}
-	}
-	return true
-}
-
 //+++ zn.MakeMarking().Eq(zn.MakeMarking())
 
 func (self Marking) Set (p string, tokens ...interface{}) {
 	if len(tokens) == 0 {
-		self.d.Del(place{p})
+		self.d.Del(p)
 	} else {
 		m := MakeMset(tokens...)
-		self.d.Set(place{p}, m)
+		self.d.Set(p, m)
 	}
 }
 
@@ -136,7 +109,7 @@ func (self Marking) Update (p string, tokens Mset) {
 		m := self.Get(p)
 		m.Add(tokens)
 	} else {
-		self.d.Set(place{p}, tokens.Copy())
+		self.d.Set(p, tokens.Copy())
 	}
 }
 
@@ -150,12 +123,17 @@ func (self Marking) Update (p string, tokens Mset) {
 //... a.Eq(b)
 //=== true
 
+func copykey (k interface{}) interface{} {
+	return k
+}
+
+func copyval (v interface{}) interface{} {
+	return v.(Mset).Copy()
+}
+
 func (self Marking) Copy () Marking {
-	copy := MakeMarking()
-	for iter, p, m := self.Iter(); p != nil; p, m = iter.Next() {
-		copy.Update(*p, *m)
-	}
-	return copy
+	dict := self.d.Copy(copykey, copyval)
+	return Marking{&dict, self.i}
 }
 
 //### a := zn.MakeMarking()
@@ -204,7 +182,7 @@ func (self Marking) Copy () Marking {
 //=== false
 
 func (self Marking) Get (p string) Mset {
-	return (*(self.d.Fetch(place{p}, MakeMset()))).(Mset)
+	return (*(self.d.Fetch(p, MakeMset()))).(Mset)
 }
 
 //### a := zn.MakeMarking()
@@ -283,7 +261,7 @@ func (self Marking) Sub (other Marking) Marking {
 	for iter, p, m := other.Iter(); p != nil; p, m = iter.Next() {
 		mine := self.Get(*p)
 		if m.Geq(mine) {
-			self.d.Del(place{*p})
+			self.d.Del(*p)
 		} else {
 			mine.Sub(*m)
 		}
@@ -367,9 +345,9 @@ func (self MarkingIterator) Next () (*string, *Mset) {
 	if next == nil {
 		return nil, nil
 	} else {
-		p := (*next.Key).(place)
+		p := (*next.Key).(string)
 		m := (*next.Value).(Mset)
-		return &(p.s),  &m
+		return &p,  &m
 	}
 }
 
@@ -379,9 +357,9 @@ func (self Marking) Iter () (MarkingIterator, *string, *Mset) {
 	if item == nil {
 		return myiter, nil, nil
 	} else {
-		p := (*item.Key).(place)
+		p := (*item.Key).(string)
 		m := (*item.Value).(Mset)
-		return myiter, &(p.s), &m
+		return myiter, &p, &m
 	}
 }
 

@@ -1,0 +1,17 @@
+# Referendum (https://mcc.lip6.fr/pdf/Referendum-form.pdf)
+# parameters :
+#  - lang = python : annotation language
+#  - count = 8 : number of voters
+
+lang python
+
+net "Referendum" :
+    place v int = 0, 1, 2, 3, 4, 5, 6, 7
+    place y int
+    place n int
+    trans yes :
+        < v var = i
+        > y var = i
+    trans no :
+        < v var = i
+        > n var = i

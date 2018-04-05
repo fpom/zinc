@@ -75,34 +75,35 @@ func (self *Dict) Clear () {
 type copyfunc func(interface{})interface{}
 
 func (self Dict) Copy (copiers ...copyfunc) Dict {
-	d := Dict{}
-	d.indices = make(map[uint64]int64)
+	d := Dict{make(map[uint64]int64),
+		make([]DictItem, len(self.itemlist)),
+		self.used,
+		self.filled,
+		self.keyhash}
 	for k, v := range self.indices {
 		d.indices[k] = v
 	}
-	d.itemlist = make([]DictItem, len(self.itemlist))
 	if len(copiers) == 0 {
 		copy(d.itemlist, self.itemlist)
 	} else if len(copiers) == 1 {
 		cpk := copiers[0]
-		for index, item := range self.itemlist {
+		for i := uint64(0); i < self.used; i++ {
+			item := &self.itemlist[i]
 			k := cpk(*(item.Key))
-			d.itemlist[index] = DictItem{&k, item.Value, item.hash}
+			d.itemlist[i] = DictItem{&k, item.Value, item.hash}
 		}
 	} else if len(copiers) == 2 {
 		cpk := copiers[0]
 		cpv := copiers[1]
-		for index, item := range self.itemlist {
+		for i := uint64(0); i < self.used; i++ {
+			item := &self.itemlist[i]
 			k := cpk(*(item.Key))
 			v := cpv(*(item.Value))
-			d.itemlist[index] = DictItem{&k, &v, item.hash}
+			d.itemlist[i] = DictItem{&k, &v, item.hash}
 		}
 	} else {
 		panic("at most two copiers are allowed")
 	}
-	d.used = self.used
-	d.filled = self.filled
-	d.keyhash  = self.keyhash
 	return d
 }
 
@@ -223,7 +224,6 @@ func (self *Dict) Del (key interface{}) {
 		self.indices[j]       = index
 		self.itemlist[index]  = lastitem
 	}
-	self.itemlist  = self.itemlist[:self.used]
 	self.keyhash -= hashvalue
 }
 

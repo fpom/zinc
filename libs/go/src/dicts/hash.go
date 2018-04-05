@@ -143,14 +143,14 @@ type visitOpts struct {
 	StructField string
 }
 
-type hashable interface {
+type Hashable interface {
 	Hash () uint64
 }
 
 func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {
 
 	// Call method Hash() is any
-	i, ok := v.Interface().(hashable)
+	i, ok := v.Interface().(Hashable)
 	if ok {
 		return i.Hash(), nil
 	}

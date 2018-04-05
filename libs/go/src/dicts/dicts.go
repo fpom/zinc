@@ -33,13 +33,13 @@ func Hash (value interface{}) uint64 {
 // compare any values
 //
 
-type equatable interface {
+type Equatable interface {
 	Eq (interface{}) bool
 }
 
 
 func Eq (a, b interface{}) bool {
-	i, ok := a.(equatable)
+	i, ok := a.(Equatable)
 	if ok {
 		return i.Eq(b)
 	}
@@ -50,7 +50,7 @@ func Eq (a, b interface{}) bool {
 // dict type
 //
 
-type Item struct {
+type DictItem struct {
 	Key   *interface{}
 	Value *interface{}
 	hash  uint64
@@ -58,7 +58,7 @@ type Item struct {
 
 type Dict struct {
 	indices   map[uint64]int64
-	itemlist  []Item
+	itemlist  []DictItem
 	used      uint64
 	filled    uint64
 	keyhash   uint64
@@ -66,7 +66,7 @@ type Dict struct {
 
 func (self *Dict) Clear () {
 	self.indices  = make(map[uint64]int64)
-	self.itemlist = make([]Item, 0)
+	self.itemlist = make([]DictItem, 0)
 	self.used     = 0
 	self.filled   = 0
 	self.keyhash  = 0
@@ -80,14 +80,14 @@ func (self Dict) Copy (copiers ...copyfunc) Dict {
 	for k, v := range self.indices {
 		d.indices[k] = v
 	}
-	d.itemlist = make([]Item, len(self.itemlist))
+	d.itemlist = make([]DictItem, len(self.itemlist))
 	if len(copiers) == 0 {
 		copy(d.itemlist, self.itemlist)
 	} else if len(copiers) == 1 {
 		cpk := copiers[0]
 		for index, item := range self.itemlist {
 			k := cpk(*(item.Key))
-			d.itemlist[index] = Item{&k, item.Value, item.hash}
+			d.itemlist[index] = DictItem{&k, item.Value, item.hash}
 		}
 	} else if len(copiers) == 2 {
 		cpk := copiers[0]
@@ -95,7 +95,7 @@ func (self Dict) Copy (copiers ...copyfunc) Dict {
 		for index, item := range self.itemlist {
 			k := cpk(*(item.Key))
 			v := cpv(*(item.Value))
-			d.itemlist[index] = Item{&k, &v, item.hash}
+			d.itemlist[index] = DictItem{&k, &v, item.hash}
 		}
 	} else {
 		panic("at most two copiers are allowed")
@@ -106,7 +106,7 @@ func (self Dict) Copy (copiers ...copyfunc) Dict {
 	return d
 }
 
-func MakeDict (items ...Item) Dict {
+func MakeDict (items ...DictItem) Dict {
 	d := Dict{}
 	d.Clear()
 	for _, i := range items {
@@ -173,7 +173,7 @@ func (self Dict) Get (key interface{}) *interface{} {
 	return self.itemlist[index].Value
 }
 
-func (self Dict) GetItem (key interface{}) *Item {
+func (self Dict) GetItem (key interface{}) *DictItem {
 	index, _ := self.lookup(key, Hash(key))
 	if index < 0 {
 		return nil
@@ -195,14 +195,14 @@ func (self *Dict) Set (key interface{}, value interface{}) {
 	index, i := self.lookup(key, hashvalue)
 	if index < 0 {
 		self.indices[i] = int64(self.used)
-		self.itemlist = append(self.itemlist, Item{&key, &value, hashvalue})
+		self.itemlist = append(self.itemlist, DictItem{&key, &value, hashvalue})
 		self.used++
 		if index == _FREE {
 			self.filled++
 		}
 		self.keyhash += hashvalue
 	} else {
-		self.itemlist[index] = Item{&key, &value, hashvalue}
+		self.itemlist[index] = DictItem{&key, &value, hashvalue}
 	}
 }
 
@@ -232,7 +232,7 @@ type DictIterator struct {
 	d *Dict
 }
 
-func (self *DictIterator) Next () *Item {
+func (self *DictIterator) Next () *DictItem {
 	self.i++
 	if self.i >= self.d.used {
 		return nil
@@ -241,7 +241,7 @@ func (self *DictIterator) Next () *Item {
 	}
 }
 
-func (self Dict) Iter () (DictIterator, *Item) {
+func (self Dict) Iter () (DictIterator, *DictItem) {
 	it := DictIterator{0, &self}
 	if self.used == 0 {
 		return it, nil
@@ -255,7 +255,7 @@ func (self Dict) Has (key interface{}) bool {
 	return index >= 0
 }
 
-func (self *Dict) Pop () Item {
+func (self *Dict) Pop () DictItem {
 	if self.used == 0 {
 		panic("cannot Pop from empty Dict")
 	}
@@ -313,8 +313,8 @@ func (self Dict) String () string {
 	return buf.String()
 }
 
-func (self Item) String () string {
-	return fmt.Sprintf("Item{%s}",
+func (self DictItem) String () string {
+	return fmt.Sprintf("DictItem{%s}",
 		fmt.Sprintf("%#v, %#v, %#v",
 			fmt.Sprint(*(self.Key)),
 			fmt.Sprint(*(self.Value)),

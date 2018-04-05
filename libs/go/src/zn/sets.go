@@ -3,23 +3,7 @@ package zn
 import "dicts"
 
 type Set struct {
-	d *dicts.Dict
-}
-
-type _z struct {
-}
-
-func (self _z) Hash () uint64 {
-	return 8806599771745799646
-}
-
-func (self _z) Eq (other interface{}) bool {
-	_, ok := other.(_z)
-	if ok {
-		return true
-	} else {
-		return false
-	}
+	s *dicts.Set
 }
 
 //*** a := zn.MakeMarking()
@@ -30,19 +14,19 @@ func (self _z) Eq (other interface{}) bool {
 //*** c.Set("p3", 3)
 
 func MakeSet (markings ...Marking) Set {
-	dict := dicts.MakeDict()
+	set := dicts.MakeSet()
 	for _, m := range markings {
-		dict.Set(m, _z{})
+		set.Add(m)
 	}
-	return Set{&dict}
+	return Set{&set}
 }
 
 func (self Set) Empty () bool {
-	return self.d.Len() == 0
+	return self.s.Len() == 0
 }
 
 func (self Set) NotEmpty () bool {
-	return self.d.Len() > 0
+	return self.s.Len() > 0
 }
 
 //+++ zn.MakeSet().Empty()
@@ -51,7 +35,7 @@ func (self Set) NotEmpty () bool {
 //+++ zn.MakeSet(a).NotEmpty()
 
 func (self Set) Len () uint64 {
-	return self.d.Len()
+	return self.s.Len()
 }
 
 //+++ zn.MakeSet().Len() == 0
@@ -59,7 +43,7 @@ func (self Set) Len () uint64 {
 //+++ zn.MakeSet(a, a).Len() == 1
 
 func (self *Set) Add (m Marking) {
-	self.d.Set(m, _z{})
+	self.s.Add(m)
 }
 
 //### s := zn.MakeSet(a, b)
@@ -73,22 +57,22 @@ func (self *Set) Add (m Marking) {
 //=== 3
 
 func (self Set) Get (m Marking) (bool, Marking) {
-	i := self.d.GetItem(m)
-	if i == nil {
-		return false, Marking{nil, -1}
+	k := self.s.Get(m)
+	if k == nil {
+		return false, MakeMarking()
 	} else {
-		return true, (*(i.Key)).(Marking)
+		return true, (*k).(Marking)
 	}
 }
 
 //### x := a.Copy()
-//... x.SetId(42)
+//... x.Id = 42
 //... s := zn.MakeSet(x, b)
 //... s.Get(a)
 //=== true [42] {"p1": [1]}
 
 func (self Set) Has (m Marking) bool {
-	return self.d.Has(m)
+	return self.s.Has(m)
 }
 
 //+++ zn.MakeSet(a, b).Has(a)
@@ -96,7 +80,7 @@ func (self Set) Has (m Marking) bool {
 //--- zn.MakeSet(a, b).Has(c)
 
 type SetIterator struct {
-	i dicts.DictIterator
+	i dicts.SetIterator
 }
 
 func (self *SetIterator) Next () *Marking {
@@ -110,7 +94,7 @@ func (self *SetIterator) Next () *Marking {
 }
 
 func (self Set) Iter () (SetIterator, *Marking) {
-	i, f := self.d.Iter()
+	i, f := self.s.Iter()
 	if f == nil {
 		return SetIterator{i}, nil
 	} else {
@@ -119,12 +103,12 @@ func (self Set) Iter () (SetIterator, *Marking) {
 	}
 }
 
-//### a.SetId(1)
-//... b.SetId(2)
-//... c.SetId(3)
+//### a.Id = 1
+//... b.Id = 2
+//... c.Id = 3
 //... s := zn.MakeSet(a, b, c)
-//... for i, m := s.Iter(); m != nil; m = i.Next() { fmt.Println(*m) }
+//... for i, m := s.Iter(); m != nil; m = i.Next() { fmt.Println((*m).Id) }
 //... nil
-//=== [1] {"p1": [1]}
-//=== [2] {"p1": [1], "p2": [2]}
-//=== [3] {"p1": [1], "p2": [2], "p3": [3]}
+//=== 1
+//=== 2
+//=== 3

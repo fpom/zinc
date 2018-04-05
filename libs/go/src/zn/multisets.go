@@ -142,7 +142,7 @@ type MsetIterator struct {
 	iter    dicts.DictIterator
 	dup     bool
 	count   uint64
-	current *dicts.Item
+	current *dicts.DictItem
 }
 
 func (self *MsetIterator) Next () *interface{} {

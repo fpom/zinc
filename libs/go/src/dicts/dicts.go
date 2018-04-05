@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"math/bits"
 )
 
 //
@@ -57,7 +58,7 @@ type DictItem struct {
 }
 
 type Dict struct {
-	indices   map[uint64]int64
+	indices   []int64
 	itemlist  []DictItem
 	used      uint64
 	filled    uint64
@@ -65,7 +66,7 @@ type Dict struct {
 }
 
 func (self *Dict) Clear () {
-	self.indices  = make(map[uint64]int64)
+	self.indices  = []int64{_FREE, _FREE, _FREE, _FREE, _FREE, _FREE, _FREE, _FREE}
 	self.itemlist = make([]DictItem, 0)
 	self.used     = 0
 	self.filled   = 0
@@ -75,14 +76,13 @@ func (self *Dict) Clear () {
 type copyfunc func(interface{})interface{}
 
 func (self Dict) Copy (copiers ...copyfunc) Dict {
-	d := Dict{make(map[uint64]int64),
+	d := Dict{
+		make([]int64, len(self.indices)),
 		make([]DictItem, len(self.itemlist)),
 		self.used,
 		self.filled,
 		self.keyhash}
-	for k, v := range self.indices {
-		d.indices[k] = v
-	}
+	copy(d.indices, self.indices)
 	if len(copiers) == 0 {
 		copy(d.itemlist, self.itemlist)
 	} else if len(copiers) == 1 {
@@ -124,16 +124,20 @@ const _PERTURB_SHIFT uint64 = 5
 
 type probe struct {
 	i         uint64
+	index     uint64
 	perturb   uint64
+	mask      uint64
 }
 
-func first_probe (hashvalue uint64) (uint64, probe) {
-	p := probe{hashvalue, hashvalue}
+func (self Dict) first_probe (hashvalue uint64) (uint64, probe) {
+	m := uint64(len(self.indices)) - 1
+	p := probe{hashvalue & m, hashvalue, hashvalue, m}
 	return p.i, p
 }
 
 func (self *probe) next () uint64 {
-	self.i = 5 * self.i + self.perturb + 1
+	self.index = 5 * self.i + self.perturb + 1
+	self.i = self.index & self.mask
 	self.perturb >>= _PERTURB_SHIFT
 	return self.i
 }
@@ -141,29 +145,32 @@ func (self *probe) next () uint64 {
 func (self Dict) lookup (key interface{}, hashvalue uint64) (int64, uint64) {
 	var freeslot uint64
 	var fsempty bool = true
-	for i, p := first_probe(hashvalue); true; i = p.next() {
-		index, found := self.indices[i]
-		if ! found {
+	if self.filled >= uint64(len(self.indices)) {
+		panic("no open slot")
+	}
+	i, p := self.first_probe(hashvalue)
+	for ; true; i = p.next() {
+		index := self.indices[i]
+		switch index {
+		case _FREE :
 			if fsempty {
 				return _FREE, i
 			} else {
 				return _DUMMY, freeslot
 			}
-		} else if index == _DUMMY {
+		case _DUMMY :
 			if fsempty {
 				fsempty = false
 				freeslot = i
 			}
-		} else {
+		default :
 			item := self.itemlist[index]
 			if item.Key == &key || item.hash == hashvalue && Eq(*(item.Key), key) {
 				return index, i
 			}
 		}
 	}
-	// never reached
 	panic("unreachable code has been reached")
-	return 0, 0
 }
 
 func (self Dict) Get (key interface{}) *interface{} {
@@ -191,6 +198,23 @@ func (self Dict) Fetch (key interface{}, fallback interface{}) *interface{} {
 	}
 }
 
+func (self *Dict) resize (size uint64) {
+	s := uint64(1) << uint64(bits.Len64(size))
+	self.indices = make([]int64, s)
+	for i := uint64(0); i < s; i++ {
+		self.indices[i] = _FREE
+	}
+	for index, item := range self.itemlist {
+		for i, p := self.first_probe(item.hash); true; i = p.next() {
+			if self.indices[i] == _FREE {
+				self.indices[i] = int64(index)
+				break
+			}
+		}
+	}
+	self.filled = self.used
+}
+
 func (self *Dict) Set (key interface{}, value interface{}) {
 	hashvalue := Hash(key)
 	index, i := self.lookup(key, hashvalue)
@@ -200,6 +224,9 @@ func (self *Dict) Set (key interface{}, value interface{}) {
 		self.used++
 		if index == _FREE {
 			self.filled++
+			if self.filled * 3 > uint64(len(self.indices)) * 2 {
+				self.resize(4 * self.used)
+			}
 		}
 		self.keyhash += hashvalue
 	} else {

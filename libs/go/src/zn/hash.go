@@ -23,7 +23,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package dicts
+package zn
 
 import (
 	"encoding/binary"
@@ -141,10 +141,6 @@ type visitOpts struct {
 	// Information about the struct containing this field
 	Struct      interface{}
 	StructField string
-}
-
-type Hashable interface {
-	Hash () uint64
 }
 
 func (w *walker) visit(v reflect.Value, opts *visitOpts) (uint64, error) {

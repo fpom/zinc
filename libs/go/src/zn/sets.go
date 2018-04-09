@@ -1,9 +1,7 @@
 package zn
 
-import "dicts"
-
 type Set struct {
-	s *dicts.Set
+	h *Hashtable
 }
 
 //*** a := zn.MakeMarking()
@@ -14,19 +12,19 @@ type Set struct {
 //*** c.Set("p3", 3)
 
 func MakeSet (markings ...Marking) Set {
-	set := dicts.MakeSet()
+	h := MakeHashtable(false)
 	for _, m := range markings {
-		set.Add(m)
+		h.Put(m)
 	}
-	return Set{&set}
+	return Set{&h}
 }
 
 func (self Set) Empty () bool {
-	return self.s.Len() == 0
+	return self.h.Len() == 0
 }
 
 func (self Set) NotEmpty () bool {
-	return self.s.Len() > 0
+	return self.h.Len() > 0
 }
 
 //+++ zn.MakeSet().Empty()
@@ -35,7 +33,7 @@ func (self Set) NotEmpty () bool {
 //+++ zn.MakeSet(a).NotEmpty()
 
 func (self Set) Len () uint64 {
-	return self.s.Len()
+	return self.h.Len()
 }
 
 //+++ zn.MakeSet().Len() == 0
@@ -43,7 +41,7 @@ func (self Set) Len () uint64 {
 //+++ zn.MakeSet(a, a).Len() == 1
 
 func (self *Set) Add (m Marking) {
-	self.s.Add(m)
+	self.h.Put(m)
 }
 
 //### s := zn.MakeSet(a, b)
@@ -57,7 +55,7 @@ func (self *Set) Add (m Marking) {
 //=== 3
 
 func (self Set) Get (m Marking) (bool, Marking) {
-	k := self.s.Get(m)
+	k, _ := self.h.Get(m)
 	if k == nil {
 		return false, MakeMarking()
 	} else {
@@ -72,7 +70,7 @@ func (self Set) Get (m Marking) (bool, Marking) {
 //=== true [42] {"p1": [1]}
 
 func (self Set) Has (m Marking) bool {
-	return self.s.Has(m)
+	return self.h.Has(m)
 }
 
 //+++ zn.MakeSet(a, b).Has(a)
@@ -80,25 +78,25 @@ func (self Set) Has (m Marking) bool {
 //--- zn.MakeSet(a, b).Has(c)
 
 type SetIterator struct {
-	i dicts.SetIterator
+	i HashtableIterator
 }
 
 func (self *SetIterator) Next () *Marking {
-	n := self.i.Next()
+	n, _ := self.i.Next()
 	if n == nil {
 		return nil
 	} else {
-		m := (*(n.Key)).(Marking)
+		m := (*n).(Marking)
 		return &m
 	}
 }
 
 func (self Set) Iter () (SetIterator, *Marking) {
-	i, f := self.s.Iter()
+	i, f, _ := self.h.Iter()
 	if f == nil {
 		return SetIterator{i}, nil
 	} else {
-		m := (*(f.Key)).(Marking)
+		m := (*f).(Marking)
 		return SetIterator{i}, &m
 	}
 }

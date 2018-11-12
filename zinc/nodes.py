@@ -151,7 +151,7 @@ class Transition (Node) :
                 ctx.Declare(dict(ctx.declare)),
                 ctx.IfInput(ctx.marking, ctx.notempty, inest)])
         else :
-            yield ctx.DefIterProc(ctx.SuccIterName(self.name), ctx.marking, [
+            yield ctx.DefSuccIter(ctx.SuccIterName(self.name), ctx.marking, [
                 ctx.Declare(dict(ctx.declare))] + inest)
     def add_input (self, place, label) :
         self._input[place] = label

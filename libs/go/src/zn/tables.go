@@ -36,6 +36,9 @@ type Equatable interface {
 }
 
 func Eq (a, b interface{}) bool {
+	if &a == &b {
+		return true
+	}
 	i, ok := a.(Equatable)
 	if ok {
 		return i.Eq(b)
@@ -151,11 +154,9 @@ func (self *hGen) next () uint64 {
 func (self Hashtable) lookup (key interface{}, hashvalue uint64) (int64, uint64) {
 	var freeslot uint64
 	var fsempty bool = true
-	if self.filled >= uint64(len(self.indices)) {
-		panic("no open slot")
-	}
+	var index int64
 	for i, g := self.probe(hashvalue); true; i = g.next() {
-		index := self.indices[i]
+		index = self.indices[i]
 		switch index {
 		case _FREE :
 			if fsempty {
@@ -337,15 +338,6 @@ func (self Hashtable) Eq (other interface{}) bool {
 			return true
 		}
 		for i := uint64(0); i < self.used; i++ {
-			if self.haspl {
-				if &self.slots[i] == &ht.slots[i] && &self.payloads[i] != &ht.payloads[i] {
-					return true
-				}
-			} else {
-				if &self.slots[i] == &ht.slots[i] {
-					return true
-				}
-			}
 			key, val := ht.Get(self.slots[i].key)
 			if key == nil {
 				return false

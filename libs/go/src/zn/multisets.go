@@ -54,7 +54,9 @@ func (self Mset) Copy () interface{} {
 	return Mset{&h, self.size}
 }
 
-//+++ zn.MakeMset(1, 2, 2, 3, 3, 3).Copy().Eq(zn.MakeMset(1, 2, 2, 3, 3, 3))
+//### a := zn.MakeMset(1, 2, 2, 3, 3, 3).Copy()
+//... a.(zn.Mset).Eq(zn.MakeMset(1, 2, 2, 3, 3, 3))
+//=== true
 
 func (self Mset) Len () uint64 {
 	return self.size

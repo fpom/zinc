@@ -1,10 +1,10 @@
-import ast, collections, functools
+import ast, functools
 
-from zinc import nets, ParseError, ZINCError
-from zinc.io import znparse
-from zinc.data import flatten
+from .. import nets, ParseError, ZINCError
+from . import znparse, indedent
+from ..data import flatten
 
-class TupleParser (object) :
+class _TupleParser (object) :
     def __init__ (self) :
         self.p = znparse.znParser()
     def parse (self, source) :
@@ -30,16 +30,7 @@ class TupleParser (object) :
         elif st.code :
             return st.code
 
-class Parser (TupleParser) :
-    def __init__ (self, module=nets) :
-        self.n = module
-        self.p = znparse.znParser()
-        self.t = TupleParser()
-    def parse (self, source, path) :
-        self._s = source.rstrip() + "\n"
-        self._p = path
-        self._l = {}
-        return self.p.parse(self._s, "spec", semantics=self)
+class _Parser (_TupleParser) :
     def spec (self, st) :
         try :
             net = self.n.PetriNet(st.net, st.lang)
@@ -76,44 +67,6 @@ class Parser (TupleParser) :
                     except ZINCError as err :
                         raise ParseError(err, self._l[node.name, place], None, self._p)
         return net
-    def decl (self, st) :
-        return st.level, st.source
-    def place (self, st) :
-        return (self.n.Place(st.name, (st.tokens or [])[::2], st.type),
-                st.parseinfo.line+1)
-    def placetype (self, st) :
-        if st.text :
-            return st.text
-        elif st.tuple :
-            return st.tuple
-    def placetuple (self, st) :
-        def mktuple (content) :
-            if isinstance(content, list) :
-                return tuple(mktuple(c) for c in content[1][::2])
-            else :
-                return content
-        return mktuple(st)
-    def token (self, st) :
-        if st.number :
-            return self.n.Token(st.number)
-        elif st.text :
-            return self.n.Token(st.text)
-    def trans (self, st) :
-        inputs, outputs = collections.defaultdict(list), collections.defaultdict(list)
-        for isin, place, label, lineno in st.arcs :
-            if isin :
-                inputs[place].append(label)
-                self._l[place, st.name] = lineno
-            else :
-                outputs[place].append(label)
-                self._l[st.name, place] = lineno
-        return (self.n.Transition(st.name, st.guard.strip()),
-                st.parseinfo.line+1, inputs, outputs)
-    def guard (self, st) :
-        if st.text :
-            return st.text
-        elif st.raw :
-            return st.raw
     def _mkarc (self, st) :
         _arc = {"val" : self.n.Value,
                 "var" : self.n.Variable,
@@ -148,6 +101,22 @@ class Parser (TupleParser) :
             return self._mkarc(st)
         except ZINCError as err :
             raise ParseError(str(err), st.parseinfo.line+1, None, self._p)
+
+class Parser (object) :
+    def __init__ (self, module=nets) :
+        self.n = module
+    def parse (self, source, path) :
+        parser = znparse.ZnParser(indedent(source))
+        parser.n = self.n
+        try :
+            result = parser.INPUT()
+            if result is parser.NoMatch or parser.p_peek() is not None:
+                parser.p_raise()
+            return result
+        except parser.ParserError as err :
+            raise
+        except :
+            raise
 
 def loads (source, module=nets) :
     return Parser(module).parse(source, "<string>")

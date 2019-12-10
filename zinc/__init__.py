@@ -14,5 +14,5 @@ class ParseError (ZINCError) :
     def __init__ (self, msg, lno=None, cno=None, path=None) :
         loc = ":".join(str(p) for p in (path, lno, cno) if p is not None)
         if loc :
-            msg = "%s: %s" % (loc, msg)
+            msg = "[%s] %s" % (loc, msg)
         ZINCError.__init__(self, msg)

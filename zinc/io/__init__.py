@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import io, re
+from .. import ParseError
 
 ##
 ## insert INDENT/DEDENT
@@ -30,3 +31,35 @@ def indedent (text, indent="↦", dedent="↤") :
         out.write(dedent)
         stack.pop()
     return out.getvalue()
+
+##
+## base parser
+##
+
+_errre = re.compile(r"^.*?error at line ([0-9]+), col ([0-9]+):[ \t]*"
+                    "((.|\n)*)$", re.I|re.A)
+
+class BaseParser (object) :
+    def init (self, parser) :
+        pass
+    def parse (self, source, path) :
+        parser = self.__parser__(indedent(source))
+        self.init(parser)
+        try :
+            do_parse = getattr(parser, parser.__default__, "INPUT")
+            result = do_parse()
+            if result is parser.NoMatch or parser.p_peek() is not None:
+                parser.p_raise()
+            return result
+        except parser.ParserError as err :
+            self._raise(err, path)
+    def _raise (self, error, path=None) :
+        message = str(error)
+        match = _errre.match(message)
+        if match :
+            raise ParseError(match.group(3),
+                             lno=int(match.group(1)),
+                             cno=int(match.group(2)),
+                             path=path)
+        else :
+            raise ParseError(message, path=path)

@@ -1,4 +1,4 @@
-import argparse, io, pkgutil, ast, types, importlib
+import argparse, io, pkgutil, ast, importlib
 import zinc, zinc.compil, zinc.io.zn
 
 class ListBackends (argparse.Action) :

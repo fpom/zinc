@@ -1,6 +1,6 @@
 # coding: utf-8
 
-import ast
+import ast, sys
 import fastidious
 
 class node (object) :
@@ -13,12 +13,19 @@ class node (object) :
             self._fields.append(key)
     def __getitem__ (self, key) :
         return getattr(self, key)
+    def __contains__ (self, key) :
+        return key in self._fields
     def __iter__ (self) :
         for name in self._fields :
-            yield name, self[name]
+            if not name.startswith("_") :
+                yield name, self[name]
+    def __str__ (self) :
+        return "<node %s>" % self.tag
     def __repr__ (self) :
-        return "\n".join(self._repr())
-    def _repr (self, indent=0) :
+        return "\n".join(self._repr(False))
+    def dump (self, out=sys.stdout) :
+        out.write("\n".join(self._repr(True)) + "\n")
+    def _repr (self, full, indent=0) :
         TAB = " |   " * indent
         if not self._fields :
             yield TAB + self.tag
@@ -28,20 +35,31 @@ class node (object) :
                 if name.startswith("_") :
                     pass
                 elif isinstance(child, node) :
-                    for i, line in enumerate(child._repr(indent + 1)) :
+                    for i, line in enumerate(child._repr(full, indent + 1)) :
                         if i == 0 :
                             yield TAB + " + %s = %s" % (name, line.lstrip(" |"))
                         else :
                             yield line
-                elif isinstance(child, list) and child and isinstance(child[0], node) :
+                elif isinstance(child, list) and any(isinstance(c, node)
+                                                     for c in child) :
                     for n, c in enumerate(child) :
-                        for i, line in enumerate(c._repr(1)) :
+                        for i, line in enumerate(c._repr(full, 1)) :
                             if i == 0 :
                                 l = line.lstrip("| ")
-                                yield TAB + " + %s[%s] = %s" % (name, n, l)
+                                yield TAB + " + %s[%r] = %s" % (name, n, l)
                             else :
                                 yield TAB + line
-                else :
+                elif isinstance(child, dict) and any(isinstance(v, node)
+                                                     for v in child.values()):
+
+                    for k, c in child.items() :
+                        for i, line in enumerate(c._repr(full, 1)) :
+                            if i == 0 :
+                                l = line.lstrip("| ")
+                                yield TAB + " + %s[%r] = %s" % (name, k, l)
+                            else :
+                                yield TAB + line
+                elif full or child :
                     yield TAB + " + %s = %r" % (name, child)
 
 class Nest (object) :
@@ -56,7 +74,7 @@ class Nest (object) :
             _spec = []
             first = True
             for name in spec :
-                _name = name.lstrip("*?")
+                _name = name.lstrip("*?+")
                 self.rep[_name] = name.startswith("*") or name.startswith("+")
                 self.opt[_name] = name.startswith("?") or name.startswith("*")
                 self.succ[_name] = set()
@@ -78,6 +96,45 @@ class Nest (object) :
         for two, preds in self.pred.items() :
             for one in preds :
                 self.succ[one].add(two)
+    def __call__ (self, tag, **args) :
+        n = node(tag, **args)
+        if tag not in self.first :
+            return n
+        todo = list(self.succ[tag])
+        done = set([tag])
+        while todo :
+            name = todo.pop(0)
+            done.add(name)
+            todo.extend(self.succ[name] - done)
+            if name not in n :
+                if self.rep[name] :
+                    n[name] = []
+                else :
+                    n[name] = None
+        return n
+
+class Compiler (object) :
+    def visit (self, tree) :
+        if isinstance(tree, node) :
+            method = getattr(self, "visit_" + tree.tag, self.generic_visit)
+            return method(tree)
+        else :
+            return tree
+    def generic_visit (self, tree) :
+        sub = {}
+        ret = {tree.tag : sub}
+        for name, child in tree :
+            if isinstance(child, list) :
+                sub[name] = []
+                for c in child :
+                    sub[name].append(self.visit(c))
+            elif isinstance(child, dict) :
+                sub[name] = {}
+                for k, v in child.items() :
+                    sub[name][k] = self.visit(v)
+            else :
+                sub[name] = self.visit(child)
+        return ret
 
 class MetaParser (fastidious.Parser) :
     __compound__ = []
@@ -141,12 +198,9 @@ class MetaParser (fastidious.Parser) :
     model   <- stmt:stmt+
     stmt    <- :call / :block {_first}
     call    <- name:NAME :args NL
-    args    <- LP ( pos:posargs
-                  / kw:kwargs
-                  / pos:posargs COMMA kw:kwargs )? RP
-    posargs <- atom (COMMA atom)* {_tuple}
-    kwargs  <- kwa (COMMA kwa) {_tuple}
-    kwa     <- name:NAME "EQ" :atom
+    args    <- LP ( :arglist )? RP
+    arglist <- arg (COMMA arg)* {_tuple}
+    arg     <- left:atom (EQ right:atom)?
     block   <- deco:deco? name:NAME args:args? COLON NL INDENT stmt:stmt+ DEDENT
     deco    <- AT name:NAME args:args? NL
     """
@@ -160,7 +214,12 @@ class MetaParser (fastidious.Parser) :
                 l = None
             elif n.pred[child.tag] :
                 if l in n.pred[child.tag] :
-                    s[-1][child.tag] = child
+                    if n.rep[child.tag] :
+                        if child.tag not in s[-1] :
+                            s[-1][child.tag] = []
+                        s[-1][child.tag].append(child)
+                    else :
+                        s[-1][child.tag] = child
                 elif l and n.last[l] and n.first[child.tag] :
                     l = child.tag
                     s.append(child)
@@ -183,21 +242,38 @@ class MetaParser (fastidious.Parser) :
     def on_model (self, match, stmt) :
         return node("model", body=self._glue(stmt), _pos=self.pos)
     def on_call (self, match, name, args) :
-        return node("call", name=name, largs=args.l, kargs=args.k, _pos=self.pos)
-    def on_args (self, match, pos=None, kw=None) :
-        if pos is self.NoMatch or not pos :
-            pos = []
-        if kw is self.NoMatch or not kw :
-            kw = {}
-        return node("args", l=list(pos), k=dict(kw))
-    def on_kwa (self, name, atom) :
-        return name, atom
+       return node("call", name=name, largs=args.l, kargs=args.k, _pos=self.pos)
+    def on_args (self, match, arglist=None) :
+        if arglist is self.NoMatch or not arglist :
+            arglist = []
+        l = []
+        k = {}
+        pos = True
+        for arg in arglist :
+            if arg.kw :
+                pos = False
+                k[arg.name] = arg.value
+            elif pos :
+                l.append(arg.value)
+            else :
+                self.p_parse_error("forbidden positional arg after a keyword arg",
+                                   arg._pos)
+        return node("args", l=l, k=k)
+    def on_arg (self, match, left, right=None) :
+        if right is None :
+            return node("arg", kw=False, value=left, _pos=self.pos)
+        elif left.type != "name" :
+            self.p_parse_error("invalid parameter %r (of type %s)"
+                               % (left.value, left.type))
+        else :
+            return node("arg", kw=True, name=left.value, value=right, _pos=self.pos)
     def on_block (self, match, name, stmt, args=None, deco=None) :
         if args is self.NoMatch or not args :
             args = None
         if deco is self.NoMatch or not deco :
             deco = None
-        return node(name, body=self._glue(stmt), args=args, deco=deco, _pos=self.pos)
+        return self.nest(name, body=self._glue(stmt), args=args, deco=deco,
+                         _pos=self.pos)
     def on_deco (self, match, name, args=[]) :
         return node("deco", name=name, args=args)
     def __INIT__ (self) :

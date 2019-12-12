@@ -12,3 +12,5 @@ def parse (source, spec) :
         return Parser(spec).parse(source, "<string>")
     else :
         return Parser(spec).parse(source.read(), getattr(source, "name", "<string>"))
+
+Compiler = metaparse.Compiler

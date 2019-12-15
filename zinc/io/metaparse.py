@@ -123,26 +123,26 @@ class Nest (object) :
         return n
 
 class Compiler (object) :
-    def visit (self, tree) :
+    def visit (self, tree, *l, **k) :
         if isinstance(tree, node) :
             method = getattr(self, "visit_" + tree.tag, self.generic_visit)
-            return method(tree)
+            return method(tree, *l, **k)
         else :
             return tree
-    def generic_visit (self, tree) :
+    def generic_visit (self, tree, *l, **k) :
         sub = {}
         ret = {tree.tag : sub}
         for name, child in tree :
             if isinstance(child, list) :
                 sub[name] = []
                 for c in child :
-                    sub[name].append(self.visit(c))
+                    sub[name].append(self.visit(c, *l, **k))
             elif isinstance(child, dict) :
                 sub[name] = {}
                 for k, v in child.items() :
-                    sub[name][k] = self.visit(v)
+                    sub[name][k] = self.visit(v, *l, **k)
             else :
-                sub[name] = self.visit(child)
+                sub[name] = self.visit(child, *l, **k)
         return ret
 
 import re
@@ -182,7 +182,6 @@ class MetaParser(object):
     DEDENT    <- _ "↤" NL? _ {_drop}
     NUMBER    <- _ ~"[+-]?[0-9]+" {_number}
     NAME      <- _ ~"[a-z][a-z0-9_]*"i _ {p_flatten}
-    atom      <- :name / num:NUMBER / :code / :string {_first}
     name      <- name:NAME {_name}
     code      <- codec / codeb {_code}
     codec     <- LCB (~"([^{}\\\\]|[{}])+" / codec)* RCB {p_flatten}
@@ -221,7 +220,10 @@ class MetaParser(object):
         return self.NoMatch
     __grammar__ += r"""
     model   <- stmt:stmt+
-    stmt    <- :call / :block {_first}
+    stmt    <- :assign / :call / :block {_first}
+    assign  <- name:NAME EQ :expr
+    expr    <- :atom / :call {_first}
+    atom    <- :name / num:NUMBER / :code / :string {_first}
     call    <- name:NAME :args NL
     args    <- LP ( :arglist )? RP
     arglist <- arg (COMMA arg)* {_tuple}
@@ -266,6 +268,8 @@ class MetaParser(object):
         return s
     def on_model (self, match, stmt) :
         return node("model", body=self._glue(stmt), _pos=self.pos)
+    def on_assign (self, match, name, expr) :
+        return node("assign", target=name, value=expr, _pos=self.pos)
     def on_call (self, match, name, args) :
        return node("call", name=name, largs=args.l, kargs=args.k, _pos=self.pos)
     def on_args (self, match, arglist=None) :
@@ -303,7 +307,7 @@ class MetaParser(object):
         return node("deco", name=name, args=args)
     def __INIT__ (self) :
         self.nest = Nest(self.__compound__)
-    _p_py_constants = {597: {'regex': re.compile('([\t ]*(#.*)?\n)+', 32)}, 599: {'regex': re.compile('[\t ]+', 32)}, 667: {'regex': re.compile('[+-]?[0-9]+', 32)}, 671: {'regex': re.compile('(?i)[a-z][a-z0-9_]*', 34)}, 693: {'regex': re.compile('([^{}\\\\]|[{}])+', 32)}, 701: {'regex': re.compile('([^\\[\\]\\\\]|[\\[\\]])+', 32)}, 709: {'regex': re.compile("(?s)'{3}.*?'{3}", 48)}, 710: {'regex': re.compile('(?s)"{3}.*?"{3}', 48)}, 711: {'regex': re.compile("'([^'\\\\]|\\.)*'", 32)}, 712: {'regex': re.compile('"([^"\\\\]|\\.)*"', 32)}}
+    _p_py_constants = {597: {'regex': re.compile('([\t ]*(#.*)?\n)+', 32)}, 599: {'regex': re.compile('[\t ]+', 32)}, 667: {'regex': re.compile('[+-]?[0-9]+', 32)}, 671: {'regex': re.compile('(?i)[a-z][a-z0-9_]*', 34)}, 683: {'regex': re.compile('([^{}\\\\]|[{}])+', 32)}, 691: {'regex': re.compile('([^\\[\\]\\\\]|[\\[\\]])+', 32)}, 699: {'regex': re.compile("(?s)'{3}.*?'{3}", 48)}, 700: {'regex': re.compile('(?s)"{3}.*?"{3}', 48)}, 701: {'regex': re.compile("'([^'\\\\]|\\.)*'", 32)}, 702: {'regex': re.compile('"([^"\\\\]|\\.)*"', 32)}}
     __memoize__ = True
     # __debug___ = True
     __debug___ = False
@@ -549,11 +553,11 @@ class MetaParser(object):
         
         # NL?
         start_pos_591= self.pos
-        if (2729736250320932052, start_pos_591) in self._p_memoized:
-            result, self.pos = self._p_memoized[(2729736250320932052, self.pos)]
+        if (-1826013797061727476, start_pos_591) in self._p_memoized:
+            result, self.pos = self._p_memoized[(-1826013797061727476, self.pos)]
         else:
             result = self.NL()
-            self._p_memoized[(2729736250320932052, start_pos_591)] = result, self.pos
+            self._p_memoized[(-1826013797061727476, start_pos_591)] = result, self.pos
         result = "" if result is self.NoMatch else result
         if result is self.NoMatch:
             # print self._p_error_stack
@@ -576,11 +580,11 @@ class MetaParser(object):
             
             # model:model
             start_pos_593= self.pos
-            if (-1945246907201884433, start_pos_593) in self._p_memoized:
-                result, self.pos = self._p_memoized[(-1945246907201884433, self.pos)]
+            if (-2170689086186375297, start_pos_593) in self._p_memoized:
+                result, self.pos = self._p_memoized[(-2170689086186375297, self.pos)]
             else:
                 result = self.model()
-                self._p_memoized[(-1945246907201884433, start_pos_593)] = result, self.pos
+                self._p_memoized[(-2170689086186375297, start_pos_593)] = result, self.pos
             args['model'] = result
             if result is self.NoMatch:
                 results_595 = self.NoMatch
@@ -695,11 +699,11 @@ class MetaParser(object):
         results_605 = []
         
         start_pos_602= self.pos
-        if (-2669318154463580496, start_pos_602) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_602) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_602)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_602)] = result, self.pos
         if result is self.NoMatch:
             results_605 = self.NoMatch
             self.p_restore()
@@ -746,11 +750,11 @@ class MetaParser(object):
                                 
                 
                 start_pos_604= self.pos
-                if (-2669318154463580496, start_pos_604) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                if (7606838300849038156, start_pos_604) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                 else:
                     result = self._()
-                    self._p_memoized[(-2669318154463580496, start_pos_604)] = result, self.pos
+                    self._p_memoized[(7606838300849038156, start_pos_604)] = result, self.pos
                 if result is self.NoMatch:
                     results_605 = self.NoMatch
                     self.p_restore()
@@ -791,11 +795,11 @@ class MetaParser(object):
         results_610 = []
         
         start_pos_607= self.pos
-        if (-2669318154463580496, start_pos_607) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_607) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_607)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_607)] = result, self.pos
         if result is self.NoMatch:
             results_610 = self.NoMatch
             self.p_restore()
@@ -842,11 +846,11 @@ class MetaParser(object):
                                 
                 
                 start_pos_609= self.pos
-                if (-2669318154463580496, start_pos_609) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                if (7606838300849038156, start_pos_609) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                 else:
                     result = self._()
-                    self._p_memoized[(-2669318154463580496, start_pos_609)] = result, self.pos
+                    self._p_memoized[(7606838300849038156, start_pos_609)] = result, self.pos
                 if result is self.NoMatch:
                     results_610 = self.NoMatch
                     self.p_restore()
@@ -887,11 +891,11 @@ class MetaParser(object):
         results_615 = []
         
         start_pos_612= self.pos
-        if (-2669318154463580496, start_pos_612) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_612) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_612)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_612)] = result, self.pos
         if result is self.NoMatch:
             results_615 = self.NoMatch
             self.p_restore()
@@ -938,11 +942,11 @@ class MetaParser(object):
                                 
                 
                 start_pos_614= self.pos
-                if (-2669318154463580496, start_pos_614) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                if (7606838300849038156, start_pos_614) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                 else:
                     result = self._()
-                    self._p_memoized[(-2669318154463580496, start_pos_614)] = result, self.pos
+                    self._p_memoized[(7606838300849038156, start_pos_614)] = result, self.pos
                 if result is self.NoMatch:
                     results_615 = self.NoMatch
                     self.p_restore()
@@ -983,11 +987,11 @@ class MetaParser(object):
         results_620 = []
         
         start_pos_617= self.pos
-        if (-2669318154463580496, start_pos_617) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_617) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_617)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_617)] = result, self.pos
         if result is self.NoMatch:
             results_620 = self.NoMatch
             self.p_restore()
@@ -1034,11 +1038,11 @@ class MetaParser(object):
                                 
                 
                 start_pos_619= self.pos
-                if (-2669318154463580496, start_pos_619) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                if (7606838300849038156, start_pos_619) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                 else:
                     result = self._()
-                    self._p_memoized[(-2669318154463580496, start_pos_619)] = result, self.pos
+                    self._p_memoized[(7606838300849038156, start_pos_619)] = result, self.pos
                 if result is self.NoMatch:
                     results_620 = self.NoMatch
                     self.p_restore()
@@ -1079,11 +1083,11 @@ class MetaParser(object):
         results_625 = []
         
         start_pos_622= self.pos
-        if (-2669318154463580496, start_pos_622) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_622) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_622)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_622)] = result, self.pos
         if result is self.NoMatch:
             results_625 = self.NoMatch
             self.p_restore()
@@ -1130,11 +1134,11 @@ class MetaParser(object):
                                 
                 
                 start_pos_624= self.pos
-                if (-2669318154463580496, start_pos_624) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                if (7606838300849038156, start_pos_624) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                 else:
                     result = self._()
-                    self._p_memoized[(-2669318154463580496, start_pos_624)] = result, self.pos
+                    self._p_memoized[(7606838300849038156, start_pos_624)] = result, self.pos
                 if result is self.NoMatch:
                     results_625 = self.NoMatch
                     self.p_restore()
@@ -1175,11 +1179,11 @@ class MetaParser(object):
         results_630 = []
         
         start_pos_627= self.pos
-        if (-2669318154463580496, start_pos_627) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_627) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_627)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_627)] = result, self.pos
         if result is self.NoMatch:
             results_630 = self.NoMatch
             self.p_restore()
@@ -1226,11 +1230,11 @@ class MetaParser(object):
                                 
                 
                 start_pos_629= self.pos
-                if (-2669318154463580496, start_pos_629) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                if (7606838300849038156, start_pos_629) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                 else:
                     result = self._()
-                    self._p_memoized[(-2669318154463580496, start_pos_629)] = result, self.pos
+                    self._p_memoized[(7606838300849038156, start_pos_629)] = result, self.pos
                 if result is self.NoMatch:
                     results_630 = self.NoMatch
                     self.p_restore()
@@ -1271,11 +1275,11 @@ class MetaParser(object):
         results_635 = []
         
         start_pos_632= self.pos
-        if (-2669318154463580496, start_pos_632) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_632) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_632)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_632)] = result, self.pos
         if result is self.NoMatch:
             results_635 = self.NoMatch
             self.p_restore()
@@ -1322,11 +1326,11 @@ class MetaParser(object):
                                 
                 
                 start_pos_634= self.pos
-                if (-2669318154463580496, start_pos_634) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                if (7606838300849038156, start_pos_634) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                 else:
                     result = self._()
-                    self._p_memoized[(-2669318154463580496, start_pos_634)] = result, self.pos
+                    self._p_memoized[(7606838300849038156, start_pos_634)] = result, self.pos
                 if result is self.NoMatch:
                     results_635 = self.NoMatch
                     self.p_restore()
@@ -1367,11 +1371,11 @@ class MetaParser(object):
         results_640 = []
         
         start_pos_637= self.pos
-        if (-2669318154463580496, start_pos_637) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_637) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_637)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_637)] = result, self.pos
         if result is self.NoMatch:
             results_640 = self.NoMatch
             self.p_restore()
@@ -1418,11 +1422,11 @@ class MetaParser(object):
                                 
                 
                 start_pos_639= self.pos
-                if (-2669318154463580496, start_pos_639) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                if (7606838300849038156, start_pos_639) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                 else:
                     result = self._()
-                    self._p_memoized[(-2669318154463580496, start_pos_639)] = result, self.pos
+                    self._p_memoized[(7606838300849038156, start_pos_639)] = result, self.pos
                 if result is self.NoMatch:
                     results_640 = self.NoMatch
                     self.p_restore()
@@ -1463,11 +1467,11 @@ class MetaParser(object):
         results_645 = []
         
         start_pos_642= self.pos
-        if (-2669318154463580496, start_pos_642) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_642) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_642)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_642)] = result, self.pos
         if result is self.NoMatch:
             results_645 = self.NoMatch
             self.p_restore()
@@ -1514,11 +1518,11 @@ class MetaParser(object):
                                 
                 
                 start_pos_644= self.pos
-                if (-2669318154463580496, start_pos_644) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                if (7606838300849038156, start_pos_644) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                 else:
                     result = self._()
-                    self._p_memoized[(-2669318154463580496, start_pos_644)] = result, self.pos
+                    self._p_memoized[(7606838300849038156, start_pos_644)] = result, self.pos
                 if result is self.NoMatch:
                     results_645 = self.NoMatch
                     self.p_restore()
@@ -1559,11 +1563,11 @@ class MetaParser(object):
         results_650 = []
         
         start_pos_647= self.pos
-        if (-2669318154463580496, start_pos_647) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_647) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_647)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_647)] = result, self.pos
         if result is self.NoMatch:
             results_650 = self.NoMatch
             self.p_restore()
@@ -1610,11 +1614,11 @@ class MetaParser(object):
                                 
                 
                 start_pos_649= self.pos
-                if (-2669318154463580496, start_pos_649) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                if (7606838300849038156, start_pos_649) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                 else:
                     result = self._()
-                    self._p_memoized[(-2669318154463580496, start_pos_649)] = result, self.pos
+                    self._p_memoized[(7606838300849038156, start_pos_649)] = result, self.pos
                 if result is self.NoMatch:
                     results_650 = self.NoMatch
                     self.p_restore()
@@ -1655,11 +1659,11 @@ class MetaParser(object):
         results_657 = []
         
         start_pos_652= self.pos
-        if (-2669318154463580496, start_pos_652) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_652) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_652)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_652)] = result, self.pos
         if result is self.NoMatch:
             results_657 = self.NoMatch
             self.p_restore()
@@ -1707,11 +1711,11 @@ class MetaParser(object):
                 
                 # NL?
                 start_pos_654= self.pos
-                if (2729736250320932052, start_pos_654) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(2729736250320932052, self.pos)]
+                if (-1826013797061727476, start_pos_654) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(-1826013797061727476, self.pos)]
                 else:
                     result = self.NL()
-                    self._p_memoized[(2729736250320932052, start_pos_654)] = result, self.pos
+                    self._p_memoized[(-1826013797061727476, start_pos_654)] = result, self.pos
                 result = "" if result is self.NoMatch else result
                 if result is self.NoMatch:
                     # print self._p_error_stack
@@ -1733,11 +1737,11 @@ class MetaParser(object):
                                     
                     
                     start_pos_656= self.pos
-                    if (-2669318154463580496, start_pos_656) in self._p_memoized:
-                        result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                    if (7606838300849038156, start_pos_656) in self._p_memoized:
+                        result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                     else:
                         result = self._()
-                        self._p_memoized[(-2669318154463580496, start_pos_656)] = result, self.pos
+                        self._p_memoized[(7606838300849038156, start_pos_656)] = result, self.pos
                     if result is self.NoMatch:
                         results_657 = self.NoMatch
                         self.p_restore()
@@ -1778,11 +1782,11 @@ class MetaParser(object):
         results_664 = []
         
         start_pos_659= self.pos
-        if (-2669318154463580496, start_pos_659) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_659) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_659)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_659)] = result, self.pos
         if result is self.NoMatch:
             results_664 = self.NoMatch
             self.p_restore()
@@ -1830,11 +1834,11 @@ class MetaParser(object):
                 
                 # NL?
                 start_pos_661= self.pos
-                if (2729736250320932052, start_pos_661) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(2729736250320932052, self.pos)]
+                if (-1826013797061727476, start_pos_661) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(-1826013797061727476, self.pos)]
                 else:
                     result = self.NL()
-                    self._p_memoized[(2729736250320932052, start_pos_661)] = result, self.pos
+                    self._p_memoized[(-1826013797061727476, start_pos_661)] = result, self.pos
                 result = "" if result is self.NoMatch else result
                 if result is self.NoMatch:
                     # print self._p_error_stack
@@ -1856,11 +1860,11 @@ class MetaParser(object):
                                     
                     
                     start_pos_663= self.pos
-                    if (-2669318154463580496, start_pos_663) in self._p_memoized:
-                        result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                    if (7606838300849038156, start_pos_663) in self._p_memoized:
+                        result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                     else:
                         result = self._()
-                        self._p_memoized[(-2669318154463580496, start_pos_663)] = result, self.pos
+                        self._p_memoized[(7606838300849038156, start_pos_663)] = result, self.pos
                     if result is self.NoMatch:
                         results_664 = self.NoMatch
                         self.p_restore()
@@ -1901,11 +1905,11 @@ class MetaParser(object):
         results_668 = []
         
         start_pos_666= self.pos
-        if (-2669318154463580496, start_pos_666) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_666) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_666)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_666)] = result, self.pos
         if result is self.NoMatch:
             results_668 = self.NoMatch
             self.p_restore()
@@ -1979,11 +1983,11 @@ class MetaParser(object):
         results_673 = []
         
         start_pos_670= self.pos
-        if (-2669318154463580496, start_pos_670) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        if (7606838300849038156, start_pos_670) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_670)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_670)] = result, self.pos
         if result is self.NoMatch:
             results_673 = self.NoMatch
             self.p_restore()
@@ -2034,11 +2038,11 @@ class MetaParser(object):
                                 
                 
                 start_pos_672= self.pos
-                if (-2669318154463580496, start_pos_672) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                if (7606838300849038156, start_pos_672) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                 else:
                     result = self._()
-                    self._p_memoized[(-2669318154463580496, start_pos_672)] = result, self.pos
+                    self._p_memoized[(7606838300849038156, start_pos_672)] = result, self.pos
                 if result is self.NoMatch:
                     results_673 = self.NoMatch
                     self.p_restore()
@@ -2071,85 +2075,16 @@ class MetaParser(object):
             # print self._p_error_stack
         return result
 
-    def atom(self):
-        '''atom <- name:name / num:NUMBER / code:code / string:string'''
-        args = dict()
-        # name:name / num:NUMBER / code:code / string:string
-        self.p_save()
-        # name:name
-        start_pos_675= self.pos
-        if (-395125843701479290, start_pos_675) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-395125843701479290, self.pos)]
-        else:
-            result = self.name()
-            self._p_memoized[(-395125843701479290, start_pos_675)] = result, self.pos
-        args['name'] = result
-        if result is self.NoMatch:
-            # num:NUMBER
-            start_pos_677= self.pos
-            if (4231369918286174833, start_pos_677) in self._p_memoized:
-                result, self.pos = self._p_memoized[(4231369918286174833, self.pos)]
-            else:
-                result = self.NUMBER()
-                self._p_memoized[(4231369918286174833, start_pos_677)] = result, self.pos
-            args['num'] = result
-            if result is self.NoMatch:
-                # code:code
-                start_pos_679= self.pos
-                if (-3210354972982877822, start_pos_679) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-3210354972982877822, self.pos)]
-                else:
-                    result = self.code()
-                    self._p_memoized[(-3210354972982877822, start_pos_679)] = result, self.pos
-                args['code'] = result
-                if result is self.NoMatch:
-                    # string:string
-                    start_pos_681= self.pos
-                    if (-5904657780846859168, start_pos_681) in self._p_memoized:
-                        result, self.pos = self._p_memoized[(-5904657780846859168, self.pos)]
-                    else:
-                        result = self.string()
-                        self._p_memoized[(-5904657780846859168, start_pos_681)] = result, self.pos
-                    args['string'] = result
-                    if result is self.NoMatch:
-                        pass
-        if result is self.NoMatch:
-            self.p_restore()
-            if self._p_error_stack:
-                head = self._p_error_stack[0]
-            else:
-                head = (0, 0)
-            if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 683))
-            elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 683)]
-            # print self._p_error_stack
-        else:
-            self.p_discard()
-        if result is not self.NoMatch:
-            result = self._first(result, **args)
-        else:
-            if self._p_error_stack:
-                head = self._p_error_stack[0]
-            else:
-                head = (0, 0)
-            if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 684))
-            elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 684)]
-            # print self._p_error_stack
-        return result
-
     def name(self):
         '''name <- name:NAME'''
         args = dict()
         # name:NAME
-        start_pos_685= self.pos
-        if (-2974221651773165507, start_pos_685) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2974221651773165507, self.pos)]
+        start_pos_675= self.pos
+        if (-5784796548447342165, start_pos_675) in self._p_memoized:
+            result, self.pos = self._p_memoized[(-5784796548447342165, self.pos)]
         else:
             result = self.NAME()
-            self._p_memoized[(-2974221651773165507, start_pos_685)] = result, self.pos
+            self._p_memoized[(-5784796548447342165, start_pos_675)] = result, self.pos
         args['name'] = result
         if result is not self.NoMatch:
             result = self._name(result, **args)
@@ -2159,9 +2094,9 @@ class MetaParser(object):
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 687))
+                self._p_error_stack.append((self.pos, 677))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 687)]
+                self._p_error_stack = [(self.pos, 677)]
             # print self._p_error_stack
         return result
 
@@ -2170,19 +2105,19 @@ class MetaParser(object):
         args = dict()
         # codec / codeb
         self.p_save()
-        start_pos_688= self.pos
-        if (633080413990182628, start_pos_688) in self._p_memoized:
-            result, self.pos = self._p_memoized[(633080413990182628, self.pos)]
+        start_pos_678= self.pos
+        if (8503130274025009167, start_pos_678) in self._p_memoized:
+            result, self.pos = self._p_memoized[(8503130274025009167, self.pos)]
         else:
             result = self.codec()
-            self._p_memoized[(633080413990182628, start_pos_688)] = result, self.pos
+            self._p_memoized[(8503130274025009167, start_pos_678)] = result, self.pos
         if result is self.NoMatch:
-            start_pos_689= self.pos
-            if (-3806498953475631862, start_pos_689) in self._p_memoized:
-                result, self.pos = self._p_memoized[(-3806498953475631862, self.pos)]
+            start_pos_679= self.pos
+            if (-3447669803147019350, start_pos_679) in self._p_memoized:
+                result, self.pos = self._p_memoized[(-3447669803147019350, self.pos)]
             else:
                 result = self.codeb()
-                self._p_memoized[(-3806498953475631862, start_pos_689)] = result, self.pos
+                self._p_memoized[(-3447669803147019350, start_pos_679)] = result, self.pos
             if result is self.NoMatch:
                 pass
         if result is self.NoMatch:
@@ -2192,9 +2127,9 @@ class MetaParser(object):
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 690))
+                self._p_error_stack.append((self.pos, 680))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 690)]
+                self._p_error_stack = [(self.pos, 680)]
             # print self._p_error_stack
         else:
             self.p_discard()
@@ -2206,9 +2141,9 @@ class MetaParser(object):
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 691))
+                self._p_error_stack.append((self.pos, 681))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 691)]
+                self._p_error_stack = [(self.pos, 681)]
             # print self._p_error_stack
         return result
 
@@ -2217,42 +2152,196 @@ class MetaParser(object):
         args = dict()
         # LCB ( ~'([^{}\\\\]|[{}])+' / codec )* RCB
         self.p_save()
-        results_698 = []
+        results_688 = []
         
-        start_pos_692= self.pos
-        if (-7147280471112520663, start_pos_692) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-7147280471112520663, self.pos)]
+        start_pos_682= self.pos
+        if (8294343271510301788, start_pos_682) in self._p_memoized:
+            result, self.pos = self._p_memoized[(8294343271510301788, self.pos)]
         else:
             result = self.LCB()
-            self._p_memoized[(-7147280471112520663, start_pos_692)] = result, self.pos
+            self._p_memoized[(8294343271510301788, start_pos_682)] = result, self.pos
         if result is self.NoMatch:
-            results_698 = self.NoMatch
+            results_688 = self.NoMatch
             self.p_restore()
             if self._p_error_stack:
                 head = self._p_error_stack[0]
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 698))
+                self._p_error_stack.append((self.pos, 688))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 698)]
+                self._p_error_stack = [(self.pos, 688)]
             # print self._p_error_stack
         else:
-            results_698.append(result)
+            results_688.append(result)
                             
             
             # ( ~'([^{}\\\\]|[{}])+' / codec )*
-            results_696 = []
+            results_686 = []
             while 42:
                 # ~'([^{}\\\\]|[{}])+' / codec
                 self.p_save()
                 # ~'([^{}\\\\]|[{}])+'
-                regex = self._p_py_constants[693]["regex"]
+                regex = self._p_py_constants[683]["regex"]
                 m = regex.match(self.p_suffix())
                 if m:
                     result = self.p_suffix(m.end())
                     self.pos += m.end()
                 else:
+                    if self._p_error_stack:
+                        head = self._p_error_stack[0]
+                    else:
+                        head = (0, 0)
+                    if self.pos <= head[0]:
+                        self._p_error_stack.append((self.pos, 683))
+                    elif self.pos > head[0]:
+                        self._p_error_stack = [(self.pos, 683)]
+                    # print self._p_error_stack
+                    result = self.NoMatch
+                if result is self.NoMatch:
+                    start_pos_684= self.pos
+                    if (8503130274025009167, start_pos_684) in self._p_memoized:
+                        result, self.pos = self._p_memoized[(8503130274025009167, self.pos)]
+                    else:
+                        result = self.codec()
+                        self._p_memoized[(8503130274025009167, start_pos_684)] = result, self.pos
+                    if result is self.NoMatch:
+                        pass
+                if result is self.NoMatch:
+                    self.p_restore()
+                    if self._p_error_stack:
+                        head = self._p_error_stack[0]
+                    else:
+                        head = (0, 0)
+                    if self.pos <= head[0]:
+                        self._p_error_stack.append((self.pos, 685))
+                    elif self.pos > head[0]:
+                        self._p_error_stack = [(self.pos, 685)]
+                    # print self._p_error_stack
+                else:
+                    self.p_discard()
+                if result is not self.NoMatch:
+                    results_686.append(result)
+                else:
+                    break
+            # print self._p_error_stack
+            result = results_686
+            if result is self.NoMatch:
+                results_688 = self.NoMatch
+                self.p_restore()
+                if self._p_error_stack:
+                    head = self._p_error_stack[0]
+                else:
+                    head = (0, 0)
+                if self.pos <= head[0]:
+                    self._p_error_stack.append((self.pos, 688))
+                elif self.pos > head[0]:
+                    self._p_error_stack = [(self.pos, 688)]
+                # print self._p_error_stack
+            else:
+                results_688.append(result)
+                                
+                
+                start_pos_687= self.pos
+                if (-7786733208711743482, start_pos_687) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(-7786733208711743482, self.pos)]
+                else:
+                    result = self.RCB()
+                    self._p_memoized[(-7786733208711743482, start_pos_687)] = result, self.pos
+                if result is self.NoMatch:
+                    results_688 = self.NoMatch
+                    self.p_restore()
+                    if self._p_error_stack:
+                        head = self._p_error_stack[0]
+                    else:
+                        head = (0, 0)
+                    if self.pos <= head[0]:
+                        self._p_error_stack.append((self.pos, 688))
+                    elif self.pos > head[0]:
+                        self._p_error_stack = [(self.pos, 688)]
+                    # print self._p_error_stack
+                else:
+                    results_688.append(result)
+                                    
+        if results_688 is not self.NoMatch:
+            self.p_discard()
+        result = results_688
+        if result is not self.NoMatch:
+            result = self.p_flatten(result, **args)
+        else:
+            if self._p_error_stack:
+                head = self._p_error_stack[0]
+            else:
+                head = (0, 0)
+            if self.pos <= head[0]:
+                self._p_error_stack.append((self.pos, 689))
+            elif self.pos > head[0]:
+                self._p_error_stack = [(self.pos, 689)]
+            # print self._p_error_stack
+        return result
+
+    def codeb(self):
+        '''codeb <- LSB ( ~\'([^\\[\\]\\\\]|[\\[\\]])+\' / codeb )* RSB'''
+        args = dict()
+        # LSB ( ~'([^\\[\\]\\\\]|[\\[\\]])+' / codeb )* RSB
+        self.p_save()
+        results_696 = []
+        
+        start_pos_690= self.pos
+        if (1693958465432852751, start_pos_690) in self._p_memoized:
+            result, self.pos = self._p_memoized[(1693958465432852751, self.pos)]
+        else:
+            result = self.LSB()
+            self._p_memoized[(1693958465432852751, start_pos_690)] = result, self.pos
+        if result is self.NoMatch:
+            results_696 = self.NoMatch
+            self.p_restore()
+            if self._p_error_stack:
+                head = self._p_error_stack[0]
+            else:
+                head = (0, 0)
+            if self.pos <= head[0]:
+                self._p_error_stack.append((self.pos, 696))
+            elif self.pos > head[0]:
+                self._p_error_stack = [(self.pos, 696)]
+            # print self._p_error_stack
+        else:
+            results_696.append(result)
+                            
+            
+            # ( ~'([^\\[\\]\\\\]|[\\[\\]])+' / codeb )*
+            results_694 = []
+            while 42:
+                # ~'([^\\[\\]\\\\]|[\\[\\]])+' / codeb
+                self.p_save()
+                # ~'([^\\[\\]\\\\]|[\\[\\]])+'
+                regex = self._p_py_constants[691]["regex"]
+                m = regex.match(self.p_suffix())
+                if m:
+                    result = self.p_suffix(m.end())
+                    self.pos += m.end()
+                else:
+                    if self._p_error_stack:
+                        head = self._p_error_stack[0]
+                    else:
+                        head = (0, 0)
+                    if self.pos <= head[0]:
+                        self._p_error_stack.append((self.pos, 691))
+                    elif self.pos > head[0]:
+                        self._p_error_stack = [(self.pos, 691)]
+                    # print self._p_error_stack
+                    result = self.NoMatch
+                if result is self.NoMatch:
+                    start_pos_692= self.pos
+                    if (-3447669803147019350, start_pos_692) in self._p_memoized:
+                        result, self.pos = self._p_memoized[(-3447669803147019350, self.pos)]
+                    else:
+                        result = self.codeb()
+                        self._p_memoized[(-3447669803147019350, start_pos_692)] = result, self.pos
+                    if result is self.NoMatch:
+                        pass
+                if result is self.NoMatch:
+                    self.p_restore()
                     if self._p_error_stack:
                         head = self._p_error_stack[0]
                     else:
@@ -2262,208 +2351,54 @@ class MetaParser(object):
                     elif self.pos > head[0]:
                         self._p_error_stack = [(self.pos, 693)]
                     # print self._p_error_stack
-                    result = self.NoMatch
-                if result is self.NoMatch:
-                    start_pos_694= self.pos
-                    if (633080413990182628, start_pos_694) in self._p_memoized:
-                        result, self.pos = self._p_memoized[(633080413990182628, self.pos)]
-                    else:
-                        result = self.codec()
-                        self._p_memoized[(633080413990182628, start_pos_694)] = result, self.pos
-                    if result is self.NoMatch:
-                        pass
-                if result is self.NoMatch:
-                    self.p_restore()
-                    if self._p_error_stack:
-                        head = self._p_error_stack[0]
-                    else:
-                        head = (0, 0)
-                    if self.pos <= head[0]:
-                        self._p_error_stack.append((self.pos, 695))
-                    elif self.pos > head[0]:
-                        self._p_error_stack = [(self.pos, 695)]
-                    # print self._p_error_stack
                 else:
                     self.p_discard()
                 if result is not self.NoMatch:
-                    results_696.append(result)
+                    results_694.append(result)
                 else:
                     break
             # print self._p_error_stack
-            result = results_696
+            result = results_694
             if result is self.NoMatch:
-                results_698 = self.NoMatch
+                results_696 = self.NoMatch
                 self.p_restore()
                 if self._p_error_stack:
                     head = self._p_error_stack[0]
                 else:
                     head = (0, 0)
                 if self.pos <= head[0]:
-                    self._p_error_stack.append((self.pos, 698))
+                    self._p_error_stack.append((self.pos, 696))
                 elif self.pos > head[0]:
-                    self._p_error_stack = [(self.pos, 698)]
+                    self._p_error_stack = [(self.pos, 696)]
                 # print self._p_error_stack
             else:
-                results_698.append(result)
+                results_696.append(result)
                                 
                 
-                start_pos_697= self.pos
-                if (8032288812664134381, start_pos_697) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(8032288812664134381, self.pos)]
-                else:
-                    result = self.RCB()
-                    self._p_memoized[(8032288812664134381, start_pos_697)] = result, self.pos
-                if result is self.NoMatch:
-                    results_698 = self.NoMatch
-                    self.p_restore()
-                    if self._p_error_stack:
-                        head = self._p_error_stack[0]
-                    else:
-                        head = (0, 0)
-                    if self.pos <= head[0]:
-                        self._p_error_stack.append((self.pos, 698))
-                    elif self.pos > head[0]:
-                        self._p_error_stack = [(self.pos, 698)]
-                    # print self._p_error_stack
-                else:
-                    results_698.append(result)
-                                    
-        if results_698 is not self.NoMatch:
-            self.p_discard()
-        result = results_698
-        if result is not self.NoMatch:
-            result = self.p_flatten(result, **args)
-        else:
-            if self._p_error_stack:
-                head = self._p_error_stack[0]
-            else:
-                head = (0, 0)
-            if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 699))
-            elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 699)]
-            # print self._p_error_stack
-        return result
-
-    def codeb(self):
-        '''codeb <- LSB ( ~\'([^\\[\\]\\\\]|[\\[\\]])+\' / codeb )* RSB'''
-        args = dict()
-        # LSB ( ~'([^\\[\\]\\\\]|[\\[\\]])+' / codeb )* RSB
-        self.p_save()
-        results_706 = []
-        
-        start_pos_700= self.pos
-        if (-7077586918205714591, start_pos_700) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-7077586918205714591, self.pos)]
-        else:
-            result = self.LSB()
-            self._p_memoized[(-7077586918205714591, start_pos_700)] = result, self.pos
-        if result is self.NoMatch:
-            results_706 = self.NoMatch
-            self.p_restore()
-            if self._p_error_stack:
-                head = self._p_error_stack[0]
-            else:
-                head = (0, 0)
-            if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 706))
-            elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 706)]
-            # print self._p_error_stack
-        else:
-            results_706.append(result)
-                            
-            
-            # ( ~'([^\\[\\]\\\\]|[\\[\\]])+' / codeb )*
-            results_704 = []
-            while 42:
-                # ~'([^\\[\\]\\\\]|[\\[\\]])+' / codeb
-                self.p_save()
-                # ~'([^\\[\\]\\\\]|[\\[\\]])+'
-                regex = self._p_py_constants[701]["regex"]
-                m = regex.match(self.p_suffix())
-                if m:
-                    result = self.p_suffix(m.end())
-                    self.pos += m.end()
-                else:
-                    if self._p_error_stack:
-                        head = self._p_error_stack[0]
-                    else:
-                        head = (0, 0)
-                    if self.pos <= head[0]:
-                        self._p_error_stack.append((self.pos, 701))
-                    elif self.pos > head[0]:
-                        self._p_error_stack = [(self.pos, 701)]
-                    # print self._p_error_stack
-                    result = self.NoMatch
-                if result is self.NoMatch:
-                    start_pos_702= self.pos
-                    if (-3806498953475631862, start_pos_702) in self._p_memoized:
-                        result, self.pos = self._p_memoized[(-3806498953475631862, self.pos)]
-                    else:
-                        result = self.codeb()
-                        self._p_memoized[(-3806498953475631862, start_pos_702)] = result, self.pos
-                    if result is self.NoMatch:
-                        pass
-                if result is self.NoMatch:
-                    self.p_restore()
-                    if self._p_error_stack:
-                        head = self._p_error_stack[0]
-                    else:
-                        head = (0, 0)
-                    if self.pos <= head[0]:
-                        self._p_error_stack.append((self.pos, 703))
-                    elif self.pos > head[0]:
-                        self._p_error_stack = [(self.pos, 703)]
-                    # print self._p_error_stack
-                else:
-                    self.p_discard()
-                if result is not self.NoMatch:
-                    results_704.append(result)
-                else:
-                    break
-            # print self._p_error_stack
-            result = results_704
-            if result is self.NoMatch:
-                results_706 = self.NoMatch
-                self.p_restore()
-                if self._p_error_stack:
-                    head = self._p_error_stack[0]
-                else:
-                    head = (0, 0)
-                if self.pos <= head[0]:
-                    self._p_error_stack.append((self.pos, 706))
-                elif self.pos > head[0]:
-                    self._p_error_stack = [(self.pos, 706)]
-                # print self._p_error_stack
-            else:
-                results_706.append(result)
-                                
-                
-                start_pos_705= self.pos
-                if (6561880572610097441, start_pos_705) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(6561880572610097441, self.pos)]
+                start_pos_695= self.pos
+                if (1916133412897846555, start_pos_695) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(1916133412897846555, self.pos)]
                 else:
                     result = self.RSB()
-                    self._p_memoized[(6561880572610097441, start_pos_705)] = result, self.pos
+                    self._p_memoized[(1916133412897846555, start_pos_695)] = result, self.pos
                 if result is self.NoMatch:
-                    results_706 = self.NoMatch
+                    results_696 = self.NoMatch
                     self.p_restore()
                     if self._p_error_stack:
                         head = self._p_error_stack[0]
                     else:
                         head = (0, 0)
                     if self.pos <= head[0]:
-                        self._p_error_stack.append((self.pos, 706))
+                        self._p_error_stack.append((self.pos, 696))
                     elif self.pos > head[0]:
-                        self._p_error_stack = [(self.pos, 706)]
+                        self._p_error_stack = [(self.pos, 696)]
                     # print self._p_error_stack
                 else:
-                    results_706.append(result)
+                    results_696.append(result)
                                     
-        if results_706 is not self.NoMatch:
+        if results_696 is not self.NoMatch:
             self.p_discard()
-        result = results_706
+        result = results_696
         if result is not self.NoMatch:
             result = self.p_flatten(result, **args)
         else:
@@ -2472,9 +2407,9 @@ class MetaParser(object):
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 707))
+                self._p_error_stack.append((self.pos, 697))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 707)]
+                self._p_error_stack = [(self.pos, 697)]
             # print self._p_error_stack
         return result
 
@@ -2483,34 +2418,34 @@ class MetaParser(object):
         args = dict()
         # _ ( ~"'{3}.*?'{3}"s / ~'"{3}.*?"{3}'s / ~"'([^'\\\\]|\\.)*'" / ~'"([^"\\\\]|\\.)*"' ) _
         self.p_save()
-        results_715 = []
+        results_705 = []
         
-        start_pos_708= self.pos
-        if (-2669318154463580496, start_pos_708) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+        start_pos_698= self.pos
+        if (7606838300849038156, start_pos_698) in self._p_memoized:
+            result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
         else:
             result = self._()
-            self._p_memoized[(-2669318154463580496, start_pos_708)] = result, self.pos
+            self._p_memoized[(7606838300849038156, start_pos_698)] = result, self.pos
         if result is self.NoMatch:
-            results_715 = self.NoMatch
+            results_705 = self.NoMatch
             self.p_restore()
             if self._p_error_stack:
                 head = self._p_error_stack[0]
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 715))
+                self._p_error_stack.append((self.pos, 705))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 715)]
+                self._p_error_stack = [(self.pos, 705)]
             # print self._p_error_stack
         else:
-            results_715.append(result)
+            results_705.append(result)
                             
             
             # ~"'{3}.*?'{3}"s / ~'"{3}.*?"{3}'s / ~"'([^'\\\\]|\\.)*'" / ~'"([^"\\\\]|\\.)*"'
             self.p_save()
             # ~"'{3}.*?'{3}"s
-            regex = self._p_py_constants[709]["regex"]
+            regex = self._p_py_constants[699]["regex"]
             m = regex.match(self.p_suffix())
             if m:
                 result = self.p_suffix(m.end())
@@ -2521,14 +2456,14 @@ class MetaParser(object):
                 else:
                     head = (0, 0)
                 if self.pos <= head[0]:
-                    self._p_error_stack.append((self.pos, 709))
+                    self._p_error_stack.append((self.pos, 699))
                 elif self.pos > head[0]:
-                    self._p_error_stack = [(self.pos, 709)]
+                    self._p_error_stack = [(self.pos, 699)]
                 # print self._p_error_stack
                 result = self.NoMatch
             if result is self.NoMatch:
                 # ~'"{3}.*?"{3}'s
-                regex = self._p_py_constants[710]["regex"]
+                regex = self._p_py_constants[700]["regex"]
                 m = regex.match(self.p_suffix())
                 if m:
                     result = self.p_suffix(m.end())
@@ -2539,14 +2474,14 @@ class MetaParser(object):
                     else:
                         head = (0, 0)
                     if self.pos <= head[0]:
-                        self._p_error_stack.append((self.pos, 710))
+                        self._p_error_stack.append((self.pos, 700))
                     elif self.pos > head[0]:
-                        self._p_error_stack = [(self.pos, 710)]
+                        self._p_error_stack = [(self.pos, 700)]
                     # print self._p_error_stack
                     result = self.NoMatch
                 if result is self.NoMatch:
                     # ~"'([^'\\\\]|\\.)*'"
-                    regex = self._p_py_constants[711]["regex"]
+                    regex = self._p_py_constants[701]["regex"]
                     m = regex.match(self.p_suffix())
                     if m:
                         result = self.p_suffix(m.end())
@@ -2557,14 +2492,14 @@ class MetaParser(object):
                         else:
                             head = (0, 0)
                         if self.pos <= head[0]:
-                            self._p_error_stack.append((self.pos, 711))
+                            self._p_error_stack.append((self.pos, 701))
                         elif self.pos > head[0]:
-                            self._p_error_stack = [(self.pos, 711)]
+                            self._p_error_stack = [(self.pos, 701)]
                         # print self._p_error_stack
                         result = self.NoMatch
                     if result is self.NoMatch:
                         # ~'"([^"\\\\]|\\.)*"'
-                        regex = self._p_py_constants[712]["regex"]
+                        regex = self._p_py_constants[702]["regex"]
                         m = regex.match(self.p_suffix())
                         if m:
                             result = self.p_suffix(m.end())
@@ -2575,9 +2510,9 @@ class MetaParser(object):
                             else:
                                 head = (0, 0)
                             if self.pos <= head[0]:
-                                self._p_error_stack.append((self.pos, 712))
+                                self._p_error_stack.append((self.pos, 702))
                             elif self.pos > head[0]:
-                                self._p_error_stack = [(self.pos, 712)]
+                                self._p_error_stack = [(self.pos, 702)]
                             # print self._p_error_stack
                             result = self.NoMatch
                         if result is self.NoMatch:
@@ -2589,52 +2524,52 @@ class MetaParser(object):
                 else:
                     head = (0, 0)
                 if self.pos <= head[0]:
-                    self._p_error_stack.append((self.pos, 713))
+                    self._p_error_stack.append((self.pos, 703))
                 elif self.pos > head[0]:
-                    self._p_error_stack = [(self.pos, 713)]
+                    self._p_error_stack = [(self.pos, 703)]
                 # print self._p_error_stack
             else:
                 self.p_discard()
             if result is self.NoMatch:
-                results_715 = self.NoMatch
+                results_705 = self.NoMatch
                 self.p_restore()
                 if self._p_error_stack:
                     head = self._p_error_stack[0]
                 else:
                     head = (0, 0)
                 if self.pos <= head[0]:
-                    self._p_error_stack.append((self.pos, 715))
+                    self._p_error_stack.append((self.pos, 705))
                 elif self.pos > head[0]:
-                    self._p_error_stack = [(self.pos, 715)]
+                    self._p_error_stack = [(self.pos, 705)]
                 # print self._p_error_stack
             else:
-                results_715.append(result)
+                results_705.append(result)
                                 
                 
-                start_pos_714= self.pos
-                if (-2669318154463580496, start_pos_714) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-2669318154463580496, self.pos)]
+                start_pos_704= self.pos
+                if (7606838300849038156, start_pos_704) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(7606838300849038156, self.pos)]
                 else:
                     result = self._()
-                    self._p_memoized[(-2669318154463580496, start_pos_714)] = result, self.pos
+                    self._p_memoized[(7606838300849038156, start_pos_704)] = result, self.pos
                 if result is self.NoMatch:
-                    results_715 = self.NoMatch
+                    results_705 = self.NoMatch
                     self.p_restore()
                     if self._p_error_stack:
                         head = self._p_error_stack[0]
                     else:
                         head = (0, 0)
                     if self.pos <= head[0]:
-                        self._p_error_stack.append((self.pos, 715))
+                        self._p_error_stack.append((self.pos, 705))
                     elif self.pos > head[0]:
-                        self._p_error_stack = [(self.pos, 715)]
+                        self._p_error_stack = [(self.pos, 705)]
                     # print self._p_error_stack
                 else:
-                    results_715.append(result)
+                    results_705.append(result)
                                     
-        if results_715 is not self.NoMatch:
+        if results_705 is not self.NoMatch:
             self.p_discard()
-        result = results_715
+        result = results_705
         if result is not self.NoMatch:
             result = self._string(result, **args)
         else:
@@ -2643,9 +2578,9 @@ class MetaParser(object):
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 716))
+                self._p_error_stack.append((self.pos, 706))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 716)]
+                self._p_error_stack = [(self.pos, 706)]
             # print self._p_error_stack
         return result
 
@@ -2655,33 +2590,33 @@ class MetaParser(object):
         # stmt:stmt+
         # stmt+
         self.p_save()
-        results_718 = []
+        results_708 = []
         while 42:
-            start_pos_717= self.pos
-            if (-3925070168690716143, start_pos_717) in self._p_memoized:
-                result, self.pos = self._p_memoized[(-3925070168690716143, self.pos)]
+            start_pos_707= self.pos
+            if (-620707027364417221, start_pos_707) in self._p_memoized:
+                result, self.pos = self._p_memoized[(-620707027364417221, self.pos)]
             else:
                 result = self.stmt()
-                self._p_memoized[(-3925070168690716143, start_pos_717)] = result, self.pos
+                self._p_memoized[(-620707027364417221, start_pos_707)] = result, self.pos
             if result is not self.NoMatch:
-                results_718.append(result)
+                results_708.append(result)
             else:
                 break
-        if not results_718:
+        if not results_708:
             self.p_restore()
             if self._p_error_stack:
                 head = self._p_error_stack[0]
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 718))
+                self._p_error_stack.append((self.pos, 708))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 718)]
+                self._p_error_stack = [(self.pos, 708)]
             # print self._p_error_stack
             result = self.NoMatch
         else:
             self.p_discard()
-            result = results_718
+            result = results_708
         args['stmt'] = result
         if result is not self.NoMatch:
             result = self.on_model(result, **args)
@@ -2691,36 +2626,45 @@ class MetaParser(object):
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 720))
+                self._p_error_stack.append((self.pos, 710))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 720)]
+                self._p_error_stack = [(self.pos, 710)]
             # print self._p_error_stack
         return result
 
     def stmt(self):
-        '''stmt <- call:call / block:block'''
+        '''stmt <- assign:assign / call:call / block:block'''
         args = dict()
-        # call:call / block:block
+        # assign:assign / call:call / block:block
         self.p_save()
-        # call:call
-        start_pos_721= self.pos
-        if (2859963832254165388, start_pos_721) in self._p_memoized:
-            result, self.pos = self._p_memoized[(2859963832254165388, self.pos)]
+        # assign:assign
+        start_pos_711= self.pos
+        if (6982561033409853665, start_pos_711) in self._p_memoized:
+            result, self.pos = self._p_memoized[(6982561033409853665, self.pos)]
         else:
-            result = self.call()
-            self._p_memoized[(2859963832254165388, start_pos_721)] = result, self.pos
-        args['call'] = result
+            result = self.assign()
+            self._p_memoized[(6982561033409853665, start_pos_711)] = result, self.pos
+        args['assign'] = result
         if result is self.NoMatch:
-            # block:block
-            start_pos_723= self.pos
-            if (5523824349764955208, start_pos_723) in self._p_memoized:
-                result, self.pos = self._p_memoized[(5523824349764955208, self.pos)]
+            # call:call
+            start_pos_713= self.pos
+            if (8524194634600669451, start_pos_713) in self._p_memoized:
+                result, self.pos = self._p_memoized[(8524194634600669451, self.pos)]
             else:
-                result = self.block()
-                self._p_memoized[(5523824349764955208, start_pos_723)] = result, self.pos
-            args['block'] = result
+                result = self.call()
+                self._p_memoized[(8524194634600669451, start_pos_713)] = result, self.pos
+            args['call'] = result
             if result is self.NoMatch:
-                pass
+                # block:block
+                start_pos_715= self.pos
+                if (-301720619895403060, start_pos_715) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(-301720619895403060, self.pos)]
+                else:
+                    result = self.block()
+                    self._p_memoized[(-301720619895403060, start_pos_715)] = result, self.pos
+                args['block'] = result
+                if result is self.NoMatch:
+                    pass
         if result is self.NoMatch:
             self.p_restore()
             if self._p_error_stack:
@@ -2728,9 +2672,9 @@ class MetaParser(object):
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 725))
+                self._p_error_stack.append((self.pos, 717))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 725)]
+                self._p_error_stack = [(self.pos, 717)]
             # print self._p_error_stack
         else:
             self.p_discard()
@@ -2742,120 +2686,177 @@ class MetaParser(object):
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 726))
+                self._p_error_stack.append((self.pos, 718))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 726)]
+                self._p_error_stack = [(self.pos, 718)]
             # print self._p_error_stack
         return result
 
-    def call(self):
-        '''call <- name:NAME args:args NL'''
+    def assign(self):
+        '''assign <- name:NAME EQ:expr'''
         args = dict()
-        # name:NAME args:args NL
+        # name:NAME EQ:expr
         self.p_save()
-        results_732 = []
+        results_723 = []
         
         # name:NAME
-        start_pos_727= self.pos
-        if (-2974221651773165507, start_pos_727) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-2974221651773165507, self.pos)]
+        start_pos_719= self.pos
+        if (-5784796548447342165, start_pos_719) in self._p_memoized:
+            result, self.pos = self._p_memoized[(-5784796548447342165, self.pos)]
         else:
             result = self.NAME()
-            self._p_memoized[(-2974221651773165507, start_pos_727)] = result, self.pos
+            self._p_memoized[(-5784796548447342165, start_pos_719)] = result, self.pos
         args['name'] = result
         if result is self.NoMatch:
-            results_732 = self.NoMatch
+            results_723 = self.NoMatch
             self.p_restore()
             if self._p_error_stack:
                 head = self._p_error_stack[0]
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 732))
+                self._p_error_stack.append((self.pos, 723))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 732)]
+                self._p_error_stack = [(self.pos, 723)]
             # print self._p_error_stack
         else:
-            results_732.append(result)
+            results_723.append(result)
                             
             
-            # args:args
-            start_pos_729= self.pos
-            if (-5791657083345249590, start_pos_729) in self._p_memoized:
-                result, self.pos = self._p_memoized[(-5791657083345249590, self.pos)]
+            # EQ:expr
+            start_pos_721= self.pos
+            if (6477688098466832157, start_pos_721) in self._p_memoized:
+                result, self.pos = self._p_memoized[(6477688098466832157, self.pos)]
             else:
-                result = self.args()
-                self._p_memoized[(-5791657083345249590, start_pos_729)] = result, self.pos
-            args['args'] = result
+                result = self.expr()
+                self._p_memoized[(6477688098466832157, start_pos_721)] = result, self.pos
+            args['EQ'] = result
             if result is self.NoMatch:
-                results_732 = self.NoMatch
+                results_723 = self.NoMatch
                 self.p_restore()
                 if self._p_error_stack:
                     head = self._p_error_stack[0]
                 else:
                     head = (0, 0)
                 if self.pos <= head[0]:
-                    self._p_error_stack.append((self.pos, 732))
+                    self._p_error_stack.append((self.pos, 723))
                 elif self.pos > head[0]:
-                    self._p_error_stack = [(self.pos, 732)]
+                    self._p_error_stack = [(self.pos, 723)]
                 # print self._p_error_stack
             else:
-                results_732.append(result)
+                results_723.append(result)
                                 
-                
-                start_pos_731= self.pos
-                if (2729736250320932052, start_pos_731) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(2729736250320932052, self.pos)]
-                else:
-                    result = self.NL()
-                    self._p_memoized[(2729736250320932052, start_pos_731)] = result, self.pos
-                if result is self.NoMatch:
-                    results_732 = self.NoMatch
-                    self.p_restore()
-                    if self._p_error_stack:
-                        head = self._p_error_stack[0]
-                    else:
-                        head = (0, 0)
-                    if self.pos <= head[0]:
-                        self._p_error_stack.append((self.pos, 732))
-                    elif self.pos > head[0]:
-                        self._p_error_stack = [(self.pos, 732)]
-                    # print self._p_error_stack
-                else:
-                    results_732.append(result)
-                                    
-        if results_732 is not self.NoMatch:
+        if results_723 is not self.NoMatch:
             self.p_discard()
-        result = results_732
+        result = results_723
         if result is not self.NoMatch:
-            result = self.on_call(result, **args)
+            result = self.on_assign(result, **args)
         else:
             if self._p_error_stack:
                 head = self._p_error_stack[0]
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 733))
+                self._p_error_stack.append((self.pos, 724))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 733)]
+                self._p_error_stack = [(self.pos, 724)]
             # print self._p_error_stack
         return result
 
-    def args(self):
-        '''args <- LP arglist:arglist? RP'''
+    def expr(self):
+        '''expr <- atom:atom / call:call'''
         args = dict()
-        # LP arglist:arglist? RP
+        # atom:atom / call:call
         self.p_save()
-        results_739 = []
-        
-        start_pos_734= self.pos
-        if (-3251056809108677362, start_pos_734) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-3251056809108677362, self.pos)]
+        # atom:atom
+        start_pos_725= self.pos
+        if (4729689167831354346, start_pos_725) in self._p_memoized:
+            result, self.pos = self._p_memoized[(4729689167831354346, self.pos)]
         else:
-            result = self.LP()
-            self._p_memoized[(-3251056809108677362, start_pos_734)] = result, self.pos
+            result = self.atom()
+            self._p_memoized[(4729689167831354346, start_pos_725)] = result, self.pos
+        args['atom'] = result
         if result is self.NoMatch:
-            results_739 = self.NoMatch
+            # call:call
+            start_pos_727= self.pos
+            if (8524194634600669451, start_pos_727) in self._p_memoized:
+                result, self.pos = self._p_memoized[(8524194634600669451, self.pos)]
+            else:
+                result = self.call()
+                self._p_memoized[(8524194634600669451, start_pos_727)] = result, self.pos
+            args['call'] = result
+            if result is self.NoMatch:
+                pass
+        if result is self.NoMatch:
+            self.p_restore()
+            if self._p_error_stack:
+                head = self._p_error_stack[0]
+            else:
+                head = (0, 0)
+            if self.pos <= head[0]:
+                self._p_error_stack.append((self.pos, 729))
+            elif self.pos > head[0]:
+                self._p_error_stack = [(self.pos, 729)]
+            # print self._p_error_stack
+        else:
+            self.p_discard()
+        if result is not self.NoMatch:
+            result = self._first(result, **args)
+        else:
+            if self._p_error_stack:
+                head = self._p_error_stack[0]
+            else:
+                head = (0, 0)
+            if self.pos <= head[0]:
+                self._p_error_stack.append((self.pos, 730))
+            elif self.pos > head[0]:
+                self._p_error_stack = [(self.pos, 730)]
+            # print self._p_error_stack
+        return result
+
+    def atom(self):
+        '''atom <- name:name / num:NUMBER / code:code / string:string'''
+        args = dict()
+        # name:name / num:NUMBER / code:code / string:string
+        self.p_save()
+        # name:name
+        start_pos_731= self.pos
+        if (2461049712492785215, start_pos_731) in self._p_memoized:
+            result, self.pos = self._p_memoized[(2461049712492785215, self.pos)]
+        else:
+            result = self.name()
+            self._p_memoized[(2461049712492785215, start_pos_731)] = result, self.pos
+        args['name'] = result
+        if result is self.NoMatch:
+            # num:NUMBER
+            start_pos_733= self.pos
+            if (-7527064091931351942, start_pos_733) in self._p_memoized:
+                result, self.pos = self._p_memoized[(-7527064091931351942, self.pos)]
+            else:
+                result = self.NUMBER()
+                self._p_memoized[(-7527064091931351942, start_pos_733)] = result, self.pos
+            args['num'] = result
+            if result is self.NoMatch:
+                # code:code
+                start_pos_735= self.pos
+                if (-3023193180020596957, start_pos_735) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(-3023193180020596957, self.pos)]
+                else:
+                    result = self.code()
+                    self._p_memoized[(-3023193180020596957, start_pos_735)] = result, self.pos
+                args['code'] = result
+                if result is self.NoMatch:
+                    # string:string
+                    start_pos_737= self.pos
+                    if (-5482616787815070031, start_pos_737) in self._p_memoized:
+                        result, self.pos = self._p_memoized[(-5482616787815070031, self.pos)]
+                    else:
+                        result = self.string()
+                        self._p_memoized[(-5482616787815070031, start_pos_737)] = result, self.pos
+                    args['string'] = result
+                    if result is self.NoMatch:
+                        pass
+        if result is self.NoMatch:
             self.p_restore()
             if self._p_error_stack:
                 head = self._p_error_stack[0]
@@ -2867,64 +2868,9 @@ class MetaParser(object):
                 self._p_error_stack = [(self.pos, 739)]
             # print self._p_error_stack
         else:
-            results_739.append(result)
-                            
-            
-            # arglist:arglist?
-            # arglist:arglist
-            start_pos_735= self.pos
-            if (-8765388361896402609, start_pos_735) in self._p_memoized:
-                result, self.pos = self._p_memoized[(-8765388361896402609, self.pos)]
-            else:
-                result = self.arglist()
-                self._p_memoized[(-8765388361896402609, start_pos_735)] = result, self.pos
-            args['arglist'] = result
-            result = "" if result is self.NoMatch else result
-            if result is self.NoMatch:
-                # print self._p_error_stack
-                self._p_error_stack.pop()
-            if result is self.NoMatch:
-                results_739 = self.NoMatch
-                self.p_restore()
-                if self._p_error_stack:
-                    head = self._p_error_stack[0]
-                else:
-                    head = (0, 0)
-                if self.pos <= head[0]:
-                    self._p_error_stack.append((self.pos, 739))
-                elif self.pos > head[0]:
-                    self._p_error_stack = [(self.pos, 739)]
-                # print self._p_error_stack
-            else:
-                results_739.append(result)
-                                
-                
-                start_pos_738= self.pos
-                if (-5119353491076553713, start_pos_738) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-5119353491076553713, self.pos)]
-                else:
-                    result = self.RP()
-                    self._p_memoized[(-5119353491076553713, start_pos_738)] = result, self.pos
-                if result is self.NoMatch:
-                    results_739 = self.NoMatch
-                    self.p_restore()
-                    if self._p_error_stack:
-                        head = self._p_error_stack[0]
-                    else:
-                        head = (0, 0)
-                    if self.pos <= head[0]:
-                        self._p_error_stack.append((self.pos, 739))
-                    elif self.pos > head[0]:
-                        self._p_error_stack = [(self.pos, 739)]
-                    # print self._p_error_stack
-                else:
-                    results_739.append(result)
-                                    
-        if results_739 is not self.NoMatch:
             self.p_discard()
-        result = results_739
         if result is not self.NoMatch:
-            result = self.on_args(result, **args)
+            result = self._first(result, **args)
         else:
             if self._p_error_stack:
                 head = self._p_error_stack[0]
@@ -2937,19 +2883,21 @@ class MetaParser(object):
             # print self._p_error_stack
         return result
 
-    def arglist(self):
-        '''arglist <- arg ( COMMA arg )*'''
+    def call(self):
+        '''call <- name:NAME args:args NL'''
         args = dict()
-        # arg ( COMMA arg )*
+        # name:NAME args:args NL
         self.p_save()
         results_746 = []
         
+        # name:NAME
         start_pos_741= self.pos
-        if (-6742053526882330266, start_pos_741) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-6742053526882330266, self.pos)]
+        if (-5784796548447342165, start_pos_741) in self._p_memoized:
+            result, self.pos = self._p_memoized[(-5784796548447342165, self.pos)]
         else:
-            result = self.arg()
-            self._p_memoized[(-6742053526882330266, start_pos_741)] = result, self.pos
+            result = self.NAME()
+            self._p_memoized[(-5784796548447342165, start_pos_741)] = result, self.pos
+        args['name'] = result
         if result is self.NoMatch:
             results_746 = self.NoMatch
             self.p_restore()
@@ -2966,65 +2914,14 @@ class MetaParser(object):
             results_746.append(result)
                             
             
-            # ( COMMA arg )*
-            results_745 = []
-            while 42:
-                # COMMA arg
-                self.p_save()
-                results_744 = []
-                
-                start_pos_742= self.pos
-                if (-1323099403848128778, start_pos_742) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-1323099403848128778, self.pos)]
-                else:
-                    result = self.COMMA()
-                    self._p_memoized[(-1323099403848128778, start_pos_742)] = result, self.pos
-                if result is self.NoMatch:
-                    results_744 = self.NoMatch
-                    self.p_restore()
-                    if self._p_error_stack:
-                        head = self._p_error_stack[0]
-                    else:
-                        head = (0, 0)
-                    if self.pos <= head[0]:
-                        self._p_error_stack.append((self.pos, 744))
-                    elif self.pos > head[0]:
-                        self._p_error_stack = [(self.pos, 744)]
-                    # print self._p_error_stack
-                else:
-                    results_744.append(result)
-                                    
-                    
-                    start_pos_743= self.pos
-                    if (-6742053526882330266, start_pos_743) in self._p_memoized:
-                        result, self.pos = self._p_memoized[(-6742053526882330266, self.pos)]
-                    else:
-                        result = self.arg()
-                        self._p_memoized[(-6742053526882330266, start_pos_743)] = result, self.pos
-                    if result is self.NoMatch:
-                        results_744 = self.NoMatch
-                        self.p_restore()
-                        if self._p_error_stack:
-                            head = self._p_error_stack[0]
-                        else:
-                            head = (0, 0)
-                        if self.pos <= head[0]:
-                            self._p_error_stack.append((self.pos, 744))
-                        elif self.pos > head[0]:
-                            self._p_error_stack = [(self.pos, 744)]
-                        # print self._p_error_stack
-                    else:
-                        results_744.append(result)
-                                        
-                if results_744 is not self.NoMatch:
-                    self.p_discard()
-                result = results_744
-                if result is not self.NoMatch:
-                    results_745.append(result)
-                else:
-                    break
-            # print self._p_error_stack
-            result = results_745
+            # args:args
+            start_pos_743= self.pos
+            if (1235098058351072640, start_pos_743) in self._p_memoized:
+                result, self.pos = self._p_memoized[(1235098058351072640, self.pos)]
+            else:
+                result = self.args()
+                self._p_memoized[(1235098058351072640, start_pos_743)] = result, self.pos
+            args['args'] = result
             if result is self.NoMatch:
                 results_746 = self.NoMatch
                 self.p_restore()
@@ -3040,11 +2937,33 @@ class MetaParser(object):
             else:
                 results_746.append(result)
                                 
+                
+                start_pos_745= self.pos
+                if (-1826013797061727476, start_pos_745) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(-1826013797061727476, self.pos)]
+                else:
+                    result = self.NL()
+                    self._p_memoized[(-1826013797061727476, start_pos_745)] = result, self.pos
+                if result is self.NoMatch:
+                    results_746 = self.NoMatch
+                    self.p_restore()
+                    if self._p_error_stack:
+                        head = self._p_error_stack[0]
+                    else:
+                        head = (0, 0)
+                    if self.pos <= head[0]:
+                        self._p_error_stack.append((self.pos, 746))
+                    elif self.pos > head[0]:
+                        self._p_error_stack = [(self.pos, 746)]
+                    # print self._p_error_stack
+                else:
+                    results_746.append(result)
+                                    
         if results_746 is not self.NoMatch:
             self.p_discard()
         result = results_746
         if result is not self.NoMatch:
-            result = self._tuple(result, **args)
+            result = self.on_call(result, **args)
         else:
             if self._p_error_stack:
                 head = self._p_error_stack[0]
@@ -3057,48 +2976,48 @@ class MetaParser(object):
             # print self._p_error_stack
         return result
 
-    def arg(self):
-        '''arg <- left:atom ( EQ right:atom )?'''
+    def args(self):
+        '''args <- LP arglist:arglist? RP'''
         args = dict()
-        # left:atom ( EQ right:atom )?
+        # LP arglist:arglist? RP
         self.p_save()
-        results_755 = []
+        results_753 = []
         
-        # left:atom
         start_pos_748= self.pos
-        if (6719953068320395569, start_pos_748) in self._p_memoized:
-            result, self.pos = self._p_memoized[(6719953068320395569, self.pos)]
+        if (6621535891251875441, start_pos_748) in self._p_memoized:
+            result, self.pos = self._p_memoized[(6621535891251875441, self.pos)]
         else:
-            result = self.atom()
-            self._p_memoized[(6719953068320395569, start_pos_748)] = result, self.pos
-        args['left'] = result
+            result = self.LP()
+            self._p_memoized[(6621535891251875441, start_pos_748)] = result, self.pos
         if result is self.NoMatch:
-            results_755 = self.NoMatch
+            results_753 = self.NoMatch
             self.p_restore()
             if self._p_error_stack:
                 head = self._p_error_stack[0]
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 755))
+                self._p_error_stack.append((self.pos, 753))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 755)]
+                self._p_error_stack = [(self.pos, 753)]
             # print self._p_error_stack
         else:
-            results_755.append(result)
+            results_753.append(result)
                             
             
-            # ( EQ right:atom )?
-            # EQ right:atom
-            self.p_save()
-            results_753 = []
-            
-            start_pos_750= self.pos
-            if (5892044354541286711, start_pos_750) in self._p_memoized:
-                result, self.pos = self._p_memoized[(5892044354541286711, self.pos)]
+            # arglist:arglist?
+            # arglist:arglist
+            start_pos_749= self.pos
+            if (8544038364887210327, start_pos_749) in self._p_memoized:
+                result, self.pos = self._p_memoized[(8544038364887210327, self.pos)]
             else:
-                result = self.EQ()
-                self._p_memoized[(5892044354541286711, start_pos_750)] = result, self.pos
+                result = self.arglist()
+                self._p_memoized[(8544038364887210327, start_pos_749)] = result, self.pos
+            args['arglist'] = result
+            result = "" if result is self.NoMatch else result
+            if result is self.NoMatch:
+                # print self._p_error_stack
+                self._p_error_stack.pop()
             if result is self.NoMatch:
                 results_753 = self.NoMatch
                 self.p_restore()
@@ -3115,14 +3034,12 @@ class MetaParser(object):
                 results_753.append(result)
                                 
                 
-                # right:atom
-                start_pos_751= self.pos
-                if (6719953068320395569, start_pos_751) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(6719953068320395569, self.pos)]
+                start_pos_752= self.pos
+                if (-3535051539832164882, start_pos_752) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(-3535051539832164882, self.pos)]
                 else:
-                    result = self.atom()
-                    self._p_memoized[(6719953068320395569, start_pos_751)] = result, self.pos
-                args['right'] = result
+                    result = self.RP()
+                    self._p_memoized[(-3535051539832164882, start_pos_752)] = result, self.pos
                 if result is self.NoMatch:
                     results_753 = self.NoMatch
                     self.p_restore()
@@ -3138,31 +3055,249 @@ class MetaParser(object):
                 else:
                     results_753.append(result)
                                     
-            if results_753 is not self.NoMatch:
-                self.p_discard()
-            result = results_753
-            result = "" if result is self.NoMatch else result
+        if results_753 is not self.NoMatch:
+            self.p_discard()
+        result = results_753
+        if result is not self.NoMatch:
+            result = self.on_args(result, **args)
+        else:
+            if self._p_error_stack:
+                head = self._p_error_stack[0]
+            else:
+                head = (0, 0)
+            if self.pos <= head[0]:
+                self._p_error_stack.append((self.pos, 754))
+            elif self.pos > head[0]:
+                self._p_error_stack = [(self.pos, 754)]
+            # print self._p_error_stack
+        return result
+
+    def arglist(self):
+        '''arglist <- arg ( COMMA arg )*'''
+        args = dict()
+        # arg ( COMMA arg )*
+        self.p_save()
+        results_760 = []
+        
+        start_pos_755= self.pos
+        if (-4147008802352079560, start_pos_755) in self._p_memoized:
+            result, self.pos = self._p_memoized[(-4147008802352079560, self.pos)]
+        else:
+            result = self.arg()
+            self._p_memoized[(-4147008802352079560, start_pos_755)] = result, self.pos
+        if result is self.NoMatch:
+            results_760 = self.NoMatch
+            self.p_restore()
+            if self._p_error_stack:
+                head = self._p_error_stack[0]
+            else:
+                head = (0, 0)
+            if self.pos <= head[0]:
+                self._p_error_stack.append((self.pos, 760))
+            elif self.pos > head[0]:
+                self._p_error_stack = [(self.pos, 760)]
+            # print self._p_error_stack
+        else:
+            results_760.append(result)
+                            
+            
+            # ( COMMA arg )*
+            results_759 = []
+            while 42:
+                # COMMA arg
+                self.p_save()
+                results_758 = []
+                
+                start_pos_756= self.pos
+                if (2017822217355789151, start_pos_756) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(2017822217355789151, self.pos)]
+                else:
+                    result = self.COMMA()
+                    self._p_memoized[(2017822217355789151, start_pos_756)] = result, self.pos
+                if result is self.NoMatch:
+                    results_758 = self.NoMatch
+                    self.p_restore()
+                    if self._p_error_stack:
+                        head = self._p_error_stack[0]
+                    else:
+                        head = (0, 0)
+                    if self.pos <= head[0]:
+                        self._p_error_stack.append((self.pos, 758))
+                    elif self.pos > head[0]:
+                        self._p_error_stack = [(self.pos, 758)]
+                    # print self._p_error_stack
+                else:
+                    results_758.append(result)
+                                    
+                    
+                    start_pos_757= self.pos
+                    if (-4147008802352079560, start_pos_757) in self._p_memoized:
+                        result, self.pos = self._p_memoized[(-4147008802352079560, self.pos)]
+                    else:
+                        result = self.arg()
+                        self._p_memoized[(-4147008802352079560, start_pos_757)] = result, self.pos
+                    if result is self.NoMatch:
+                        results_758 = self.NoMatch
+                        self.p_restore()
+                        if self._p_error_stack:
+                            head = self._p_error_stack[0]
+                        else:
+                            head = (0, 0)
+                        if self.pos <= head[0]:
+                            self._p_error_stack.append((self.pos, 758))
+                        elif self.pos > head[0]:
+                            self._p_error_stack = [(self.pos, 758)]
+                        # print self._p_error_stack
+                    else:
+                        results_758.append(result)
+                                        
+                if results_758 is not self.NoMatch:
+                    self.p_discard()
+                result = results_758
+                if result is not self.NoMatch:
+                    results_759.append(result)
+                else:
+                    break
+            # print self._p_error_stack
+            result = results_759
             if result is self.NoMatch:
-                # print self._p_error_stack
-                self._p_error_stack.pop()
-            if result is self.NoMatch:
-                results_755 = self.NoMatch
+                results_760 = self.NoMatch
                 self.p_restore()
                 if self._p_error_stack:
                     head = self._p_error_stack[0]
                 else:
                     head = (0, 0)
                 if self.pos <= head[0]:
-                    self._p_error_stack.append((self.pos, 755))
+                    self._p_error_stack.append((self.pos, 760))
                 elif self.pos > head[0]:
-                    self._p_error_stack = [(self.pos, 755)]
+                    self._p_error_stack = [(self.pos, 760)]
                 # print self._p_error_stack
             else:
-                results_755.append(result)
+                results_760.append(result)
                                 
-        if results_755 is not self.NoMatch:
+        if results_760 is not self.NoMatch:
             self.p_discard()
-        result = results_755
+        result = results_760
+        if result is not self.NoMatch:
+            result = self._tuple(result, **args)
+        else:
+            if self._p_error_stack:
+                head = self._p_error_stack[0]
+            else:
+                head = (0, 0)
+            if self.pos <= head[0]:
+                self._p_error_stack.append((self.pos, 761))
+            elif self.pos > head[0]:
+                self._p_error_stack = [(self.pos, 761)]
+            # print self._p_error_stack
+        return result
+
+    def arg(self):
+        '''arg <- left:atom ( EQ right:atom )?'''
+        args = dict()
+        # left:atom ( EQ right:atom )?
+        self.p_save()
+        results_769 = []
+        
+        # left:atom
+        start_pos_762= self.pos
+        if (4729689167831354346, start_pos_762) in self._p_memoized:
+            result, self.pos = self._p_memoized[(4729689167831354346, self.pos)]
+        else:
+            result = self.atom()
+            self._p_memoized[(4729689167831354346, start_pos_762)] = result, self.pos
+        args['left'] = result
+        if result is self.NoMatch:
+            results_769 = self.NoMatch
+            self.p_restore()
+            if self._p_error_stack:
+                head = self._p_error_stack[0]
+            else:
+                head = (0, 0)
+            if self.pos <= head[0]:
+                self._p_error_stack.append((self.pos, 769))
+            elif self.pos > head[0]:
+                self._p_error_stack = [(self.pos, 769)]
+            # print self._p_error_stack
+        else:
+            results_769.append(result)
+                            
+            
+            # ( EQ right:atom )?
+            # EQ right:atom
+            self.p_save()
+            results_767 = []
+            
+            start_pos_764= self.pos
+            if (2052734949962965650, start_pos_764) in self._p_memoized:
+                result, self.pos = self._p_memoized[(2052734949962965650, self.pos)]
+            else:
+                result = self.EQ()
+                self._p_memoized[(2052734949962965650, start_pos_764)] = result, self.pos
+            if result is self.NoMatch:
+                results_767 = self.NoMatch
+                self.p_restore()
+                if self._p_error_stack:
+                    head = self._p_error_stack[0]
+                else:
+                    head = (0, 0)
+                if self.pos <= head[0]:
+                    self._p_error_stack.append((self.pos, 767))
+                elif self.pos > head[0]:
+                    self._p_error_stack = [(self.pos, 767)]
+                # print self._p_error_stack
+            else:
+                results_767.append(result)
+                                
+                
+                # right:atom
+                start_pos_765= self.pos
+                if (4729689167831354346, start_pos_765) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(4729689167831354346, self.pos)]
+                else:
+                    result = self.atom()
+                    self._p_memoized[(4729689167831354346, start_pos_765)] = result, self.pos
+                args['right'] = result
+                if result is self.NoMatch:
+                    results_767 = self.NoMatch
+                    self.p_restore()
+                    if self._p_error_stack:
+                        head = self._p_error_stack[0]
+                    else:
+                        head = (0, 0)
+                    if self.pos <= head[0]:
+                        self._p_error_stack.append((self.pos, 767))
+                    elif self.pos > head[0]:
+                        self._p_error_stack = [(self.pos, 767)]
+                    # print self._p_error_stack
+                else:
+                    results_767.append(result)
+                                    
+            if results_767 is not self.NoMatch:
+                self.p_discard()
+            result = results_767
+            result = "" if result is self.NoMatch else result
+            if result is self.NoMatch:
+                # print self._p_error_stack
+                self._p_error_stack.pop()
+            if result is self.NoMatch:
+                results_769 = self.NoMatch
+                self.p_restore()
+                if self._p_error_stack:
+                    head = self._p_error_stack[0]
+                else:
+                    head = (0, 0)
+                if self.pos <= head[0]:
+                    self._p_error_stack.append((self.pos, 769))
+                elif self.pos > head[0]:
+                    self._p_error_stack = [(self.pos, 769)]
+                # print self._p_error_stack
+            else:
+                results_769.append(result)
+                                
+        if results_769 is not self.NoMatch:
+            self.p_discard()
+        result = results_769
         if result is not self.NoMatch:
             result = self.on_arg(result, **args)
         else:
@@ -3171,9 +3306,9 @@ class MetaParser(object):
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 756))
+                self._p_error_stack.append((self.pos, 770))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 756)]
+                self._p_error_stack = [(self.pos, 770)]
             # print self._p_error_stack
         return result
 
@@ -3182,227 +3317,227 @@ class MetaParser(object):
         args = dict()
         # deco:deco? name:NAME args:args? COLON NL INDENT stmt:stmt+ DEDENT
         self.p_save()
-        results_772 = []
+        results_786 = []
         
         # deco:deco?
         # deco?
-        start_pos_757= self.pos
-        if (8845738941771576658, start_pos_757) in self._p_memoized:
-            result, self.pos = self._p_memoized[(8845738941771576658, self.pos)]
+        start_pos_771= self.pos
+        if (6882566319127500318, start_pos_771) in self._p_memoized:
+            result, self.pos = self._p_memoized[(6882566319127500318, self.pos)]
         else:
             result = self.deco()
-            self._p_memoized[(8845738941771576658, start_pos_757)] = result, self.pos
+            self._p_memoized[(6882566319127500318, start_pos_771)] = result, self.pos
         result = "" if result is self.NoMatch else result
         if result is self.NoMatch:
             # print self._p_error_stack
             self._p_error_stack.pop()
         args['deco'] = result
         if result is self.NoMatch:
-            results_772 = self.NoMatch
+            results_786 = self.NoMatch
             self.p_restore()
             if self._p_error_stack:
                 head = self._p_error_stack[0]
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 772))
+                self._p_error_stack.append((self.pos, 786))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 772)]
+                self._p_error_stack = [(self.pos, 786)]
             # print self._p_error_stack
         else:
-            results_772.append(result)
+            results_786.append(result)
                             
             
             # name:NAME
-            start_pos_760= self.pos
-            if (-2974221651773165507, start_pos_760) in self._p_memoized:
-                result, self.pos = self._p_memoized[(-2974221651773165507, self.pos)]
+            start_pos_774= self.pos
+            if (-5784796548447342165, start_pos_774) in self._p_memoized:
+                result, self.pos = self._p_memoized[(-5784796548447342165, self.pos)]
             else:
                 result = self.NAME()
-                self._p_memoized[(-2974221651773165507, start_pos_760)] = result, self.pos
+                self._p_memoized[(-5784796548447342165, start_pos_774)] = result, self.pos
             args['name'] = result
             if result is self.NoMatch:
-                results_772 = self.NoMatch
+                results_786 = self.NoMatch
                 self.p_restore()
                 if self._p_error_stack:
                     head = self._p_error_stack[0]
                 else:
                     head = (0, 0)
                 if self.pos <= head[0]:
-                    self._p_error_stack.append((self.pos, 772))
+                    self._p_error_stack.append((self.pos, 786))
                 elif self.pos > head[0]:
-                    self._p_error_stack = [(self.pos, 772)]
+                    self._p_error_stack = [(self.pos, 786)]
                 # print self._p_error_stack
             else:
-                results_772.append(result)
+                results_786.append(result)
                                 
                 
                 # args:args?
                 # args?
-                start_pos_762= self.pos
-                if (-5791657083345249590, start_pos_762) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-5791657083345249590, self.pos)]
+                start_pos_776= self.pos
+                if (1235098058351072640, start_pos_776) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(1235098058351072640, self.pos)]
                 else:
                     result = self.args()
-                    self._p_memoized[(-5791657083345249590, start_pos_762)] = result, self.pos
+                    self._p_memoized[(1235098058351072640, start_pos_776)] = result, self.pos
                 result = "" if result is self.NoMatch else result
                 if result is self.NoMatch:
                     # print self._p_error_stack
                     self._p_error_stack.pop()
                 args['args'] = result
                 if result is self.NoMatch:
-                    results_772 = self.NoMatch
+                    results_786 = self.NoMatch
                     self.p_restore()
                     if self._p_error_stack:
                         head = self._p_error_stack[0]
                     else:
                         head = (0, 0)
                     if self.pos <= head[0]:
-                        self._p_error_stack.append((self.pos, 772))
+                        self._p_error_stack.append((self.pos, 786))
                     elif self.pos > head[0]:
-                        self._p_error_stack = [(self.pos, 772)]
+                        self._p_error_stack = [(self.pos, 786)]
                     # print self._p_error_stack
                 else:
-                    results_772.append(result)
+                    results_786.append(result)
                                     
                     
-                    start_pos_765= self.pos
-                    if (8213320478621538071, start_pos_765) in self._p_memoized:
-                        result, self.pos = self._p_memoized[(8213320478621538071, self.pos)]
+                    start_pos_779= self.pos
+                    if (7340943020177273823, start_pos_779) in self._p_memoized:
+                        result, self.pos = self._p_memoized[(7340943020177273823, self.pos)]
                     else:
                         result = self.COLON()
-                        self._p_memoized[(8213320478621538071, start_pos_765)] = result, self.pos
+                        self._p_memoized[(7340943020177273823, start_pos_779)] = result, self.pos
                     if result is self.NoMatch:
-                        results_772 = self.NoMatch
+                        results_786 = self.NoMatch
                         self.p_restore()
                         if self._p_error_stack:
                             head = self._p_error_stack[0]
                         else:
                             head = (0, 0)
                         if self.pos <= head[0]:
-                            self._p_error_stack.append((self.pos, 772))
+                            self._p_error_stack.append((self.pos, 786))
                         elif self.pos > head[0]:
-                            self._p_error_stack = [(self.pos, 772)]
+                            self._p_error_stack = [(self.pos, 786)]
                         # print self._p_error_stack
                     else:
-                        results_772.append(result)
+                        results_786.append(result)
                                         
                         
-                        start_pos_766= self.pos
-                        if (2729736250320932052, start_pos_766) in self._p_memoized:
-                            result, self.pos = self._p_memoized[(2729736250320932052, self.pos)]
+                        start_pos_780= self.pos
+                        if (-1826013797061727476, start_pos_780) in self._p_memoized:
+                            result, self.pos = self._p_memoized[(-1826013797061727476, self.pos)]
                         else:
                             result = self.NL()
-                            self._p_memoized[(2729736250320932052, start_pos_766)] = result, self.pos
+                            self._p_memoized[(-1826013797061727476, start_pos_780)] = result, self.pos
                         if result is self.NoMatch:
-                            results_772 = self.NoMatch
+                            results_786 = self.NoMatch
                             self.p_restore()
                             if self._p_error_stack:
                                 head = self._p_error_stack[0]
                             else:
                                 head = (0, 0)
                             if self.pos <= head[0]:
-                                self._p_error_stack.append((self.pos, 772))
+                                self._p_error_stack.append((self.pos, 786))
                             elif self.pos > head[0]:
-                                self._p_error_stack = [(self.pos, 772)]
+                                self._p_error_stack = [(self.pos, 786)]
                             # print self._p_error_stack
                         else:
-                            results_772.append(result)
+                            results_786.append(result)
                                             
                             
-                            start_pos_767= self.pos
-                            if (5956905032144496237, start_pos_767) in self._p_memoized:
-                                result, self.pos = self._p_memoized[(5956905032144496237, self.pos)]
+                            start_pos_781= self.pos
+                            if (5251825781692289970, start_pos_781) in self._p_memoized:
+                                result, self.pos = self._p_memoized[(5251825781692289970, self.pos)]
                             else:
                                 result = self.INDENT()
-                                self._p_memoized[(5956905032144496237, start_pos_767)] = result, self.pos
+                                self._p_memoized[(5251825781692289970, start_pos_781)] = result, self.pos
                             if result is self.NoMatch:
-                                results_772 = self.NoMatch
+                                results_786 = self.NoMatch
                                 self.p_restore()
                                 if self._p_error_stack:
                                     head = self._p_error_stack[0]
                                 else:
                                     head = (0, 0)
                                 if self.pos <= head[0]:
-                                    self._p_error_stack.append((self.pos, 772))
+                                    self._p_error_stack.append((self.pos, 786))
                                 elif self.pos > head[0]:
-                                    self._p_error_stack = [(self.pos, 772)]
+                                    self._p_error_stack = [(self.pos, 786)]
                                 # print self._p_error_stack
                             else:
-                                results_772.append(result)
+                                results_786.append(result)
                                                 
                                 
                                 # stmt:stmt+
                                 # stmt+
                                 self.p_save()
-                                results_769 = []
+                                results_783 = []
                                 while 42:
-                                    start_pos_768= self.pos
-                                    if (-3925070168690716143, start_pos_768) in self._p_memoized:
-                                        result, self.pos = self._p_memoized[(-3925070168690716143, self.pos)]
+                                    start_pos_782= self.pos
+                                    if (-620707027364417221, start_pos_782) in self._p_memoized:
+                                        result, self.pos = self._p_memoized[(-620707027364417221, self.pos)]
                                     else:
                                         result = self.stmt()
-                                        self._p_memoized[(-3925070168690716143, start_pos_768)] = result, self.pos
+                                        self._p_memoized[(-620707027364417221, start_pos_782)] = result, self.pos
                                     if result is not self.NoMatch:
-                                        results_769.append(result)
+                                        results_783.append(result)
                                     else:
                                         break
-                                if not results_769:
+                                if not results_783:
                                     self.p_restore()
                                     if self._p_error_stack:
                                         head = self._p_error_stack[0]
                                     else:
                                         head = (0, 0)
                                     if self.pos <= head[0]:
-                                        self._p_error_stack.append((self.pos, 769))
+                                        self._p_error_stack.append((self.pos, 783))
                                     elif self.pos > head[0]:
-                                        self._p_error_stack = [(self.pos, 769)]
+                                        self._p_error_stack = [(self.pos, 783)]
                                     # print self._p_error_stack
                                     result = self.NoMatch
                                 else:
                                     self.p_discard()
-                                    result = results_769
+                                    result = results_783
                                 args['stmt'] = result
                                 if result is self.NoMatch:
-                                    results_772 = self.NoMatch
+                                    results_786 = self.NoMatch
                                     self.p_restore()
                                     if self._p_error_stack:
                                         head = self._p_error_stack[0]
                                     else:
                                         head = (0, 0)
                                     if self.pos <= head[0]:
-                                        self._p_error_stack.append((self.pos, 772))
+                                        self._p_error_stack.append((self.pos, 786))
                                     elif self.pos > head[0]:
-                                        self._p_error_stack = [(self.pos, 772)]
+                                        self._p_error_stack = [(self.pos, 786)]
                                     # print self._p_error_stack
                                 else:
-                                    results_772.append(result)
+                                    results_786.append(result)
                                                     
                                     
-                                    start_pos_771= self.pos
-                                    if (-1131063620378080681, start_pos_771) in self._p_memoized:
-                                        result, self.pos = self._p_memoized[(-1131063620378080681, self.pos)]
+                                    start_pos_785= self.pos
+                                    if (3601400044089034116, start_pos_785) in self._p_memoized:
+                                        result, self.pos = self._p_memoized[(3601400044089034116, self.pos)]
                                     else:
                                         result = self.DEDENT()
-                                        self._p_memoized[(-1131063620378080681, start_pos_771)] = result, self.pos
+                                        self._p_memoized[(3601400044089034116, start_pos_785)] = result, self.pos
                                     if result is self.NoMatch:
-                                        results_772 = self.NoMatch
+                                        results_786 = self.NoMatch
                                         self.p_restore()
                                         if self._p_error_stack:
                                             head = self._p_error_stack[0]
                                         else:
                                             head = (0, 0)
                                         if self.pos <= head[0]:
-                                            self._p_error_stack.append((self.pos, 772))
+                                            self._p_error_stack.append((self.pos, 786))
                                         elif self.pos > head[0]:
-                                            self._p_error_stack = [(self.pos, 772)]
+                                            self._p_error_stack = [(self.pos, 786)]
                                         # print self._p_error_stack
                                     else:
-                                        results_772.append(result)
+                                        results_786.append(result)
                                                         
-        if results_772 is not self.NoMatch:
+        if results_786 is not self.NoMatch:
             self.p_discard()
-        result = results_772
+        result = results_786
         if result is not self.NoMatch:
             result = self.on_block(result, **args)
         else:
@@ -3411,9 +3546,9 @@ class MetaParser(object):
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 773))
+                self._p_error_stack.append((self.pos, 787))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 773)]
+                self._p_error_stack = [(self.pos, 787)]
             # print self._p_error_stack
         return result
 
@@ -3422,107 +3557,107 @@ class MetaParser(object):
         args = dict()
         # AT name:NAME args:args? NL
         self.p_save()
-        results_781 = []
+        results_795 = []
         
-        start_pos_774= self.pos
-        if (-4429167081774127439, start_pos_774) in self._p_memoized:
-            result, self.pos = self._p_memoized[(-4429167081774127439, self.pos)]
+        start_pos_788= self.pos
+        if (6818252253214122561, start_pos_788) in self._p_memoized:
+            result, self.pos = self._p_memoized[(6818252253214122561, self.pos)]
         else:
             result = self.AT()
-            self._p_memoized[(-4429167081774127439, start_pos_774)] = result, self.pos
+            self._p_memoized[(6818252253214122561, start_pos_788)] = result, self.pos
         if result is self.NoMatch:
-            results_781 = self.NoMatch
+            results_795 = self.NoMatch
             self.p_restore()
             if self._p_error_stack:
                 head = self._p_error_stack[0]
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 781))
+                self._p_error_stack.append((self.pos, 795))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 781)]
+                self._p_error_stack = [(self.pos, 795)]
             # print self._p_error_stack
         else:
-            results_781.append(result)
+            results_795.append(result)
                             
             
             # name:NAME
-            start_pos_775= self.pos
-            if (-2974221651773165507, start_pos_775) in self._p_memoized:
-                result, self.pos = self._p_memoized[(-2974221651773165507, self.pos)]
+            start_pos_789= self.pos
+            if (-5784796548447342165, start_pos_789) in self._p_memoized:
+                result, self.pos = self._p_memoized[(-5784796548447342165, self.pos)]
             else:
                 result = self.NAME()
-                self._p_memoized[(-2974221651773165507, start_pos_775)] = result, self.pos
+                self._p_memoized[(-5784796548447342165, start_pos_789)] = result, self.pos
             args['name'] = result
             if result is self.NoMatch:
-                results_781 = self.NoMatch
+                results_795 = self.NoMatch
                 self.p_restore()
                 if self._p_error_stack:
                     head = self._p_error_stack[0]
                 else:
                     head = (0, 0)
                 if self.pos <= head[0]:
-                    self._p_error_stack.append((self.pos, 781))
+                    self._p_error_stack.append((self.pos, 795))
                 elif self.pos > head[0]:
-                    self._p_error_stack = [(self.pos, 781)]
+                    self._p_error_stack = [(self.pos, 795)]
                 # print self._p_error_stack
             else:
-                results_781.append(result)
+                results_795.append(result)
                                 
                 
                 # args:args?
                 # args?
-                start_pos_777= self.pos
-                if (-5791657083345249590, start_pos_777) in self._p_memoized:
-                    result, self.pos = self._p_memoized[(-5791657083345249590, self.pos)]
+                start_pos_791= self.pos
+                if (1235098058351072640, start_pos_791) in self._p_memoized:
+                    result, self.pos = self._p_memoized[(1235098058351072640, self.pos)]
                 else:
                     result = self.args()
-                    self._p_memoized[(-5791657083345249590, start_pos_777)] = result, self.pos
+                    self._p_memoized[(1235098058351072640, start_pos_791)] = result, self.pos
                 result = "" if result is self.NoMatch else result
                 if result is self.NoMatch:
                     # print self._p_error_stack
                     self._p_error_stack.pop()
                 args['args'] = result
                 if result is self.NoMatch:
-                    results_781 = self.NoMatch
+                    results_795 = self.NoMatch
                     self.p_restore()
                     if self._p_error_stack:
                         head = self._p_error_stack[0]
                     else:
                         head = (0, 0)
                     if self.pos <= head[0]:
-                        self._p_error_stack.append((self.pos, 781))
+                        self._p_error_stack.append((self.pos, 795))
                     elif self.pos > head[0]:
-                        self._p_error_stack = [(self.pos, 781)]
+                        self._p_error_stack = [(self.pos, 795)]
                     # print self._p_error_stack
                 else:
-                    results_781.append(result)
+                    results_795.append(result)
                                     
                     
-                    start_pos_780= self.pos
-                    if (2729736250320932052, start_pos_780) in self._p_memoized:
-                        result, self.pos = self._p_memoized[(2729736250320932052, self.pos)]
+                    start_pos_794= self.pos
+                    if (-1826013797061727476, start_pos_794) in self._p_memoized:
+                        result, self.pos = self._p_memoized[(-1826013797061727476, self.pos)]
                     else:
                         result = self.NL()
-                        self._p_memoized[(2729736250320932052, start_pos_780)] = result, self.pos
+                        self._p_memoized[(-1826013797061727476, start_pos_794)] = result, self.pos
                     if result is self.NoMatch:
-                        results_781 = self.NoMatch
+                        results_795 = self.NoMatch
                         self.p_restore()
                         if self._p_error_stack:
                             head = self._p_error_stack[0]
                         else:
                             head = (0, 0)
                         if self.pos <= head[0]:
-                            self._p_error_stack.append((self.pos, 781))
+                            self._p_error_stack.append((self.pos, 795))
                         elif self.pos > head[0]:
-                            self._p_error_stack = [(self.pos, 781)]
+                            self._p_error_stack = [(self.pos, 795)]
                         # print self._p_error_stack
                     else:
-                        results_781.append(result)
+                        results_795.append(result)
                                         
-        if results_781 is not self.NoMatch:
+        if results_795 is not self.NoMatch:
             self.p_discard()
-        result = results_781
+        result = results_795
         if result is not self.NoMatch:
             result = self.on_deco(result, **args)
         else:
@@ -3531,9 +3666,9 @@ class MetaParser(object):
             else:
                 head = (0, 0)
             if self.pos <= head[0]:
-                self._p_error_stack.append((self.pos, 782))
+                self._p_error_stack.append((self.pos, 796))
             elif self.pos > head[0]:
-                self._p_error_stack = [(self.pos, 782)]
+                self._p_error_stack = [(self.pos, 796)]
             # print self._p_error_stack
         return result
 
@@ -3923,112 +4058,126 @@ class MetaParser(object):
         672: _Expr(is_syntaxic_terminal=False, expected=['_']),
         673: _Expr(is_syntaxic_terminal=False, expected=["_ ~'[a-z][a-z0-9_]*'i _"], exprs=True),
         674: _Expr(is_syntaxic_terminal=False, expected=["_ ~'[a-z][a-z0-9_]*'i _"], expr=True),
-        675: _Expr(is_syntaxic_terminal=False, expected=['name']),
-        676: _Expr(is_syntaxic_terminal=False, expected=['name:name'], expr=True),
-        677: _Expr(is_syntaxic_terminal=False, expected=['NUMBER']),
-        678: _Expr(is_syntaxic_terminal=False, expected=['num:NUMBER'], expr=True),
-        679: _Expr(is_syntaxic_terminal=False, expected=['code']),
-        680: _Expr(is_syntaxic_terminal=False, expected=['code:code'], expr=True),
-        681: _Expr(is_syntaxic_terminal=False, expected=['string']),
-        682: _Expr(is_syntaxic_terminal=False, expected=['string:string'], expr=True),
-        683: _Expr(is_syntaxic_terminal=False, expected=['name:name / num:NUMBER / code:code / string:string'], exprs=True),
-        684: _Expr(is_syntaxic_terminal=False, expected=['name:name / num:NUMBER / code:code / string:string'], expr=True),
-        685: _Expr(is_syntaxic_terminal=False, expected=['NAME']),
-        686: _Expr(is_syntaxic_terminal=False, expected=['name:NAME'], expr=True),
-        687: _Expr(is_syntaxic_terminal=False, expected=['name:NAME'], expr=True),
-        688: _Expr(is_syntaxic_terminal=False, expected=['codec']),
-        689: _Expr(is_syntaxic_terminal=False, expected=['codeb']),
-        690: _Expr(is_syntaxic_terminal=False, expected=['codec / codeb'], exprs=True),
-        691: _Expr(is_syntaxic_terminal=False, expected=['codec / codeb'], expr=True),
-        692: _Expr(is_syntaxic_terminal=False, expected=['LCB']),
-        693: _Expr(is_syntaxic_terminal=False, expected=["~'([^{}\\\\\\\\]|[{}])+'"]),
-        694: _Expr(is_syntaxic_terminal=False, expected=['codec']),
-        695: _Expr(is_syntaxic_terminal=False, expected=["~'([^{}\\\\\\\\]|[{}])+' / codec"], exprs=True),
-        696: _Expr(is_syntaxic_terminal=False, expected=["( ~'([^{}\\\\\\\\]|[{}])+' / codec )*"], expr=True),
-        697: _Expr(is_syntaxic_terminal=False, expected=['RCB']),
-        698: _Expr(is_syntaxic_terminal=False, expected=["LCB ( ~'([^{}\\\\\\\\]|[{}])+' / codec )* RCB"], exprs=True),
-        699: _Expr(is_syntaxic_terminal=False, expected=["LCB ( ~'([^{}\\\\\\\\]|[{}])+' / codec )* RCB"], expr=True),
-        700: _Expr(is_syntaxic_terminal=False, expected=['LSB']),
-        701: _Expr(is_syntaxic_terminal=False, expected=["~'([^\\\\[\\\\]\\\\\\\\]|[\\\\[\\\\]])+'"]),
-        702: _Expr(is_syntaxic_terminal=False, expected=['codeb']),
-        703: _Expr(is_syntaxic_terminal=False, expected=["~'([^\\\\[\\\\]\\\\\\\\]|[\\\\[\\\\]])+' / codeb"], exprs=True),
-        704: _Expr(is_syntaxic_terminal=False, expected=["( ~'([^\\\\[\\\\]\\\\\\\\]|[\\\\[\\\\]])+' / codeb )*"], expr=True),
-        705: _Expr(is_syntaxic_terminal=False, expected=['RSB']),
-        706: _Expr(is_syntaxic_terminal=False, expected=["LSB ( ~'([^\\\\[\\\\]\\\\\\\\]|[\\\\[\\\\]])+' / codeb )* RSB"], exprs=True),
-        707: _Expr(is_syntaxic_terminal=False, expected=["LSB ( ~'([^\\\\[\\\\]\\\\\\\\]|[\\\\[\\\\]])+' / codeb )* RSB"], expr=True),
-        708: _Expr(is_syntaxic_terminal=False, expected=['_']),
-        709: _Expr(is_syntaxic_terminal=False, expected=['~"\'{3}.*?\'{3}"s']),
-        710: _Expr(is_syntaxic_terminal=False, expected=['~\'"{3}.*?"{3}\'s']),
-        711: _Expr(is_syntaxic_terminal=False, expected=['~"\'([^\'\\\\\\\\]|\\\\.)*\'"']),
-        712: _Expr(is_syntaxic_terminal=False, expected=['~\'"([^"\\\\\\\\]|\\\\.)*"\'']),
-        713: _Expr(is_syntaxic_terminal=False, expected=['~"\'{3}.*?\'{3}"s / ~\'"{3}.*?"{3}\'s / ~"\'([^\'\\\\\\\\]|\\\\.)*\'" / ~\'"([^"\\\\\\\\]|\\\\.)*"\''], exprs=True),
-        714: _Expr(is_syntaxic_terminal=False, expected=['_']),
-        715: _Expr(is_syntaxic_terminal=False, expected=['_ ( ~"\'{3}.*?\'{3}"s / ~\'"{3}.*?"{3}\'s / ~"\'([^\'\\\\\\\\]|\\\\.)*\'" / ~\'"([^"\\\\\\\\]|\\\\.)*"\' ) _'], exprs=True),
-        716: _Expr(is_syntaxic_terminal=False, expected=['_ ( ~"\'{3}.*?\'{3}"s / ~\'"{3}.*?"{3}\'s / ~"\'([^\'\\\\\\\\]|\\\\.)*\'" / ~\'"([^"\\\\\\\\]|\\\\.)*"\' ) _'], expr=True),
-        717: _Expr(is_syntaxic_terminal=False, expected=['stmt']),
-        718: _Expr(is_syntaxic_terminal=False, expected=['stmt+'], expr=True),
-        719: _Expr(is_syntaxic_terminal=False, expected=['stmt:stmt+'], expr=True),
-        720: _Expr(is_syntaxic_terminal=False, expected=['stmt:stmt+'], expr=True),
-        721: _Expr(is_syntaxic_terminal=False, expected=['call']),
-        722: _Expr(is_syntaxic_terminal=False, expected=['call:call'], expr=True),
-        723: _Expr(is_syntaxic_terminal=False, expected=['block']),
-        724: _Expr(is_syntaxic_terminal=False, expected=['block:block'], expr=True),
-        725: _Expr(is_syntaxic_terminal=False, expected=['call:call / block:block'], exprs=True),
-        726: _Expr(is_syntaxic_terminal=False, expected=['call:call / block:block'], expr=True),
-        727: _Expr(is_syntaxic_terminal=False, expected=['NAME']),
-        728: _Expr(is_syntaxic_terminal=False, expected=['name:NAME'], expr=True),
-        729: _Expr(is_syntaxic_terminal=False, expected=['args']),
-        730: _Expr(is_syntaxic_terminal=False, expected=['args:args'], expr=True),
-        731: _Expr(is_syntaxic_terminal=False, expected=['NL']),
-        732: _Expr(is_syntaxic_terminal=False, expected=['name:NAME args:args NL'], exprs=True),
-        733: _Expr(is_syntaxic_terminal=False, expected=['name:NAME args:args NL'], expr=True),
-        734: _Expr(is_syntaxic_terminal=False, expected=['LP']),
-        735: _Expr(is_syntaxic_terminal=False, expected=['arglist']),
-        736: _Expr(is_syntaxic_terminal=False, expected=['arglist:arglist'], expr=True),
-        737: _Expr(is_syntaxic_terminal=False, expected=['arglist:arglist?'], expr=True),
-        738: _Expr(is_syntaxic_terminal=False, expected=['RP']),
-        739: _Expr(is_syntaxic_terminal=False, expected=['LP arglist:arglist? RP'], exprs=True),
-        740: _Expr(is_syntaxic_terminal=False, expected=['LP arglist:arglist? RP'], expr=True),
-        741: _Expr(is_syntaxic_terminal=False, expected=['arg']),
-        742: _Expr(is_syntaxic_terminal=False, expected=['COMMA']),
-        743: _Expr(is_syntaxic_terminal=False, expected=['arg']),
-        744: _Expr(is_syntaxic_terminal=False, expected=['COMMA arg'], exprs=True),
-        745: _Expr(is_syntaxic_terminal=False, expected=['( COMMA arg )*'], expr=True),
-        746: _Expr(is_syntaxic_terminal=False, expected=['arg ( COMMA arg )*'], exprs=True),
-        747: _Expr(is_syntaxic_terminal=False, expected=['arg ( COMMA arg )*'], expr=True),
-        748: _Expr(is_syntaxic_terminal=False, expected=['atom']),
-        749: _Expr(is_syntaxic_terminal=False, expected=['left:atom'], expr=True),
-        750: _Expr(is_syntaxic_terminal=False, expected=['EQ']),
-        751: _Expr(is_syntaxic_terminal=False, expected=['atom']),
-        752: _Expr(is_syntaxic_terminal=False, expected=['right:atom'], expr=True),
-        753: _Expr(is_syntaxic_terminal=False, expected=['EQ right:atom'], exprs=True),
-        754: _Expr(is_syntaxic_terminal=False, expected=['( EQ right:atom )?'], expr=True),
-        755: _Expr(is_syntaxic_terminal=False, expected=['left:atom ( EQ right:atom )?'], exprs=True),
-        756: _Expr(is_syntaxic_terminal=False, expected=['left:atom ( EQ right:atom )?'], expr=True),
-        757: _Expr(is_syntaxic_terminal=False, expected=['deco']),
-        758: _Expr(is_syntaxic_terminal=False, expected=['deco?'], expr=True),
-        759: _Expr(is_syntaxic_terminal=False, expected=['deco:deco?'], expr=True),
-        760: _Expr(is_syntaxic_terminal=False, expected=['NAME']),
-        761: _Expr(is_syntaxic_terminal=False, expected=['name:NAME'], expr=True),
-        762: _Expr(is_syntaxic_terminal=False, expected=['args']),
-        763: _Expr(is_syntaxic_terminal=False, expected=['args?'], expr=True),
-        764: _Expr(is_syntaxic_terminal=False, expected=['args:args?'], expr=True),
-        765: _Expr(is_syntaxic_terminal=False, expected=['COLON']),
-        766: _Expr(is_syntaxic_terminal=False, expected=['NL']),
-        767: _Expr(is_syntaxic_terminal=False, expected=['INDENT']),
-        768: _Expr(is_syntaxic_terminal=False, expected=['stmt']),
-        769: _Expr(is_syntaxic_terminal=False, expected=['stmt+'], expr=True),
-        770: _Expr(is_syntaxic_terminal=False, expected=['stmt:stmt+'], expr=True),
-        771: _Expr(is_syntaxic_terminal=False, expected=['DEDENT']),
-        772: _Expr(is_syntaxic_terminal=False, expected=['deco:deco? name:NAME args:args? COLON NL INDENT stmt:stmt+ DEDENT'], exprs=True),
-        773: _Expr(is_syntaxic_terminal=False, expected=['deco:deco? name:NAME args:args? COLON NL INDENT stmt:stmt+ DEDENT'], expr=True),
-        774: _Expr(is_syntaxic_terminal=False, expected=['AT']),
-        775: _Expr(is_syntaxic_terminal=False, expected=['NAME']),
-        776: _Expr(is_syntaxic_terminal=False, expected=['name:NAME'], expr=True),
-        777: _Expr(is_syntaxic_terminal=False, expected=['args']),
-        778: _Expr(is_syntaxic_terminal=False, expected=['args?'], expr=True),
-        779: _Expr(is_syntaxic_terminal=False, expected=['args:args?'], expr=True),
+        675: _Expr(is_syntaxic_terminal=False, expected=['NAME']),
+        676: _Expr(is_syntaxic_terminal=False, expected=['name:NAME'], expr=True),
+        677: _Expr(is_syntaxic_terminal=False, expected=['name:NAME'], expr=True),
+        678: _Expr(is_syntaxic_terminal=False, expected=['codec']),
+        679: _Expr(is_syntaxic_terminal=False, expected=['codeb']),
+        680: _Expr(is_syntaxic_terminal=False, expected=['codec / codeb'], exprs=True),
+        681: _Expr(is_syntaxic_terminal=False, expected=['codec / codeb'], expr=True),
+        682: _Expr(is_syntaxic_terminal=False, expected=['LCB']),
+        683: _Expr(is_syntaxic_terminal=False, expected=["~'([^{}\\\\\\\\]|[{}])+'"]),
+        684: _Expr(is_syntaxic_terminal=False, expected=['codec']),
+        685: _Expr(is_syntaxic_terminal=False, expected=["~'([^{}\\\\\\\\]|[{}])+' / codec"], exprs=True),
+        686: _Expr(is_syntaxic_terminal=False, expected=["( ~'([^{}\\\\\\\\]|[{}])+' / codec )*"], expr=True),
+        687: _Expr(is_syntaxic_terminal=False, expected=['RCB']),
+        688: _Expr(is_syntaxic_terminal=False, expected=["LCB ( ~'([^{}\\\\\\\\]|[{}])+' / codec )* RCB"], exprs=True),
+        689: _Expr(is_syntaxic_terminal=False, expected=["LCB ( ~'([^{}\\\\\\\\]|[{}])+' / codec )* RCB"], expr=True),
+        690: _Expr(is_syntaxic_terminal=False, expected=['LSB']),
+        691: _Expr(is_syntaxic_terminal=False, expected=["~'([^\\\\[\\\\]\\\\\\\\]|[\\\\[\\\\]])+'"]),
+        692: _Expr(is_syntaxic_terminal=False, expected=['codeb']),
+        693: _Expr(is_syntaxic_terminal=False, expected=["~'([^\\\\[\\\\]\\\\\\\\]|[\\\\[\\\\]])+' / codeb"], exprs=True),
+        694: _Expr(is_syntaxic_terminal=False, expected=["( ~'([^\\\\[\\\\]\\\\\\\\]|[\\\\[\\\\]])+' / codeb )*"], expr=True),
+        695: _Expr(is_syntaxic_terminal=False, expected=['RSB']),
+        696: _Expr(is_syntaxic_terminal=False, expected=["LSB ( ~'([^\\\\[\\\\]\\\\\\\\]|[\\\\[\\\\]])+' / codeb )* RSB"], exprs=True),
+        697: _Expr(is_syntaxic_terminal=False, expected=["LSB ( ~'([^\\\\[\\\\]\\\\\\\\]|[\\\\[\\\\]])+' / codeb )* RSB"], expr=True),
+        698: _Expr(is_syntaxic_terminal=False, expected=['_']),
+        699: _Expr(is_syntaxic_terminal=False, expected=['~"\'{3}.*?\'{3}"s']),
+        700: _Expr(is_syntaxic_terminal=False, expected=['~\'"{3}.*?"{3}\'s']),
+        701: _Expr(is_syntaxic_terminal=False, expected=['~"\'([^\'\\\\\\\\]|\\\\.)*\'"']),
+        702: _Expr(is_syntaxic_terminal=False, expected=['~\'"([^"\\\\\\\\]|\\\\.)*"\'']),
+        703: _Expr(is_syntaxic_terminal=False, expected=['~"\'{3}.*?\'{3}"s / ~\'"{3}.*?"{3}\'s / ~"\'([^\'\\\\\\\\]|\\\\.)*\'" / ~\'"([^"\\\\\\\\]|\\\\.)*"\''], exprs=True),
+        704: _Expr(is_syntaxic_terminal=False, expected=['_']),
+        705: _Expr(is_syntaxic_terminal=False, expected=['_ ( ~"\'{3}.*?\'{3}"s / ~\'"{3}.*?"{3}\'s / ~"\'([^\'\\\\\\\\]|\\\\.)*\'" / ~\'"([^"\\\\\\\\]|\\\\.)*"\' ) _'], exprs=True),
+        706: _Expr(is_syntaxic_terminal=False, expected=['_ ( ~"\'{3}.*?\'{3}"s / ~\'"{3}.*?"{3}\'s / ~"\'([^\'\\\\\\\\]|\\\\.)*\'" / ~\'"([^"\\\\\\\\]|\\\\.)*"\' ) _'], expr=True),
+        707: _Expr(is_syntaxic_terminal=False, expected=['stmt']),
+        708: _Expr(is_syntaxic_terminal=False, expected=['stmt+'], expr=True),
+        709: _Expr(is_syntaxic_terminal=False, expected=['stmt:stmt+'], expr=True),
+        710: _Expr(is_syntaxic_terminal=False, expected=['stmt:stmt+'], expr=True),
+        711: _Expr(is_syntaxic_terminal=False, expected=['assign']),
+        712: _Expr(is_syntaxic_terminal=False, expected=['assign:assign'], expr=True),
+        713: _Expr(is_syntaxic_terminal=False, expected=['call']),
+        714: _Expr(is_syntaxic_terminal=False, expected=['call:call'], expr=True),
+        715: _Expr(is_syntaxic_terminal=False, expected=['block']),
+        716: _Expr(is_syntaxic_terminal=False, expected=['block:block'], expr=True),
+        717: _Expr(is_syntaxic_terminal=False, expected=['assign:assign / call:call / block:block'], exprs=True),
+        718: _Expr(is_syntaxic_terminal=False, expected=['assign:assign / call:call / block:block'], expr=True),
+        719: _Expr(is_syntaxic_terminal=False, expected=['NAME']),
+        720: _Expr(is_syntaxic_terminal=False, expected=['name:NAME'], expr=True),
+        721: _Expr(is_syntaxic_terminal=False, expected=['expr']),
+        722: _Expr(is_syntaxic_terminal=False, expected=['EQ:expr'], expr=True),
+        723: _Expr(is_syntaxic_terminal=False, expected=['name:NAME EQ:expr'], exprs=True),
+        724: _Expr(is_syntaxic_terminal=False, expected=['name:NAME EQ:expr'], expr=True),
+        725: _Expr(is_syntaxic_terminal=False, expected=['atom']),
+        726: _Expr(is_syntaxic_terminal=False, expected=['atom:atom'], expr=True),
+        727: _Expr(is_syntaxic_terminal=False, expected=['call']),
+        728: _Expr(is_syntaxic_terminal=False, expected=['call:call'], expr=True),
+        729: _Expr(is_syntaxic_terminal=False, expected=['atom:atom / call:call'], exprs=True),
+        730: _Expr(is_syntaxic_terminal=False, expected=['atom:atom / call:call'], expr=True),
+        731: _Expr(is_syntaxic_terminal=False, expected=['name']),
+        732: _Expr(is_syntaxic_terminal=False, expected=['name:name'], expr=True),
+        733: _Expr(is_syntaxic_terminal=False, expected=['NUMBER']),
+        734: _Expr(is_syntaxic_terminal=False, expected=['num:NUMBER'], expr=True),
+        735: _Expr(is_syntaxic_terminal=False, expected=['code']),
+        736: _Expr(is_syntaxic_terminal=False, expected=['code:code'], expr=True),
+        737: _Expr(is_syntaxic_terminal=False, expected=['string']),
+        738: _Expr(is_syntaxic_terminal=False, expected=['string:string'], expr=True),
+        739: _Expr(is_syntaxic_terminal=False, expected=['name:name / num:NUMBER / code:code / string:string'], exprs=True),
+        740: _Expr(is_syntaxic_terminal=False, expected=['name:name / num:NUMBER / code:code / string:string'], expr=True),
+        741: _Expr(is_syntaxic_terminal=False, expected=['NAME']),
+        742: _Expr(is_syntaxic_terminal=False, expected=['name:NAME'], expr=True),
+        743: _Expr(is_syntaxic_terminal=False, expected=['args']),
+        744: _Expr(is_syntaxic_terminal=False, expected=['args:args'], expr=True),
+        745: _Expr(is_syntaxic_terminal=False, expected=['NL']),
+        746: _Expr(is_syntaxic_terminal=False, expected=['name:NAME args:args NL'], exprs=True),
+        747: _Expr(is_syntaxic_terminal=False, expected=['name:NAME args:args NL'], expr=True),
+        748: _Expr(is_syntaxic_terminal=False, expected=['LP']),
+        749: _Expr(is_syntaxic_terminal=False, expected=['arglist']),
+        750: _Expr(is_syntaxic_terminal=False, expected=['arglist:arglist'], expr=True),
+        751: _Expr(is_syntaxic_terminal=False, expected=['arglist:arglist?'], expr=True),
+        752: _Expr(is_syntaxic_terminal=False, expected=['RP']),
+        753: _Expr(is_syntaxic_terminal=False, expected=['LP arglist:arglist? RP'], exprs=True),
+        754: _Expr(is_syntaxic_terminal=False, expected=['LP arglist:arglist? RP'], expr=True),
+        755: _Expr(is_syntaxic_terminal=False, expected=['arg']),
+        756: _Expr(is_syntaxic_terminal=False, expected=['COMMA']),
+        757: _Expr(is_syntaxic_terminal=False, expected=['arg']),
+        758: _Expr(is_syntaxic_terminal=False, expected=['COMMA arg'], exprs=True),
+        759: _Expr(is_syntaxic_terminal=False, expected=['( COMMA arg )*'], expr=True),
+        760: _Expr(is_syntaxic_terminal=False, expected=['arg ( COMMA arg )*'], exprs=True),
+        761: _Expr(is_syntaxic_terminal=False, expected=['arg ( COMMA arg )*'], expr=True),
+        762: _Expr(is_syntaxic_terminal=False, expected=['atom']),
+        763: _Expr(is_syntaxic_terminal=False, expected=['left:atom'], expr=True),
+        764: _Expr(is_syntaxic_terminal=False, expected=['EQ']),
+        765: _Expr(is_syntaxic_terminal=False, expected=['atom']),
+        766: _Expr(is_syntaxic_terminal=False, expected=['right:atom'], expr=True),
+        767: _Expr(is_syntaxic_terminal=False, expected=['EQ right:atom'], exprs=True),
+        768: _Expr(is_syntaxic_terminal=False, expected=['( EQ right:atom )?'], expr=True),
+        769: _Expr(is_syntaxic_terminal=False, expected=['left:atom ( EQ right:atom )?'], exprs=True),
+        770: _Expr(is_syntaxic_terminal=False, expected=['left:atom ( EQ right:atom )?'], expr=True),
+        771: _Expr(is_syntaxic_terminal=False, expected=['deco']),
+        772: _Expr(is_syntaxic_terminal=False, expected=['deco?'], expr=True),
+        773: _Expr(is_syntaxic_terminal=False, expected=['deco:deco?'], expr=True),
+        774: _Expr(is_syntaxic_terminal=False, expected=['NAME']),
+        775: _Expr(is_syntaxic_terminal=False, expected=['name:NAME'], expr=True),
+        776: _Expr(is_syntaxic_terminal=False, expected=['args']),
+        777: _Expr(is_syntaxic_terminal=False, expected=['args?'], expr=True),
+        778: _Expr(is_syntaxic_terminal=False, expected=['args:args?'], expr=True),
+        779: _Expr(is_syntaxic_terminal=False, expected=['COLON']),
         780: _Expr(is_syntaxic_terminal=False, expected=['NL']),
-        781: _Expr(is_syntaxic_terminal=False, expected=['AT name:NAME args:args? NL'], exprs=True),
-        782: _Expr(is_syntaxic_terminal=False, expected=['AT name:NAME args:args? NL'], expr=True),
+        781: _Expr(is_syntaxic_terminal=False, expected=['INDENT']),
+        782: _Expr(is_syntaxic_terminal=False, expected=['stmt']),
+        783: _Expr(is_syntaxic_terminal=False, expected=['stmt+'], expr=True),
+        784: _Expr(is_syntaxic_terminal=False, expected=['stmt:stmt+'], expr=True),
+        785: _Expr(is_syntaxic_terminal=False, expected=['DEDENT']),
+        786: _Expr(is_syntaxic_terminal=False, expected=['deco:deco? name:NAME args:args? COLON NL INDENT stmt:stmt+ DEDENT'], exprs=True),
+        787: _Expr(is_syntaxic_terminal=False, expected=['deco:deco? name:NAME args:args? COLON NL INDENT stmt:stmt+ DEDENT'], expr=True),
+        788: _Expr(is_syntaxic_terminal=False, expected=['AT']),
+        789: _Expr(is_syntaxic_terminal=False, expected=['NAME']),
+        790: _Expr(is_syntaxic_terminal=False, expected=['name:NAME'], expr=True),
+        791: _Expr(is_syntaxic_terminal=False, expected=['args']),
+        792: _Expr(is_syntaxic_terminal=False, expected=['args?'], expr=True),
+        793: _Expr(is_syntaxic_terminal=False, expected=['args:args?'], expr=True),
+        794: _Expr(is_syntaxic_terminal=False, expected=['NL']),
+        795: _Expr(is_syntaxic_terminal=False, expected=['AT name:NAME args:args? NL'], exprs=True),
+        796: _Expr(is_syntaxic_terminal=False, expected=['AT name:NAME args:args? NL'], expr=True),
     }

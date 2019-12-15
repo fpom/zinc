@@ -40,10 +40,20 @@ _errre = re.compile(r"^.*?error at line ([0-9]+), col ([0-9]+):[ \t]*"
                     "((.|\n)*)$", re.I|re.A)
 
 class BaseParser (object) :
+    @classmethod
+    def make_parser (cls) :
+        def parse (source) :
+            if isinstance(source, str) :
+                return cls().parse(source, "<string>")
+            else :
+                return cls().parse(source.read(), getattr(source, "name", "<string>"))
+        return parse
     def init (self, parser) :
         pass
     def parse (self, source, path) :
-        parser = self.__parser__(indedent(source))
+        self.source = source
+        self.path = path
+        self.parser = parser = self.__parser__(indedent(source))
         self.init(parser)
         try :
             do_parse = getattr(parser, parser.__default__, "INPUT")

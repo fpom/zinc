@@ -1,6 +1,6 @@
 # coding: utf-8
 
-import ast, sys
+import ast, sys, collections
 import fastidious
 
 class node (object) :
@@ -114,26 +114,26 @@ class Nest (object) :
         return n
 
 class Compiler (object) :
-    def visit (self, tree) :
+    def visit (self, tree, *l, **k) :
         if isinstance(tree, node) :
             method = getattr(self, "visit_" + tree.tag, self.generic_visit)
-            return method(tree)
+            return method(tree, *l, **k)
         else :
             return tree
-    def generic_visit (self, tree) :
+    def generic_visit (self, tree, *l, **k) :
         sub = {}
         ret = {tree.tag : sub}
         for name, child in tree :
             if isinstance(child, list) :
                 sub[name] = []
                 for c in child :
-                    sub[name].append(self.visit(c))
+                    sub[name].append(self.visit(c, *l, **k))
             elif isinstance(child, dict) :
                 sub[name] = {}
                 for k, v in child.items() :
-                    sub[name][k] = self.visit(v)
+                    sub[name][k] = self.visit(v, *l, **k)
             else :
-                sub[name] = self.visit(child)
+                sub[name] = self.visit(child, *l, **k)
         return ret
 
 class MetaParser (fastidious.Parser) :
@@ -157,7 +157,6 @@ class MetaParser (fastidious.Parser) :
     DEDENT    <- _ "↤" NL? _ {_drop}
     NUMBER    <- _ ~"[+-]?[0-9]+" {_number}
     NAME      <- _ ~"[a-z][a-z0-9_]*"i _ {p_flatten}
-    atom      <- :name / num:NUMBER / :code / :string {_first}
     name      <- name:NAME {_name}
     code      <- codec / codeb {_code}
     codec     <- LCB (~"([^{}\\\\]|[{}])+" / codec)* RCB {p_flatten}
@@ -170,14 +169,17 @@ class MetaParser (fastidious.Parser) :
     def _drop (self, match) :
         return ""
     def _number (self, match) :
-        return node("const", value=int(self.p_flatten(match)), type="int")
+        return node("const", value=int(self.p_flatten(match)), type="int",
+                    _pos=self.pos, _src=self.p_flatten(match))
     def _name (self, match, name) :
-        return node("const", value=name, type="name")
+        return node("const", value=name, type="name",
+                    _pos=self.pos, _src=self.p_flatten(match))
     def _code (self, match) :
-        return node("const", value=self.p_flatten(match).strip()[1:-1], type="code")
+        return node("const", value=self.p_flatten(match).strip()[1:-1], type="code",
+                    _pos=self.pos, _src=self.p_flatten(match))
     def _string (self, match) :
         return node("const", value=ast.literal_eval(self.p_flatten(match).strip()),
-                    type="str")
+                    type="str", _pos=self.pos, _src=self.p_flatten(match))
     def _tuple (self, match) :
         lst = []
         for m in match :
@@ -192,11 +194,14 @@ class MetaParser (fastidious.Parser) :
                 if isinstance(v, node) :
                     return v
                 else :
-                    return node(k, value=v)
+                    return node(k, value=v, _pos=self.pos, _src=self.p_flatten(match))
         return self.NoMatch
     __grammar__ += r"""
     model   <- stmt:stmt+
-    stmt    <- :call / :block {_first}
+    stmt    <- :assign / :call / :block {_first}
+    assign  <- name:NAME EQ :expr
+    expr    <- :atom / :call {_first}
+    atom    <- :name / num:NUMBER / :code / :string {_first}
     call    <- name:NAME :args NL
     args    <- LP ( :arglist )? RP
     arglist <- arg (COMMA arg)* {_tuple}
@@ -241,13 +246,17 @@ class MetaParser (fastidious.Parser) :
         return s
     def on_model (self, match, stmt) :
         return node("model", body=self._glue(stmt), _pos=self.pos)
+    def on_assign (self, match, name, expr) :
+        return node("assign", target=name, value=expr,
+                    _pos=self.pos, _src=self.p_flatten(match))
     def on_call (self, match, name, args) :
-       return node("call", name=name, largs=args.l, kargs=args.k, _pos=self.pos)
+       return node("call", name=name, largs=args.l, kargs=args.k,
+                   _pos=self.pos, _src=self.p_flatten(match))
     def on_args (self, match, arglist=None) :
         if arglist is self.NoMatch or not arglist :
             arglist = []
         l = []
-        k = {}
+        k = collections.OrderedDict()
         pos = True
         for arg in arglist :
             if arg.kw :
@@ -258,15 +267,17 @@ class MetaParser (fastidious.Parser) :
             else :
                 self.p_parse_error("forbidden positional arg after a keyword arg",
                                    arg._pos)
-        return node("args", l=l, k=k)
+        return node("args", l=l, k=k, _pos=self.pos, _src=self.p_flatten(match))
     def on_arg (self, match, left, right=None) :
         if right is None :
-            return node("arg", kw=False, value=left, _pos=self.pos)
+            return node("arg", kw=False, value=left,
+                        _pos=self.pos, _src=self.p_flatten(match))
         elif left.type != "name" :
             self.p_parse_error("invalid parameter %r (of type %s)"
                                % (left.value, left.type))
         else :
-            return node("arg", kw=True, name=left.value, value=right, _pos=self.pos)
+            return node("arg", kw=True, name=left.value, value=right,
+                        _pos=self.pos, _src=self.p_flatten(match))
     def on_block (self, match, name, stmt, args=None, deco=None) :
         if args is self.NoMatch or not args :
             args = None
@@ -275,6 +286,7 @@ class MetaParser (fastidious.Parser) :
         return self.nest(name, body=self._glue(stmt), args=args, deco=deco,
                          _pos=self.pos)
     def on_deco (self, match, name, args=[]) :
-        return node("deco", name=name, args=args)
+        return node("deco", name=name, args=args,
+                    _pos=self.pos, _src=self.p_flatten(match))
     def __INIT__ (self) :
         self.nest = Nest(self.__compound__)

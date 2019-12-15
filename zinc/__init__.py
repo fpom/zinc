@@ -16,3 +16,6 @@ class ParseError (ZINCError) :
         if loc :
             msg = "[%s] %s" % (loc, msg)
         ZINCError.__init__(self, msg)
+
+class CompileError (ParseError) :
+    pass

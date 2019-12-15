@@ -57,6 +57,12 @@ class PetriNet (object) :
             return self._place[name]
         else :
             raise ConstraintError("place %r not found" % name)
+    def has_place (self, name) :
+        return name in self._place
+    def has_transition (self, name) :
+        return name in self._trans
+    def __contains__ (self, name) :
+        return name in self._node
     def transition (self, name=None) :
         if name is None :
             return self._trans.values()

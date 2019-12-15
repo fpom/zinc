@@ -10,8 +10,4 @@ class Parser (BaseParser) :
                         ["negate"],
                         ["task"]]
 
-def parse (source) :
-    if isinstance(source, str) :
-        return Parser().parse(source, "<string>")
-    else :
-        return Parser().parse(source.read(), getattr(source, "name", "<string>"))
+parse = Parser.make_parser()

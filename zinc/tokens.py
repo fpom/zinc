@@ -1,6 +1,10 @@
+import enum
 from zinc.data import hashable, mset
 
 class Token (object) :
+    pass
+
+class CodeToken (Token) :
     def __init__ (self, code) :
         self.code = code
     def __ast__ (self, place, ctx) :
@@ -37,21 +41,17 @@ class Token (object) :
     def __lt__ (self, other) :
         return not self.__ge__(other)
 
-class BlackToken (Token) :
-    def __init__ (self) :
-        pass
-    def __str__ (self) :
-        return "dot"
-    def __repr__ (self) :
-        return "dot"
-    def __new__ (cls) :
-        if not hasattr(cls, "dot") :
-            cls.dot = object.__new__(cls)
-        return cls.dot
-    def __hash__ (self) :
-        return hash(self.__class__.__name__)
+class BlackToken (Token, enum.IntEnum) :
+    DOT = enum.auto()
 
-dot = BlackToken()
+dot = BlackToken.DOT
+
+class BlackWhiteToken (Token, enum.IntEnum) :
+    BLACK = enum.auto()
+    WHITE = enum.auto()
+
+black = BlackWhiteToken.BLACK
+white = BlackWhiteToken.WHITE
 
 @hashable
 class Marking (dict) :

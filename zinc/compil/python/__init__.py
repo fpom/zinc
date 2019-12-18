@@ -12,6 +12,22 @@ BOOL = "bool"
 EXT = ".py"
 INMEM = True
 
+def and_ (left, *others) :
+    seen = set([left])
+    done = [left]
+    for right in others :
+        if right not in seen :
+            done.append(right)
+            seen.add(right)
+    return " and ".join("(%s)" % d for d in done)
+
+def union (left, *other) :
+    types = set((left,) + other)
+    if len(types) == 1 :
+        return next(iter(types))
+    else :
+        return "object"
+
 class Declare (BaseDeclare) :
     pass
 

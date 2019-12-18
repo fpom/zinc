@@ -1,8 +1,9 @@
 from functools import reduce
 from operator import and_, or_
 from itertools import chain
-from zinc import ConstraintError
-from zinc.data import record
+from . import ConstraintError
+from .data import record
+from .utils import autorepr
 
 class Arc (object) :
     def _nest (self, *arcs, **more) :
@@ -19,6 +20,11 @@ class Arc (object) :
         self._order = max(a._order for a in chain(arcs, more.values())) + 1
         self.__dict__.update(more)
         return arcs
+    def __add__ (self, other) :
+        return MultiArc(self, other)
+    def __sub__ (self, other) :
+        return NotImplementedError("%s does not support substraction"
+                                   % self.__class__.__name__)
 
 class InputArc (Arc) :
     pass
@@ -66,30 +72,33 @@ class _AstTypeProduce (_Ast) :
         nest.append(node)
         return node.body
 
+@autorepr
 class Value (InputArc, OutputArc, _AstBindTestConsume, _AstTypeProduce) :
     _order = 0
     def __init__ (self, value) :
         self.source = value
-    def __repr__ (self) :
-        return "Value(%r)" % self.source
+    def copy (self) :
+        return self.__class__(self.source)
     def vars (self) :
         return set()
 
+@autorepr
 class Expression (InputArc, OutputArc, _AstBindTestConsume, _AstTypeProduce) :
     _order = 20
     def __init__ (self, code) :
         self.source = code
-    def __repr__ (self) :
-        return "Expression(%r)" % self.source
+    def copy (self) :
+        return self.__class__(self.source)
     def vars (self) :
         return set()
 
+@autorepr
 class Variable (InputArc, OutputArc, _AstTypeProduce) :
     _order = 10
     def __init__ (self, name) :
         self.source = name
-    def __repr__ (self) :
-        return "Variable(%r)" % self.source
+    def copy (self) :
+        return self.__class__(self.source)
     def vars (self) :
         return {self.source}
     def __astin__ (self, nest, place, ctx, **more) :
@@ -119,22 +128,38 @@ class Variable (InputArc, OutputArc, _AstTypeProduce) :
         return node.body
 
 class MultiArc (InputArc, OutputArc) :
-    _nestable_in = set()
     def __init__ (self, first, *others) :
         self.components = self._nest(first, *others)
+    def copy (self) :
+        return self.__class__(*(c.copy() for c in self.components))
     def __repr__ (self) :
         return "%s(%s)" % (self.__class__.__name__,
                            ", ".join(repr(c) for c in self.components))
     def vars (self) :
         return reduce(or_, (c.vars() for c in self.components), set())
+    def __add__ (self, other) :
+        if isinstance(other, MultiArc) :
+            return self.__class__(*self.components, *other.components)
+        else :
+            return self.__class__(*self.components, other)
+    def __sub__ (self, other) :
+        if isinstance(other, MultiArc) :
+            todo = other.components
+        else :
+            todo = [other]
+        keep = list(self.components)
+        for arc in todo :
+            keep.remove(arc)
+        return self.__class__(*keep)
 
+@autorepr
 class Flush (InputArc, _Ast) :
     _order = 15
     def __init__ (self, name, notempty=False) :
         self.source = name
         self.notempty = notempty
-    def __repr__ (self) :
-        return "%s(%r, %s)" % (self.__class__.__name__, self.source, self.notempty)
+    def copy (self) :
+        return self.__class__(self.source, self.notempty)
     def vars (self) :
         return {self.source}
     def __astin__ (self, nest, place, ctx, **more) :
@@ -151,12 +176,13 @@ class Flush (InputArc, _Ast) :
         nest.append(node)
         return ret
 
+@autorepr
 class Fill (OutputArc, _Ast) :
     _order = 30
     def __init__ (self, code) :
         self.source = code
-    def __repr__ (self) :
-        return "%s(%r)" % (self.__class__.__name__, self.source)
+    def copy (self) :
+        return self.__class__(self.source)
     def vars (self) :
         return set()
     def __astout__ (self, nest, place, ctx, **more) :
@@ -168,12 +194,12 @@ class Fill (OutputArc, _Ast) :
         nest.append(node)
         return node.body
 
+@autorepr
 class Test (InputArc, OutputArc) :
-    _nestable_in = {MultiArc}
     def __init__ (self, label) :
         self._nest(label=label)
-    def __repr__ (self) :
-        return "%s(%r)" % (self.__class__.__name__, self.label)
+    def copy (self) :
+        return self.__class__(self.label)
     def vars (self) :
         return self.label.vars()
     def __astin__ (self, nest, place, ctx, **more) :
@@ -200,16 +226,16 @@ class Test (InputArc, OutputArc) :
             del tokens[pos - new:]
         return newnest
 
+@autorepr
 class Inhibitor (InputArc) :
-    _nestable_in = {MultiArc}
     def __init__ (self, label, guard=None) :
         if isinstance(label, _AstBindTestConsume) and guard :
             raise ConstraintError("inhibition guard forbidden together with %s"
                                   % label)
         self._nest(label=label)
         self.guard = guard
-    def __repr__ (self) :
-        return "%s(%r, %r)" % (self.__class__.__name__, self.label, self.guard)
+    def copy (self) :
+        return self.__class__(self.label, self.guard)
     def vars (self) :
         return set()
     def __astin__ (self, nest, place, ctx, **more) :
@@ -218,6 +244,8 @@ class Inhibitor (InputArc) :
 class Tuple (InputArc, OutputArc) :
     def __init__ (self, first, *others) :
         self.components = self._nest(first, *others)
+    def copy (self) :
+        return self.__class__(*(c.copy() for c in self.components))
     def __repr__ (self) :
         return "%s(%s)" % (self.__class__.__name__,
                            ", ".join(repr(c) for c in self.components))
@@ -307,6 +335,9 @@ class Tuple (InputArc, OutputArc) :
         ctx.add[place.name].append(ctx.Pattern(self, self._fold(toadd), placetype))
         return nest
 
+MultiArc._nestable_in = set()
+Test._nestable_in = {MultiArc}
+Inhibitor._nestable_in = {MultiArc}
 Value._nestable_in = {Tuple, Test, Inhibitor, MultiArc}
 Variable._nestable_in = {Tuple, Test, Inhibitor, MultiArc}
 Expression._nestable_in = {Tuple, Test, Inhibitor, MultiArc}

@@ -1,9 +1,11 @@
 import enum
-from zinc.data import hashable, mset
+from .data import hdict, mset
+from .utils import autorepr
 
 class Token (object) :
     pass
 
+@autorepr
 class CodeToken (Token) :
     def __init__ (self, code) :
         self.code = code
@@ -12,8 +14,6 @@ class CodeToken (Token) :
                         BLAME=ctx.TokenBlame(place, self.code))
     def __str__ (self) :
         return "(%s)" % self.code
-    def __repr__ (self) :
-        return "%s(%r)" % (self.__class__.__name__, self.code)
     def __hash__ (self) :
         return hash(self.code)
     def __eq__ (self, other) :
@@ -21,11 +21,6 @@ class CodeToken (Token) :
             return self.code == other.code
         except AttributeError :
             return False
-    def __ne__ (self, other) :
-        try :
-            return self.code != other.code
-        except AttributeError :
-            return True
     def __ge__ (self, other) :
         try :
             return self.code >= other.code
@@ -53,10 +48,7 @@ class BlackWhiteToken (Token, enum.IntEnum) :
 black = BlackWhiteToken.BLACK
 white = BlackWhiteToken.WHITE
 
-@hashable
-class Marking (dict) :
-    def _hash_items (self) :
-        return self.items()
+class Marking (hdict) :
     def __repr__ (self) :
         return "%s(%s)" % (self.__class__.__name__, dict.__repr__(self))
     def __call__ (self, place) :

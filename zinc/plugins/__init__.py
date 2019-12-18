@@ -25,7 +25,8 @@ class Plugin (object) :
                     raise PluginError("could not load %r from '.'  or 'zinc.plugins'" % p)
         # create result module
         if self.modname not in sys.modules :
-            self._mod = sys.modules[self.modname] = types.ModuleType(self.modname)
+            sys.modules[self.modname] = types.ModuleType(self.modname)
+        self._mod = sys.modules[self.modname]
         # load extended modules
         for base in extends :
             if base not in self.modules :
@@ -40,6 +41,7 @@ class Plugin (object) :
         return getattr(self._mod, name)
     def __call__ (self, obj) :
         setattr(self._mod, obj.__name__, obj)
+        setattr(obj, "__plugmod__", self._mod)
         return obj
     @classmethod
     def reset_plugins (cls, name="zn") :

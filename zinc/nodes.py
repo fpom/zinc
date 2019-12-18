@@ -1,15 +1,23 @@
 import operator, logging, collections
 from functools import reduce
-from zinc import TypingError
-from zinc.data import mset, WordSet
-from zinc.tokens import Token
-from zinc.arcs import MultiArc
+from . import TypingError
+from .data import mset, WordSet, hashable
+from .tokens import Token
+from .arcs import MultiArc
+from .utils import autorepr
 
 class Node (object) :
-    pass
+    def __init__ (self, name) :
+        self._name = name
+    @property
+    def name (self) :
+        return self._name
 
+@hashable
+@autorepr(tokens=mset())
 class Place (Node) :
     def __init__ (self, name, tokens=[], type=None) :
+        super().__init__(name)
         toks = []
         for t in tokens :
             if not isinstance(t, Token) :
@@ -17,16 +25,34 @@ class Place (Node) :
                              % (t, name, repr(t)))
                 t = Token(repr(t))
             toks.append(t)
-        self.name = name
         self.tokens = mset(toks)
         self.type = type
-    def __repr__ (self) :
-        return "%s(%r, %r, %r)" % (self.__class__.__name__, self.name,
-                                   list(self.tokens), self.type)
+    def _hash_items (self) :
+        return [self.name]
+    def __str__ (self) :
+        return str(self.name)
+    def __eq__ (self, other) :
+        try :
+            return self.name == other.name
+        except :
+            return False
     def __iter__ (self) :
         return iter(self.tokens)
+    def __contains__ (self, token) :
+        return token in self.tokens
     def is_empty (self) :
         return bool(self.tokens)
+    def copy (self, name=None) :
+        return self.__class__(name or self.name, self.tokens, self.type)
+    def add (self, tokens) :
+        self.tokens.add(tokens)
+    def clear (self) :
+        self.tokens.clear()
+    def remove (self, tokens) :
+        self.tokens.remove(tokens)
+    def reset (self, tokens) :
+        self.clear()
+        self.add(tokens)
 
 class _Declarations (dict) :
     def __init__ (self, names) :
@@ -42,14 +68,25 @@ class _Declarations (dict) :
         self[name] = type
         return name
 
+@hashable
+@autorepr
 class Transition (Node) :
     def __init__ (self, name, guard=None) :
-        self.name = name
+        super().__init__(name)
         self.guard = guard
         self._input = {}
         self._output = {}
-    def __repr__ (self) :
-        return "%s(%r, %r)" % (self.__class__.__name__, self.name, self.guard)
+    def _hash_items (self) :
+        return [self.name]
+    def copy (self, name=None) :
+        return self.__class__(name or self.name, self.guard)
+    def __eq__ (self, other) :
+        try :
+            return self.name == other.name
+        except :
+            return False
+    def __str__ (self) :
+        return str(self.name)
     def _astkey (self, arc) :
         return arc[1]._order
     def __ast__ (self, ctx) :

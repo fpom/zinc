@@ -54,7 +54,7 @@ class Compiler (BaseCompiler) :
                 net &= n
         return net
     def visit_model (self, node, ctx) :
-        return self.visit_seq(node.body, ctx)
+        return self.build_seq(node.body, ctx)
     def visit_task (self, node, ctx) :
         pass
     def visit_def (self, node, ctx) :

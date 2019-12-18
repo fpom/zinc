@@ -3,6 +3,7 @@ plug = Plugin("zinc.nets")
 
 import subprocess, tempfile, json, io, ast, pathlib
 
+@plug
 class GV (object) :
     _arrowhead = {
         "Fill" : "diamond",
@@ -89,7 +90,7 @@ class GV (object) :
         return self
     @classmethod
     def read (cls, stream) :
-        with tempfile.NamedTemporaryFile(mode="w") as dot :
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as dot :
             dot.write(stream.read())
             dot.flush()
             out = subprocess.check_output(["dot", "-Tdot_json", "-q",
@@ -97,7 +98,7 @@ class GV (object) :
                                            dot.name], encoding="utf-8")
         return cls.read_json(io.StringIO(out))
     def dot (self, engine="dot", scale=72.0, landscape=False) :
-        with tempfile.NamedTemporaryFile(mode="w") as dot :
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as dot :
             self.write(dot)
             dot.flush()
             out = subprocess.check_output(["dot", "-Tdot_json", "-q",
@@ -108,7 +109,7 @@ class GV (object) :
         return self.read(io.StringIO(out))
     def draw (self, path, engine="dot", scale=72.0, landscape=False) :
         fmt = pathlib.Path(path).suffix.lstrip(".")
-        with tempfile.NamedTemporaryFile(mode="w") as dot :
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8") as dot :
             self.write(dot)
             dot.flush()
             subprocess.check_call(["dot", "-q",
@@ -121,6 +122,9 @@ class GV (object) :
 
 @plug
 class PetriNet (plug.PetriNet) :
-    def draw (self, path, engine="dot",
-              graph_attr=None, place_attr=None, trans_attr=None, arc_attr=None) :
-        pass
+    def draw (self, path, engine="dot", scale=72.0, landscape=False,
+              net_attr=None, place_attr=None, trans_attr=None, arc_attr=None) :
+        gv = GV.from_net(self, net_attr, place_attr, trans_attr, arc_attr)
+        if path is not None :
+            gv.draw(path, engine, scale, landscape)
+        return gv

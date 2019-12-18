@@ -72,6 +72,9 @@ class BaseDeclare (object) :
         for lvl, code in self._decl.items() :
             new._decl[lvl] = code[:]
         return new
+    def update (self, other) :
+        for lvl, code in other._decl.items :
+            self._decl[lvl].extend(code)
 
 class CompilationError (Exception) :
     def __init__ (self, ast, path, msg, loc=None, details=None) :

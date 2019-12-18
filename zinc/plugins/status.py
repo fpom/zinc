@@ -3,6 +3,8 @@ plug = Plugin("zinc.nets")
 
 import collections
 
+from ..data import iterate
+
 @plug
 class Status (object) :
     def __init__ (self, kind, name=None) :
@@ -27,6 +29,8 @@ class Status (object) :
             return "%s(%r)" % self.kind
     def copy (self) :
         return self.__class__(self.kind, self.name)
+    def named (self) :
+        return not self.is_flow() and self.name is not None
     def is_flow (self) :
         return self.name in ("entry", "internal", "exit")
 
@@ -60,3 +64,29 @@ class PetriNet (plug.PetriNet) :
         place = self.place(name)
         super().remove_place(name, **options)
         self.status[place.status].remove(name)
+    def _status_copy (self, net, rename) :
+        self.declare.update(net.declare)
+        for place in net.place() :
+            self.add_place(place.copy(rename(place.name)))
+        for trans in net.transition() :
+            self.add_transition(trans.copy(rename(trans.name)))
+            for place, label in trans.input() :
+                self.add_input(rename(place), rename(trans.name), label)
+            for place, label in trans.output() :
+                self.add_output(rename(place), rename(trans.name), label)
+    def __div__ (self, other) :
+        # buffer hiding
+        op = ",".join(other)
+        def rename (n) :
+            return "[%s/%s]" (n, op)
+        net = self.__class__(rename(self.name), self.lang.name)
+        net._status_copy(self, rename)
+        hidden = Status("buffer", None)
+        for buff in iterate(other) :
+            status = Status("buffer", buff)
+            places = net.status.pop(status, [])
+            for name in places :
+                place = net.place(name)
+                place.status = hidden
+                net.status[hidden].add(name)
+        return net

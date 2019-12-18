@@ -8,7 +8,6 @@ from .tokens import BlackToken, BlackWhiteToken, CodeToken, Marking, Token, \
     black, dot, white
 from .utils import autorepr
 
-import functools
 import zinc.compil
 
 class NodeError (ConstraintError) :
